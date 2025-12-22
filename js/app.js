@@ -1585,8 +1585,13 @@ function renderScheduleCurrentLine() {
 
         const pill = document.createElement("div");
         pill.className = "vacation-pill";
-        pill.textContent = "ОТП";
+        // Текст внутри полосы (оставляем как метку, но не мешаем бейджам поверх)
+        const vacLabel = document.createElement("span");
+        vacLabel.className = "vacation-label";
+        vacLabel.textContent = "ОТП";
         pill.title = `Отпуск: с ${vac.startLabel} по ${vac.endLabel}`;
+
+        pill.appendChild(vacLabel);
 
         // Если день рождения попадает внутрь отпуска (в текущем месяце) —
         // показываем маркер "ДР" поверх отпускной полосы.
