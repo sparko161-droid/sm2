@@ -47,7 +47,9 @@
   /* Специальные смены (ВЫХ, ОТП, ДР) */
   --shift-special-bg: rgba(234, 179, 8, 0.12);
   --shift-special-border: rgba(234, 179, 8, 0.5);
-  --vacation-text: #111111;
+  /* Отпуск (полоса в графике) */
+  --vacation-bg: #000000;
+  --vacation-text: #ffffff;
 
   --weekend-bg: rgba(200, 0, 0, 0.12);
   --weekend-strong: rgba(200, 0, 0, 0.25);
@@ -109,7 +111,9 @@ body.dark-theme {
   --shift-special-bg: rgba(250, 204, 21, 0.15);
   --shift-special-border: rgba(250, 204, 21, 0.5);
   
-  --vacation-text: #c7c7c7;
+  /* Отпуск (полоса в графике) */
+  --vacation-bg: #bdbdbd;
+  --vacation-text: #000000;
 
   --weekend-bg: rgba(255, 75, 75, 0.15);
   --weekend-strong: rgba(255, 75, 75, 0.28);
@@ -537,8 +541,8 @@ body {
   font-weight: 700;
   letter-spacing: 0.4px;
   color: var(--vacation-text);
-  background: transparent;
-  border: 1px dashed var(--border-strong);
+  background: var(--vacation-bg);
+  border: 1px solid transparent;
   cursor: pointer;
   user-select: none;
 }
