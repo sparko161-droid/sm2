@@ -1300,6 +1300,24 @@ async function loadShiftsCatalog() {
 
   const templatesByLine = { ALL: [], OP: [], OV: [], L1: [], L2: [], AI: [], OU: [] };
 
+  // "Отдел" в справочнике смен может быть списком: "L1, L2, OP, OV".
+  // Поддерживаем также старые форматы (через "/") и русские сокращения (ОВ/ОП/ОУ/ВСЕ).
+  function parseDeptTokens(raw) {
+    if (!raw) return [];
+    return String(raw)
+      .split(/[,/]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => {
+        const u = s.toUpperCase();
+        if (u === "ОВ") return "OV";
+        if (u === "ОП") return "OP";
+        if (u === "ОУ") return "OU";
+        if (u === "ВСЕ") return "ALL";
+        return u;
+      });
+  }
+
   for (const item of items) {
     const values = item.values || [];
     const name = idxName != null ? values[idxName] : "";
@@ -1324,19 +1342,29 @@ async function loadShiftsCatalog() {
       specialShortLabel,
     };
 
-    const deptUpper = dept.toUpperCase();
+    const tokens = parseDeptTokens(dept);
 
     const pushTo = (key) => {
       if (templatesByLine[key]) templatesByLine[key].push(template);
     };
 
-    if (deptUpper.includes("L1")) pushTo("L1");
-    if (deptUpper.includes("L2")) pushTo("L2");
-    if (deptUpper.includes("ОВ") || deptUpper.includes("OV")) pushTo("OV");
-    if (deptUpper.includes("ОП") || deptUpper.includes("OP")) pushTo("OP");
-    if (deptUpper.includes("ОУ") || deptUpper.includes("OU")) pushTo("OU");
-    if (deptUpper.includes("ВСЕ") || deptUpper.includes("ALL")) pushTo("ALL");
-    if (deptUpper.includes("AI")) pushTo("AI");
+    // ALL = показывать смену во всех вкладках/линиях
+    const hasAll = tokens.includes("ALL");
+    if (hasAll) {
+      for (const key of ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"]) pushTo(key);
+      continue;
+    }
+
+    // Точный матч токенов (без includes), чтобы избежать ложных совпадений.
+    if (tokens.includes("L1")) pushTo("L1");
+    if (tokens.includes("L2")) pushTo("L2");
+    if (tokens.includes("OV")) pushTo("OV");
+    if (tokens.includes("OP")) pushTo("OP");
+    if (tokens.includes("OU")) pushTo("OU");
+    if (tokens.includes("AI")) pushTo("AI");
+    // Если по каким-то причинам в справочнике остался токен ALL только для вкладки ВСЕ
+    // (без распределения по линиям), его можно явно указать как "ALL".
+    if (tokens.includes("ALL")) pushTo("ALL");
   }
 
   // записываем в state все линии
