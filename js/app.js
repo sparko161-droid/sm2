@@ -243,61 +243,62 @@ function computeDurationMinutes(startLocal, endLocal) {
   return diff;
 }
 
-function convertLocalRangeToUtc(day, startLocal, endLocal) {
-  const durationMinutes = computeDurationMinutes(startLocal, endLocal);
-  if (durationMinutes == null) return null;
-
-  // Защита от некорректного состояния: иногда monthMeta может быть неинициализирован
-  // (или содержать null) в момент сохранения/быстрого назначения.
-  // В таком случае не должны падать с RangeError: Invalid time value.
-  let { year, monthIndex } = state.monthMeta || {};
-  if (!Number.isFinite(Number(year)) || !Number.isFinite(Number(monthIndex))) {
-    const now = new Date();
-    year = now.getFullYear();
-    monthIndex = now.getMonth();
-  }
-
-  const dayNum = Number(day);
-  if (!Number.isFinite(dayNum)) return null;
-  const [hh, mm] = (startLocal || "00:00").split(":");
-
-  const hhNum = Number(hh);
-  const mmNum = Number(mm);
-  if (!Number.isFinite(hhNum) || !Number.isFinite(mmNum)) return null;
-
-  const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
-  const baseUtcMs = Date.UTC(Number(year), Number(monthIndex), dayNum, hhNum, mmNum);
-  if (!Number.isFinite(baseUtcMs)) return null;
-
-  const startUtcMs = baseUtcMs - offsetMs;
-  const endUtcMs = startUtcMs + durationMinutes * 60 * 1000;
-
-  // toISOString бросает RangeError, если time value невалиден/вне диапазона.
-  // Поэтому проверяем через getTime() и дополнительно страхуем try/catch.
-  const startDate = new Date(startUtcMs);
-  const endDate = new Date(endUtcMs);
-  if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime())) {
-    return null;
-  }
-
+function convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLocal) {
   try {
+    const durationMinutes = computeDurationMinutes(startLocal, endLocal);
+    if (durationMinutes == null) return null;
+
+    const y = Number(year);
+    const m = Number(monthIndex);
+    const d = Number(day);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+
+    // Стартовое локальное время (HH:MM)
+    const startMin = parseTimeToMinutes(startLocal);
+    if (startMin == null) return null;
+    const hhNum = Math.floor(startMin / 60);
+    const mmNum = startMin % 60;
+
+    const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+    const baseUtcMs = Date.UTC(y, m, d, hhNum, mmNum);
+    if (!Number.isFinite(baseUtcMs)) return null;
+
+    const startUtcMs = baseUtcMs - offsetMs;
+    const endUtcMs = startUtcMs + durationMinutes * 60 * 1000;
+
+    const startDate = new Date(startUtcMs);
+    const endDate = new Date(endUtcMs);
+    if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime())) {
+      return null;
+    }
+
     return {
       durationMinutes,
       startUtcIso: startDate.toISOString(),
       endUtcIso: endDate.toISOString(),
     };
   } catch (e) {
-    console.warn("convertLocalRangeToUtc: invalid time value", {
+    console.warn("convertLocalRangeToUtcWithMeta: invalid time value", {
+      year,
+      monthIndex,
       day,
       startLocal,
       endLocal,
-      year,
-      monthIndex,
-      startUtcMs,
-      endUtcMs,
+      error: String(e && e.message ? e.message : e),
     });
     return null;
   }
+}
+
+// Backwards-compatible wrapper.
+function convertLocalRangeToUtc(day, startLocal, endLocal) {
+  let { year, monthIndex } = state.monthMeta || {};
+  if (!Number.isFinite(Number(year)) || !Number.isFinite(Number(monthIndex))) {
+    const now = new Date();
+    year = now.getFullYear();
+    monthIndex = now.getMonth();
+  }
+  return convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLocal);
 }
 
 // -----------------------------
@@ -1141,7 +1142,9 @@ function handleShiftCellClick({ line, row, day, dayIndex, shift, cellEl }) {
         : null;
 
     const key = `${line}-${year}-${monthIndex + 1}-${row.employeeId}-${day}`;
-	    const conversion = convertLocalRangeToUtc(day, startLocal, endLocal);
+	    // Важно: в быстрых кликах используем year/monthIndex из текущего выбранного месяца,
+	    // иначе state.monthMeta может быть неинициализирован/рассинхронизирован.
+	    const conversion = convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLocal);
 	    if (!conversion) {
 	      alert("Некорректное время смены. Проверьте формат (например 08:00–20:00)." );
 	      return;
@@ -2433,7 +2436,9 @@ function openShiftPopover(context, anchorEl) {
       const templateId =
         selectedTemplateId != null ? selectedTemplateId : shift?.templateId;
       const specialShortLabel = resolveSpecialShortLabel(line, templateId);
-	      const conversion = convertLocalRangeToUtc(day, start, end);
+	      // В поповере всегда есть year/monthIndex выбранного месяца — используем их,
+	      // чтобы не ловить RangeError на невалидном state.monthMeta.
+	      const conversion = convertLocalRangeToUtcWithMeta(year, monthIndex, day, start, end);
 	      if (!conversion) {
 	        alert("Некорректное время смены. Проверьте формат (например 08:00–20:00)." );
 	        return;
