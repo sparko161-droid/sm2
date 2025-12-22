@@ -1138,17 +1138,28 @@ async function loadEmployees() {
       email: m.email || "",
       departmentName: m.department_name || "",
       position: m.position || "",
+      departmentId: deptId,
     };
 
     if (isL1) employeesByLine.L1.push(employee);
     if (isL2) employeesByLine.L2.push(employee);
   }
 
-  const sortEmployees = (arr) =>
+  const sortEmployeesByName = (arr) =>
     arr.sort((a, b) => a.fullName.localeCompare(b.fullName, "ru"));
 
-  state.employeesByLine.L1 = sortEmployees(employeesByLine.L1);
-  state.employeesByLine.L2 = sortEmployees(employeesByLine.L2);
+  const sortEmployeesByDeptOrder = (arr, deptOrder) => {
+    const orderIndex = new Map(deptOrder.map((id, idx) => [Number(id), idx]));
+    return arr.sort((a, b) => {
+      const ai = orderIndex.has(a.departmentId) ? orderIndex.get(a.departmentId) : Number.MAX_SAFE_INTEGER;
+      const bi = orderIndex.has(b.departmentId) ? orderIndex.get(b.departmentId) : Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      return a.fullName.localeCompare(b.fullName, "ru");
+    });
+  };
+
+  state.employeesByLine.L1 = sortEmployeesByName(employeesByLine.L1);
+  state.employeesByLine.L2 = sortEmployeesByDeptOrder(employeesByLine.L2, L2_DEPARTMENT_IDS);
 }
 
 async function loadShiftsCatalog() {
