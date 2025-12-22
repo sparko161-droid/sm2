@@ -265,18 +265,39 @@ function convertLocalRangeToUtc(day, startLocal, endLocal) {
   const mmNum = Number(mm);
   if (!Number.isFinite(hhNum) || !Number.isFinite(mmNum)) return null;
 
-  const startUtcMs =
-    Date.UTC(Number(year), Number(monthIndex), dayNum, hhNum, mmNum) -
-    LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+  const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+  const baseUtcMs = Date.UTC(Number(year), Number(monthIndex), dayNum, hhNum, mmNum);
+  if (!Number.isFinite(baseUtcMs)) return null;
+
+  const startUtcMs = baseUtcMs - offsetMs;
   const endUtcMs = startUtcMs + durationMinutes * 60 * 1000;
 
-  if (Number.isNaN(startUtcMs) || Number.isNaN(endUtcMs)) return null;
+  // toISOString бросает RangeError, если time value невалиден/вне диапазона.
+  // Поэтому проверяем через getTime() и дополнительно страхуем try/catch.
+  const startDate = new Date(startUtcMs);
+  const endDate = new Date(endUtcMs);
+  if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime())) {
+    return null;
+  }
 
-  return {
-    durationMinutes,
-    startUtcIso: new Date(startUtcMs).toISOString(),
-    endUtcIso: new Date(endUtcMs).toISOString(),
-  };
+  try {
+    return {
+      durationMinutes,
+      startUtcIso: startDate.toISOString(),
+      endUtcIso: endDate.toISOString(),
+    };
+  } catch (e) {
+    console.warn("convertLocalRangeToUtc: invalid time value", {
+      day,
+      startLocal,
+      endLocal,
+      year,
+      monthIndex,
+      startUtcMs,
+      endUtcMs,
+    });
+    return null;
+  }
 }
 
 // -----------------------------
@@ -1120,16 +1141,20 @@ function handleShiftCellClick({ line, row, day, dayIndex, shift, cellEl }) {
         : null;
 
     const key = `${line}-${year}-${monthIndex + 1}-${row.employeeId}-${day}`;
-    const conversion = convertLocalRangeToUtc(day, startLocal, endLocal);
+	    const conversion = convertLocalRangeToUtc(day, startLocal, endLocal);
+	    if (!conversion) {
+	      alert("Некорректное время смены. Проверьте формат (например 08:00–20:00)." );
+	      return;
+	    }
     state.localChanges[key] = {
       startLocal,
       endLocal,
       amount,
       templateId,
       specialShortLabel,
-      startUtcIso: conversion?.startUtcIso || null,
-      endUtcIso: conversion?.endUtcIso || null,
-      durationMinutes: conversion?.durationMinutes ?? null,
+	      startUtcIso: conversion.startUtcIso,
+	      endUtcIso: conversion.endUtcIso,
+	      durationMinutes: conversion.durationMinutes,
     };
     persistLocalChanges();
 
@@ -1517,6 +1542,33 @@ async function reloadScheduleForCurrentMonth() {
 
   const shiftMapByLine = { ALL: Object.create(null), OP: Object.create(null), OV: Object.create(null), L1: Object.create(null), L2: Object.create(null), AI: Object.create(null), OU: Object.create(null) };
 
+  // "Отдел" в значении смены из справочника может быть списком токенов
+  // (например: "L1, L2, OP" или "L1/L2/OP").
+  // Нормализуем токены в ключи вкладок.
+  const parseDeptTokens = (raw) => {
+    if (!raw) return [];
+    return String(raw)
+      .split(/[,/]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => {
+        const u = s.toUpperCase();
+        if (u === "ОВ") return "OV";
+        if (u === "ОП") return "OP";
+        if (u === "ОУ") return "OU";
+        if (u === "ВСЕ") return "ALL";
+        return u;
+      });
+  };
+
+  const inferLineFromEmployee = (empId) => {
+    for (const k of ["OP","OV","L1","L2","AI","OU"]) {
+      const list = state.employeesByLine[k] || [];
+      if (list.some((e) => e.id === empId)) return k;
+    }
+    return null;
+  };
+
   const findField = (fields, id) => fields.find((f) => f.id === id);
 
   for (const task of tasks) {
@@ -1552,32 +1604,37 @@ async function reloadScheduleForCurrentMonth() {
     if (!empId) continue;
 
     const shiftCatalog = shiftField.value || {};
-    const dept = String(
-      (shiftCatalog.values && shiftCatalog.values[4]) || ""
-    ).toUpperCase();
+    const deptRaw = (shiftCatalog.values && shiftCatalog.values[4]) || "";
+    const tokens = parseDeptTokens(deptRaw);
 
-    let line = null;
-    if (dept.includes("L1") && !dept.includes("L2")) line = "L1";
-    else if (dept.includes("L2") && !dept.includes("L1")) line = "L2";
-    else if ((dept.includes("ОВ") || dept.includes("OV"))) line = "OV";
-    else if ((dept.includes("ОП") || dept.includes("OP"))) line = "OP";
-    else if ((dept.includes("ОУ") || dept.includes("OU"))) line = "OU";
-    else if ((dept.includes("AI"))) line = "AI";
-    else if ((dept.includes("ВСЕ") || dept.includes("ALL"))) line = "ALL";
-    else if (dept.includes("L1") && dept.includes("L2")) line = "L1";
-    else line = null;
-
-    // На вкладке "ВСЕ" показываем все смены, даже если линия не определилась
+    // Определяем, в какие вкладки раскладывать смену.
+    // - ALL => во все вкладки
+    // - список токенов => во все соответствующие вкладки
+    // - если токены не распознаны => пытаемся вывести по департаменту сотрудника
+    let targetLines = [];
+    if (tokens.includes("ALL")) {
+      targetLines = ["OP","OV","L1","L2","AI","OU"];
+    } else {
+      targetLines = tokens.filter((t) => shiftMapByLine[t]);
+    }
+    if (!targetLines.length) {
+      const inferred = inferLineFromEmployee(empId);
+      if (inferred) targetLines = [inferred];
+    }
 
     const shiftItemId =
       shiftCatalog.item_id != null ? shiftCatalog.item_id : shiftCatalog.id;
 
-    const matchingTemplate =
-      shiftItemId != null && line
-        ? (state.shiftTemplatesByLine[line] || []).find(
-            (t) => t.id === shiftItemId
-          )
-        : null;
+    // specialShortLabel может зависеть от вкладки (шаблонов),
+    // но для отображения достаточно любого совпадения.
+    let matchingTemplate = null;
+    for (const l of targetLines) {
+      matchingTemplate =
+        shiftItemId != null
+          ? (state.shiftTemplatesByLine[l] || []).find((t) => t.id === shiftItemId)
+          : null;
+      if (matchingTemplate) break;
+    }
     const specialShortLabel =
       (matchingTemplate && matchingTemplate.specialShortLabel) || null;
 
@@ -1608,7 +1665,9 @@ async function reloadScheduleForCurrentMonth() {
       map[empId][d] = entry;
     };
 
-    if (line && shiftMapByLine[line]) putToMap(line);
+    for (const l of targetLines) {
+      if (l && shiftMapByLine[l]) putToMap(l);
+    }
     // "ВСЕ" всегда содержит весь график
     putToMap("ALL");
   }
@@ -2374,16 +2433,20 @@ function openShiftPopover(context, anchorEl) {
       const templateId =
         selectedTemplateId != null ? selectedTemplateId : shift?.templateId;
       const specialShortLabel = resolveSpecialShortLabel(line, templateId);
-      const conversion = convertLocalRangeToUtc(day, start, end);
+	      const conversion = convertLocalRangeToUtc(day, start, end);
+	      if (!conversion) {
+	        alert("Некорректное время смены. Проверьте формат (например 08:00–20:00)." );
+	        return;
+	      }
       state.localChanges[key] = {
         startLocal: start,
         endLocal: end,
         amount,
         templateId,
         specialShortLabel,
-        startUtcIso: conversion?.startUtcIso || null,
-        endUtcIso: conversion?.endUtcIso || null,
-        durationMinutes: conversion?.durationMinutes ?? null,
+	        startUtcIso: conversion.startUtcIso,
+	        endUtcIso: conversion.endUtcIso,
+	        durationMinutes: conversion.durationMinutes,
       };
       persistLocalChanges();
 
