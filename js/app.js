@@ -1140,6 +1140,18 @@ async function loadEmployees() {
       departmentName: m.department_name || "",
       position: m.position || "",
       departmentId: deptId,
+      birthDay:
+        m.birth_date && typeof m.birth_date.day === "number"
+          ? m.birth_date.day
+          : m.birth_date && m.birth_date.day
+          ? Number(m.birth_date.day)
+          : null,
+      birthMonth:
+        m.birth_date && typeof m.birth_date.month === "number"
+          ? m.birth_date.month
+          : m.birth_date && m.birth_date.month
+          ? Number(m.birth_date.month)
+          : null,
     };
 
     if (isL1) employeesByLine.L1.push(employee);
@@ -1442,6 +1454,8 @@ async function reloadScheduleForCurrentMonth() {
       return {
         employeeId: emp.id,
         employeeName: emp.fullName,
+        birthDay: emp.birthDay ?? null,
+        birthMonth: emp.birthMonth ?? null,
         shiftsByDay,
       };
     });
@@ -1551,6 +1565,12 @@ function renderScheduleCurrentLine() {
       }
     }
 
+    // День рождения (ежегодно): показываем в текущем месяце, если есть day/month.
+    const birthdayDayThisMonth =
+      row.birthMonth && row.birthDay && row.birthMonth === monthIndex + 1
+        ? row.birthDay
+        : null;
+
     let dayIndex = 0;
     while (dayIndex < row.shiftsByDay.length) {
       const dayNumber = sched.days[dayIndex];
@@ -1567,6 +1587,32 @@ function renderScheduleCurrentLine() {
         pill.className = "vacation-pill";
         pill.textContent = "ОТП";
         pill.title = `Отпуск: с ${vac.startLabel} по ${vac.endLabel}`;
+
+        // Если день рождения попадает внутрь отпуска (в текущем месяце) —
+        // показываем маркер "ДР" поверх отпускной полосы.
+        if (
+          typeof birthdayDayThisMonth === "number" &&
+          birthdayDayThisMonth >= vac.startDay &&
+          birthdayDayThisMonth < (vac.endDayExclusive || vac.startDay + 1)
+        ) {
+          const b = document.createElement("div");
+          b.className = "birthday-pill birthday-pill-in-vacation";
+          b.textContent = "ДР";
+          const leftPercent = ((birthdayDayThisMonth - vac.startDay) + 0.5) / len * 100;
+          b.style.left = `${leftPercent}%`;
+          b.title = `День рождения: ${formatBirthdayLabel(birthdayDayThisMonth, monthIndex + 1)}`;
+          b.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            openBirthdayPopover(
+              {
+                employeeName: row.employeeName,
+                dateLabel: formatBirthdayLabel(birthdayDayThisMonth, monthIndex + 1),
+              },
+              b
+            );
+          });
+          pill.appendChild(b);
+        }
 
         td.appendChild(pill);
 
@@ -1600,6 +1646,25 @@ function renderScheduleCurrentLine() {
       td.className = "shift-cell";
       if (weekendDays.has(dayNumber)) {
         td.classList.add("day-off");
+      }
+
+      // Маркер дня рождения (один день). Показываем даже если в этот день есть смена.
+      if (typeof birthdayDayThisMonth === "number" && birthdayDayThisMonth === dayNumber) {
+        const b = document.createElement("div");
+        b.className = "birthday-pill";
+        b.textContent = "ДР";
+        b.title = `День рождения: ${formatBirthdayLabel(dayNumber, monthIndex + 1)}`;
+        b.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          openBirthdayPopover(
+            {
+              employeeName: row.employeeName,
+              dateLabel: formatBirthdayLabel(dayNumber, monthIndex + 1),
+            },
+            b
+          );
+        });
+        td.appendChild(b);
       }
 
       if (shift) {
@@ -1708,6 +1773,79 @@ function closeShiftPopover() {
     shiftPopoverEl.classList.add("hidden");
     shiftPopoverEl.innerHTML = "";
   }, 140);
+}
+
+function formatBirthdayLabel(day, month) {
+  const dd = String(day).padStart(2, "0");
+  const mm = String(month).padStart(2, "0");
+  return `${dd}.${mm}`;
+}
+
+function openBirthdayPopover(context, anchorEl) {
+  const { employeeName, dateLabel } = context;
+
+  shiftPopoverEl.innerHTML = `
+    <div class="shift-popover-header">
+      <div>
+        <div class="shift-popover-title">${employeeName}</div>
+        <div class="shift-popover-subtitle">День рождения • только просмотр</div>
+      </div>
+      <button class="shift-popover-close" type="button">✕</button>
+    </div>
+
+    <div class="shift-popover-body">
+      <div class="shift-popover-section">
+        <div class="shift-popover-section-title">Дата</div>
+        <div class="field-row"><label>день:</label><div>${dateLabel}</div></div>
+      </div>
+      <div class="shift-popover-note">Данные дня рождения загружаются из списка сотрудников и не редактируются здесь.</div>
+    </div>
+
+    <div class="shift-popover-footer">
+      <button class="btn" type="button" id="shift-btn-close-birthday">Закрыть</button>
+    </div>
+  `;
+
+  shiftPopoverBackdropEl.classList.remove("hidden");
+  shiftPopoverEl.classList.remove("hidden");
+
+  const rect = anchorEl.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  const estimatedWidth = 420;
+  const estimatedHeight = 220;
+
+  let left = rect.left + 8;
+  let top = rect.bottom + 8;
+
+  if (left + estimatedWidth > viewportWidth - 16) {
+    left = viewportWidth - estimatedWidth - 16;
+  }
+  if (top + estimatedHeight > viewportHeight - 16) {
+    top = rect.top - estimatedHeight - 8;
+  }
+
+  left = Math.max(left, 16);
+  top = Math.max(top, 16);
+
+  shiftPopoverEl.style.left = `${left}px`;
+  shiftPopoverEl.style.top = `${top}px`;
+
+  const closeBtn = shiftPopoverEl.querySelector(".shift-popover-close");
+  const closeBtn2 = shiftPopoverEl.querySelector("#shift-btn-close-birthday");
+  const doClose = () => closeShiftPopover();
+  if (closeBtn) closeBtn.addEventListener("click", doClose);
+  if (closeBtn2) closeBtn2.addEventListener("click", doClose);
+
+  shiftPopoverKeydownHandler = (ev) => {
+    if (ev.key === "Escape") doClose();
+  };
+  document.addEventListener("keydown", shiftPopoverKeydownHandler);
+
+  requestAnimationFrame(() => {
+    shiftPopoverEl.classList.add("open");
+  });
 }
 
 
