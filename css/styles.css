@@ -47,7 +47,8 @@
   /* Специальные смены (ВЫХ, ОТП, ДР) */
   --shift-special-bg: rgba(234, 179, 8, 0.12);
   --shift-special-border: rgba(234, 179, 8, 0.5);
-  
+  --vacation-text: #111111;
+
   --weekend-bg: rgba(200, 0, 0, 0.12);
   --weekend-strong: rgba(200, 0, 0, 0.25);
   --shadow-strong: 0 6px 20px rgba(0, 0, 0, 0.06);
@@ -108,6 +109,8 @@ body.dark-theme {
   --shift-special-bg: rgba(250, 204, 21, 0.15);
   --shift-special-border: rgba(250, 204, 21, 0.5);
   
+  --vacation-text: #c7c7c7;
+
   --weekend-bg: rgba(255, 75, 75, 0.15);
   --weekend-strong: rgba(255, 75, 75, 0.28);
   --shadow-strong: 0 12px 40px rgba(0, 0, 0, 0.5);
@@ -515,6 +518,31 @@ body {
   background: var(--shift-special-bg);
   border-color: var(--shift-special-border);
 }
+
+/* ===== Полоса отпуска (colSpan, readonly) ===== */
+
+.vacation-cell {
+  padding: 0;
+}
+
+.vacation-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - 6px);
+  height: calc(var(--cell-size) - 6px);
+  margin: 1px 3px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--vacation-text);
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  cursor: pointer;
+  user-select: none;
+}
+
 
 /* Динамические цвета пилюль смен */
 .shift-pill[class*="shift-template-"] {

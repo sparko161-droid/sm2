@@ -73,6 +73,7 @@ const state = {
     year: null,
     monthIndex: null,
   },
+  vacationsByEmployee: {},
 };
 
 const scheduleCacheByLine = {
@@ -1222,11 +1223,111 @@ async function loadShiftsCatalog() {
   }
 }
 
+
+
+async function loadVacationsForMonth(year, monthIndex) {
+  const raw = await pyrusApi("/v4/forms/2348174/register", "GET");
+  const data = unwrapPyrusData(raw);
+  const wrapper = Array.isArray(data) ? data[0] : data;
+  const tasks = (wrapper && wrapper.tasks) || [];
+
+  const vacationsByEmployee = Object.create(null);
+  const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+
+  const monthStartShiftedMs = Date.UTC(year, monthIndex, 1, 0, 0, 0, 0);
+  const monthEndShiftedMs = Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0);
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+  const fmt = (shiftedMs) => {
+    const d = new Date(shiftedMs);
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const yy = d.getUTCFullYear();
+    return dd + "." + mm + "." + yy;
+  };
+
+  const isMidnight = (shiftedMs) => {
+    const d = new Date(shiftedMs);
+    return (
+      d.getUTCHours() === 0 &&
+      d.getUTCMinutes() === 0 &&
+      d.getUTCSeconds() === 0 &&
+      d.getUTCMilliseconds() === 0
+    );
+  };
+
+  for (const task of tasks) {
+    const fields = task.fields || [];
+    const personField = fields.find((f) => f && f.id === 1 && f.type === "person");
+    const periodField = fields.find((f) => f && f.id === 2 && f.type === "due_date_time");
+    if (!personField || !periodField) continue;
+
+    const empId = personField.value && personField.value.id;
+    if (!empId) continue;
+
+    const startIso = periodField.value;
+    const durationMin = Number(periodField.duration || 0);
+    if (!startIso || !durationMin) continue;
+
+    const startUtcMs = new Date(startIso).getTime();
+    if (Number.isNaN(startUtcMs)) continue;
+    const endUtcMs = startUtcMs + durationMin * 60 * 1000;
+
+    // Работаем в "смещённом" пространстве (utcMs + offset)
+    const startShiftedMs = startUtcMs + offsetMs;
+    const endShiftedMs = endUtcMs + offsetMs;
+
+    // Клип по текущему месяцу
+    const segStart = Math.max(startShiftedMs, monthStartShiftedMs);
+    const segEnd = Math.min(endShiftedMs, monthEndShiftedMs);
+    if (segStart >= segEnd) continue;
+
+    const startDay = new Date(segStart).getUTCDate();
+
+    // Диапазон [start, end)
+    const endDate = new Date(segEnd);
+    let endDayExclusive;
+    if (endDate.getUTCMonth() !== monthIndex) {
+      endDayExclusive = daysInMonth + 1;
+    } else {
+      endDayExclusive = endDate.getUTCDate();
+      if (!isMidnight(segEnd)) endDayExclusive += 1;
+    }
+
+    endDayExclusive = Math.max(1, Math.min(daysInMonth + 1, endDayExclusive));
+
+    // Для отображения: конец включительно
+    let endLabelShiftedMs = endShiftedMs;
+    if (isMidnight(endShiftedMs)) endLabelShiftedMs = endShiftedMs - 1;
+
+    (vacationsByEmployee[empId] = vacationsByEmployee[empId] || []).push({
+      startDay,
+      endDayExclusive,
+      startLabel: fmt(startShiftedMs),
+      endLabel: fmt(endLabelShiftedMs),
+    });
+  }
+
+  // Сортируем отпуска каждого сотрудника по началу
+  for (const empId of Object.keys(vacationsByEmployee)) {
+    vacationsByEmployee[empId].sort((a, b) => (a.startDay || 0) - (b.startDay || 0));
+  }
+
+  return vacationsByEmployee;
+}
 async function reloadScheduleForCurrentMonth() {
   const { year, monthIndex } = state.monthMeta;
 
   const raw = await pyrusApi("/v4/forms/2375272/register", "GET");
   const data = unwrapPyrusData(raw);
+
+  // Отпуска: внешняя система, только отображение
+  try {
+    state.vacationsByEmployee = await loadVacationsForMonth(year, monthIndex);
+  } catch (e) {
+    console.warn('Не удалось загрузить отпуска', e);
+    state.vacationsByEmployee = {};
+  }
 
   const wrapper = Array.isArray(data) ? data[0] : data;
   const tasks = (wrapper && wrapper.tasks) || [];
@@ -1442,10 +1543,62 @@ function renderScheduleCurrentLine() {
 
     let totalAmount = 0;
 
-    row.shiftsByDay.forEach((shift, dayIndex) => {
+    const vacations = state.vacationsByEmployee[row.employeeId] || [];
+    const vacationStarts = Object.create(null);
+    for (const v of vacations) {
+      if (v && typeof v.startDay === "number") {
+        vacationStarts[v.startDay] = v;
+      }
+    }
+
+    let dayIndex = 0;
+    while (dayIndex < row.shiftsByDay.length) {
+      const dayNumber = sched.days[dayIndex];
+      const vac = vacationStarts[dayNumber];
+
+      if (vac) {
+        const len = Math.max(1, (vac.endDayExclusive || (vac.startDay + 1)) - vac.startDay);
+
+        const td = document.createElement("td");
+        td.className = "shift-cell vacation-cell";
+        td.colSpan = len;
+
+        const pill = document.createElement("div");
+        pill.className = "vacation-pill";
+        pill.textContent = "ОТП";
+        pill.title = `Отпуск: с ${vac.startLabel} по ${vac.endLabel}`;
+
+        td.appendChild(pill);
+
+        td.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          openVacationPopover(
+            {
+              employeeName: row.employeeName,
+              startLabel: vac.startLabel,
+              endLabel: vac.endLabel,
+            },
+            td
+          );
+        });
+
+        td.addEventListener("mouseenter", () => {
+          tr.classList.add("row-hover");
+        });
+        td.addEventListener("mouseleave", () => {
+          tr.classList.remove("row-hover");
+        });
+
+        tr.appendChild(td);
+        dayIndex += len;
+        continue;
+      }
+
+      const shift = row.shiftsByDay[dayIndex];
+
       const td = document.createElement("td");
       td.className = "shift-cell";
-      if (weekendDays.has(sched.days[dayIndex])) {
+      if (weekendDays.has(dayNumber)) {
         td.classList.add("day-off");
       }
 
@@ -1503,7 +1656,9 @@ function renderScheduleCurrentLine() {
       });
 
       tr.appendChild(td);
-    });
+      dayIndex += 1;
+    }
+
 
     const tdSum = document.createElement("td");
     tdSum.className = "summary-cell";
@@ -1555,6 +1710,76 @@ function closeShiftPopover() {
   }, 140);
 }
 
+
+
+function openVacationPopover(context, anchorEl) {
+  const { employeeName, startLabel, endLabel } = context;
+
+  shiftPopoverEl.innerHTML = `
+    <div class="shift-popover-header">
+      <div>
+        <div class="shift-popover-title">${employeeName}</div>
+        <div class="shift-popover-subtitle">Отпуск • только просмотр</div>
+      </div>
+      <button class="shift-popover-close" type="button">✕</button>
+    </div>
+
+    <div class="shift-popover-body">
+      <div class="shift-popover-section">
+        <div class="shift-popover-section-title">Период</div>
+        <div class="field-row"><label>с:</label><div>${startLabel}</div></div>
+        <div class="field-row"><label>по:</label><div>${endLabel}</div></div>
+      </div>
+      <div class="shift-popover-note">Отпуск загружается из внешней системы и не редактируется здесь.</div>
+    </div>
+
+    <div class="shift-popover-footer">
+      <button class="btn" type="button" id="shift-btn-close-vacation">Закрыть</button>
+    </div>
+  `;
+
+  shiftPopoverBackdropEl.classList.remove("hidden");
+  shiftPopoverEl.classList.remove("hidden");
+
+  const rect = anchorEl.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  const estimatedWidth = 420;
+  const estimatedHeight = 240;
+
+  let left = rect.left + 8;
+  let top = rect.bottom + 8;
+
+  if (left + estimatedWidth > viewportWidth - 16) {
+    left = viewportWidth - estimatedWidth - 16;
+  }
+  if (top + estimatedHeight > viewportHeight - 16) {
+    top = rect.top - estimatedHeight - 8;
+  }
+
+  left = Math.max(left, 16);
+  top = Math.max(top, 16);
+
+  shiftPopoverEl.style.left = `${left}px`;
+  shiftPopoverEl.style.top = `${top}px`;
+
+  const closeBtn = shiftPopoverEl.querySelector(".shift-popover-close");
+  const closeBtn2 = shiftPopoverEl.querySelector("#shift-btn-close-vacation");
+
+  const doClose = () => closeShiftPopover();
+  if (closeBtn) closeBtn.addEventListener("click", doClose);
+  if (closeBtn2) closeBtn2.addEventListener("click", doClose);
+
+  shiftPopoverKeydownHandler = (ev) => {
+    if (ev.key === "Escape") doClose();
+  };
+  document.addEventListener("keydown", shiftPopoverKeydownHandler);
+
+  requestAnimationFrame(() => {
+    shiftPopoverEl.classList.add("open");
+  });
+}
 function openShiftPopoverReadOnly(context, anchorEl) {
   const { line, employeeName, day, shift } = context;
   const { year, monthIndex } = state.monthMeta;
