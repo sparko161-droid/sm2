@@ -1119,22 +1119,18 @@ async function loadEmployees() {
   const members = data.members || [];
   const employeesByLine = { L1: [], L2: [] };
 
+  // Hard routing by department_id to avoid accidental matches by department name/position.
+  // L1: Operators only
+  const L1_DEPARTMENT_IDS = [108368027];
+  // L2: Engineering departments (Инженеры, Инженера 5/2, Инженера 2/2)
+  const L2_DEPARTMENT_IDS = [108368026, 171248779, 171248780];
+
   for (const m of members) {
     if (m.banned) continue;
 
-    const deptName = (m.department_name || "").toLowerCase();
-    const position = (m.position || "").toLowerCase();
-
-    const isL1 =
-      deptName.includes("оператор") ||
-      deptName.includes("контакт-центр") ||
-      position.includes("оператор");
-
-    const isL2 =
-      deptName.includes("инженер") ||
-      deptName.includes("техпод") ||
-      deptName.includes("техническая поддержка") ||
-      position.includes("инженер");
+    const deptId = Number(m.department_id);
+    const isL1 = L1_DEPARTMENT_IDS.includes(deptId);
+    const isL2 = L2_DEPARTMENT_IDS.includes(deptId);
 
     const employee = {
       id: m.id,
