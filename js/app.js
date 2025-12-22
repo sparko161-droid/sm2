@@ -247,13 +247,30 @@ function convertLocalRangeToUtc(day, startLocal, endLocal) {
   const durationMinutes = computeDurationMinutes(startLocal, endLocal);
   if (durationMinutes == null) return null;
 
-  const { year, monthIndex } = state.monthMeta;
+  // Защита от некорректного состояния: иногда monthMeta может быть неинициализирован
+  // (или содержать null) в момент сохранения/быстрого назначения.
+  // В таком случае не должны падать с RangeError: Invalid time value.
+  let { year, monthIndex } = state.monthMeta || {};
+  if (!Number.isFinite(Number(year)) || !Number.isFinite(Number(monthIndex))) {
+    const now = new Date();
+    year = now.getFullYear();
+    monthIndex = now.getMonth();
+  }
+
+  const dayNum = Number(day);
+  if (!Number.isFinite(dayNum)) return null;
   const [hh, mm] = (startLocal || "00:00").split(":");
 
+  const hhNum = Number(hh);
+  const mmNum = Number(mm);
+  if (!Number.isFinite(hhNum) || !Number.isFinite(mmNum)) return null;
+
   const startUtcMs =
-    Date.UTC(year, monthIndex, day, Number(hh), Number(mm)) -
+    Date.UTC(Number(year), Number(monthIndex), dayNum, hhNum, mmNum) -
     LOCAL_TZ_OFFSET_MIN * 60 * 1000;
   const endUtcMs = startUtcMs + durationMinutes * 60 * 1000;
+
+  if (Number.isNaN(startUtcMs) || Number.isNaN(endUtcMs)) return null;
 
   return {
     durationMinutes,
