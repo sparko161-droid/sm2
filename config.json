@@ -62,5 +62,60 @@
   },
   "timezone": {
     "localOffsetMin": 240
+  },
+  "ui": {
+    "lines": {
+      "order": [
+        "ALL",
+        "OP",
+        "OV",
+        "L1",
+        "L2",
+        "AI",
+        "OU"
+      ],
+      "labels": {
+        "ALL": "ВСЕ",
+        "OP": "OP",
+        "OV": "OV",
+        "L1": "L1",
+        "L2": "L2",
+        "AI": "AI",
+        "OU": "OU"
+      }
+    }
+  },
+  "management": {
+    "topManagementIds": [
+      1167305,
+      314287
+    ]
+  },
+  "pyrusLineItemIdByLine": {
+    "L2": 157816613,
+    "L1": 165474029,
+    "OV": 157816614,
+    "OU": 157816622,
+    "AI": 168065907,
+    "OP": 157816621
+  },
+  "storage": {
+    "keys": {
+      "localChanges": "sm1_local_changes",
+      "changeHistory": "sm1_change_history",
+      "theme": "sm1_theme_preference"
+    },
+    "auth": {
+      "key": "sm_graph_auth_v1",
+      "ttlMs": 604800000,
+      "cookieDays": 7
+    }
+  },
+  "calendar": {
+    "prodCal": {
+      "ttlMs": 2592000000,
+      "urlTemplate": "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
+      "cacheKeyPrefix": "prodcal_ru_"
+    }
   }
 }

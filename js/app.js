@@ -53,6 +53,42 @@ const DEFAULT_APP_CONFIG = {
     },
   },
   timezone: { localOffsetMin: LOCAL_TZ_OFFSET_MIN },
+  ui: {
+    lines: {
+      order: ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"],
+      labels: { ALL: "ВСЕ", OP: "OP", OV: "OV", L1: "L1", L2: "L2", AI: "AI", OU: "OU" },
+    },
+  },
+  management: {
+    topManagementIds: [1167305, 314287],
+  },
+  pyrusLineItemIdByLine: {
+    L2: 157816613,
+    L1: 165474029,
+    OV: 157816614,
+    OU: 157816622,
+    AI: 168065907,
+    OP: 157816621,
+  },
+  storage: {
+    keys: {
+      localChanges: "sm1_local_changes",
+      changeHistory: "sm1_change_history",
+      theme: "sm1_theme_preference",
+    },
+    auth: {
+      key: "sm_graph_auth_v1",
+      ttlMs: 7 * 24 * 60 * 60 * 1000,
+      cookieDays: 7,
+    },
+  },
+  calendar: {
+    prodCal: {
+      ttlMs: 30 * 24 * 60 * 60 * 1000,
+      urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
+      cacheKeyPrefix: "prodcal_ru_",
+    },
+  },
 };
 
 let APP_CONFIG = DEFAULT_APP_CONFIG;
@@ -110,13 +146,46 @@ function applyAppConfig(cfg) {
     (cfg.pyrus && cfg.pyrus.fields && cfg.pyrus.fields.otpusk) || PYRUS_FIELDS_OTPUSK;
   PYRUS_FIELDS_SMENI =
     (cfg.pyrus && cfg.pyrus.fields && cfg.pyrus.fields.smeni) || PYRUS_FIELDS_SMENI;
+
+  // UI: порядок вкладок/лейблы
+  LINE_KEYS_IN_UI_ORDER =
+    (cfg.ui && cfg.ui.lines && Array.isArray(cfg.ui.lines.order) && cfg.ui.lines.order.length)
+      ? cfg.ui.lines.order
+      : LINE_KEYS_IN_UI_ORDER;
+  LINE_LABELS =
+    (cfg.ui && cfg.ui.lines && cfg.ui.lines.labels) || LINE_LABELS;
+
+  // Руководители/учредители
+  TOP_MANAGEMENT_IDS =
+    (cfg.management && Array.isArray(cfg.management.topManagementIds))
+      ? cfg.management.topManagementIds
+      : TOP_MANAGEMENT_IDS;
+
+  // Pyrus line item_id mapping
+  PYRUS_LINE_ITEM_ID = cfg.pyrusLineItemIdByLine || PYRUS_LINE_ITEM_ID;
+
+  // Storage keys
+  STORAGE_KEYS = (cfg.storage && cfg.storage.keys) || STORAGE_KEYS;
+  if (cfg.storage && cfg.storage.auth) {
+    AUTH_STORAGE_KEY = cfg.storage.auth.key || AUTH_STORAGE_KEY;
+    AUTH_TTL_MS = Number(cfg.storage.auth.ttlMs) || AUTH_TTL_MS;
+    AUTH_COOKIE_DAYS = Number(cfg.storage.auth.cookieDays) || AUTH_COOKIE_DAYS;
+  }
+
+  // Производственный календарь
+  if (cfg.calendar && cfg.calendar.prodCal) {
+    PROD_CAL_TTL_MS = Number(cfg.calendar.prodCal.ttlMs) || PROD_CAL_TTL_MS;
+    PROD_CAL_URL_TMPL = cfg.calendar.prodCal.urlTemplate || PROD_CAL_URL_TMPL;
+    PROD_CAL_CACHE_PREFIX = cfg.calendar.prodCal.cacheKeyPrefix || PROD_CAL_CACHE_PREFIX;
+  }
 }
+
 
 // -----------------------------
 // Конфиг вкладок (линий)
 // -----------------------------
-const LINE_KEYS_IN_UI_ORDER = ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"];
-const LINE_LABELS = { ALL: "ВСЕ", OP: "OP", OV: "OV", L1: "L1", L2: "L2", AI: "AI", OU: "OU" };
+let LINE_KEYS_IN_UI_ORDER = ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"];
+let LINE_LABELS = { ALL: "ВСЕ", OP: "OP", OV: "OV", L1: "L1", L2: "L2", AI: "AI", OU: "OU" };
 
 // Жёсткая привязка department_id -> вкладка
 let LINE_DEPT_IDS = {
@@ -129,10 +198,10 @@ let LINE_DEPT_IDS = {
 };
 
 // Руководители/учредители (всегда сверху во "ВСЕ")
-const TOP_MANAGEMENT_IDS = [1167305, 314287]; // Лузин, Сухачев
+let TOP_MANAGEMENT_IDS = [1167305, 314287]; // Лузин, Сухачев
 
 // Pyrus: значение каталога "Линия/Отдел" (field id=1) в форме явок
-const PYRUS_LINE_ITEM_ID = {
+let PYRUS_LINE_ITEM_ID = {
   L2: 157816613,
   L1: 165474029,
   OV: 157816614,
@@ -245,7 +314,7 @@ const scheduleCacheByLine = {
   L2: Object.create(null),
 };
 
-const STORAGE_KEYS = {
+let STORAGE_KEYS = {
   localChanges: "sm1_local_changes",
   changeHistory: "sm1_change_history",
   theme: "sm1_theme_preference",
@@ -274,8 +343,9 @@ function canViewLine(line) {
 // Персистентная авторизация (localStorage + cookie)
 // -----------------------------
 
-const AUTH_STORAGE_KEY = "sm_graph_auth_v1";
-const AUTH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 дней
+let AUTH_STORAGE_KEY = "sm_graph_auth_v1";
+let AUTH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 дней
+let AUTH_COOKIE_DAYS = 7;
 
 function setCookie(name, value, days) {
   try {
@@ -311,7 +381,7 @@ function saveAuthCache(login) {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
   } catch (_) {}
   // Дублируем в cookie (минимальный объём) — на случай очистки localStorage
-  setCookie(AUTH_STORAGE_KEY, JSON.stringify(payload), 7);
+  setCookie(AUTH_STORAGE_KEY, JSON.stringify(payload), AUTH_COOKIE_DAYS);
 }
 
 function loadAuthCache() {
@@ -576,11 +646,13 @@ async function pyrusApi(path, method = "GET", body = null) {
 // -----------------------------
 // Производственный календарь РФ (isdayoff.ru) — помесячно, с кэшем и фолбеком на СБ/ВС
 // -----------------------------
-const PROD_CAL_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 дней
+let PROD_CAL_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 дней
+let PROD_CAL_URL_TMPL = "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}";
+let PROD_CAL_CACHE_PREFIX = "prodcal_ru_";
 
 function prodCalCacheKey(year, monthIndex) {
   const mm = String(monthIndex + 1).padStart(2, "0");
-  return `prodcal_ru_${year}-${mm}_pre1`;
+  return `${PROD_CAL_CACHE_PREFIX}${year}-${mm}_pre1`;
 }
 
 function formatYmdForKey(year, monthIndex, day) {
