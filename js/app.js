@@ -34,6 +34,27 @@ const LINE_DEPT_IDS = {
 // Руководители/учредители (всегда сверху во "ВСЕ")
 const TOP_MANAGEMENT_IDS = [1167305, 314287]; // Лузин, Сухачев
 
+// Pyrus: значение каталога "Линия/Отдел" (field id=1) в форме явок
+const PYRUS_LINE_ITEM_ID = {
+  L2: 157816613,
+  L1: 165474029,
+  OV: 157816614,
+  OU: 157816622,
+  AI: 168065907,
+  OP: 157816621,
+};
+
+function resolvePyrusLineItemIdByDepartmentId(deptId) {
+  if (deptId == null) return null;
+  if (LINE_DEPT_IDS.L2.includes(deptId)) return PYRUS_LINE_ITEM_ID.L2;
+  if (LINE_DEPT_IDS.L1.includes(deptId)) return PYRUS_LINE_ITEM_ID.L1;
+  if (LINE_DEPT_IDS.OV.includes(deptId)) return PYRUS_LINE_ITEM_ID.OV;
+  if (LINE_DEPT_IDS.OU.includes(deptId)) return PYRUS_LINE_ITEM_ID.OU;
+  if (LINE_DEPT_IDS.AI.includes(deptId)) return PYRUS_LINE_ITEM_ID.AI;
+  if (LINE_DEPT_IDS.OP.includes(deptId)) return PYRUS_LINE_ITEM_ID.OP;
+  return null;
+}
+
 // Порядок групп (department_id) для сортировки внутри вкладок
 const DEPT_ORDER_BY_LINE = {
   L2: LINE_DEPT_IDS.L2.slice(),
@@ -158,6 +179,21 @@ function getCurrentLinePermission() {
 // -----------------------------
 // Утилиты времени
 // -----------------------------
+
+// Нормализация времени к формату HH:MM.
+// Принимает также "2:00", "2", "02", "14.30" и т.п.
+function normalizeTimeHHMM(raw) {
+  if (raw == null) return "";
+  const s = String(raw).trim().replace(".", ":");
+  if (!s) return "";
+
+  const m = s.match(/^(\d{1,2})(?::(\d{1,2}))?$/);
+  if (!m) return s;
+
+  const hh = String(parseInt(m[1], 10)).padStart(2, "0");
+  const mm = String(parseInt(m[2] || "0", 10)).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
 
 function parseShiftTimeRangeString(raw) {
   if (!raw || typeof raw !== "string") return null;
@@ -908,7 +944,7 @@ function buildPyrusChangesPayload(lineToSave = null) {
     edit: { task: [] },
   };
 
-  const linesToProcess = lineToSave ? [lineToSave] : ["L1", "L2"];
+  const linesToProcess = lineToSave ? [lineToSave] : ["OP", "OV", "L1", "L2", "AI", "OU"];
 
   for (const line of linesToProcess) {
     const baseSched = state.originalScheduleByLine[line];
@@ -924,6 +960,9 @@ function buildPyrusChangesPayload(lineToSave = null) {
 
     currentSched.rows.forEach((row) => {
       const baseRow = baseRowByEmployee[row.employeeId];
+
+      const employee = state.employeesByLine.ALL.find((e) => e.id === row.employeeId) || null;
+      const departmentItemId = employee ? resolvePyrusLineItemIdByDepartmentId(employee.departmentId) : null;
 
       currentSched.days.forEach((day, idx) => {
         const baseShift = baseRow ? baseRow.shiftsByDay[idx] || null : null;
@@ -951,6 +990,7 @@ function buildPyrusChangesPayload(lineToSave = null) {
             start: conversion.startUtcIso,
             duration: conversion.durationMinutes,
             amount: Number(currentShift.amount || 0),
+            department_item_id: departmentItemId,
           });
           return;
         }
@@ -983,6 +1023,7 @@ function buildPyrusChangesPayload(lineToSave = null) {
             start: conversion.startUtcIso,
             duration: conversion.durationMinutes,
             amount: Number(currentShift.amount || 0),
+            department_item_id: departmentItemId,
           });
         }
       });
@@ -1123,7 +1164,12 @@ function handleShiftCellClick({ line, row, day, dayIndex, shift, cellEl }) {
     const { startLocal, endLocal, amount, templateId, specialShortLabel } =
       getQuickModeShift(line);
 
-    if (!startLocal || !endLocal) {
+    // input[type=time] принимает только HH:MM, поэтому нормализуем,
+    // иначе браузер может вернуть пустое значение и дальше сломается конвертация.
+    const normStartLocal = normalizeTimeHHMM(startLocal);
+    const normEndLocal = normalizeTimeHHMM(endLocal);
+
+    if (!normStartLocal || !normEndLocal) {
       alert(
         "Укажите время начала и конца смены в панели быстрого назначения."
       );
@@ -1144,14 +1190,20 @@ function handleShiftCellClick({ line, row, day, dayIndex, shift, cellEl }) {
     const key = `${line}-${year}-${monthIndex + 1}-${row.employeeId}-${day}`;
 	    // Важно: в быстрых кликах используем year/monthIndex из текущего выбранного месяца,
 	    // иначе state.monthMeta может быть неинициализирован/рассинхронизирован.
-	    const conversion = convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLocal);
+    const conversion = convertLocalRangeToUtcWithMeta(
+      year,
+      monthIndex,
+      day,
+      normStartLocal,
+      normEndLocal
+    );
 	    if (!conversion) {
 	      alert("Некорректное время смены. Проверьте формат (например 08:00–20:00)." );
 	      return;
 	    }
     state.localChanges[key] = {
-      startLocal,
-      endLocal,
+      startLocal: normStartLocal,
+      endLocal: normEndLocal,
       amount,
       templateId,
       specialShortLabel,
@@ -1170,7 +1222,12 @@ function handleShiftCellClick({ line, row, day, dayIndex, shift, cellEl }) {
       employeeName: row.employeeName,
       day,
       previousShift: previousShift || null,
-      nextShift: { startLocal, endLocal, amount, specialShortLabel },
+      nextShift: {
+        startLocal: normStartLocal,
+        endLocal: normEndLocal,
+        amount,
+        specialShortLabel,
+      },
     });
     return;
   }
@@ -1946,12 +2003,14 @@ function renderScheduleCurrentLine() {
         td.classList.add("empty-shift");
       }
 
+      const clickDay = dayNumber;
+      const clickDayIndex = dayIndex;
       td.addEventListener("click", () => {
         handleShiftCellClick({
           line,
           row,
-          day: sched.days[dayIndex],
-          dayIndex,
+          day: clickDay,
+          dayIndex: clickDayIndex,
           shift: shift || null,
           cellEl: td,
         });
@@ -2409,8 +2468,8 @@ function openShiftPopover(context, anchorEl) {
           const startInput = document.getElementById("shift-start-input");
           const endInput = document.getElementById("shift-end-input");
           if (startInput && endInput) {
-            startInput.value = tmpl.timeRange.start;
-            endInput.value = tmpl.timeRange.end;
+	        startInput.value = normalizeTimeHHMM(tmpl.timeRange.start);
+	        endInput.value = normalizeTimeHHMM(tmpl.timeRange.end);
           }
         }
 
@@ -2428,8 +2487,8 @@ function openShiftPopover(context, anchorEl) {
       const endInput = document.getElementById("shift-end-input");
       const amountInput = document.getElementById("shift-amount-input");
 
-      const start = startInput.value;
-      const end = endInput.value;
+	    const start = normalizeTimeHHMM(startInput.value);
+	    const end = normalizeTimeHHMM(endInput.value);
       const amount = Number(amountInput.value || 0);
 
       const key = `${line}-${year}-${monthIndex + 1}-${employeeId}-${day}`;
