@@ -47,7 +47,10 @@
   /* Специальные смены (ВЫХ, ОТП, ДР) */
   --shift-special-bg: rgba(234, 179, 8, 0.12);
   --shift-special-border: rgba(234, 179, 8, 0.5);
-  
+  /* Отпуск (полоса в графике) */
+  --vacation-bg: #000000;
+  --vacation-text: #ffffff;
+
   --weekend-bg: rgba(200, 0, 0, 0.12);
   --weekend-strong: rgba(200, 0, 0, 0.25);
   --shadow-strong: 0 6px 20px rgba(0, 0, 0, 0.06);
@@ -108,6 +111,10 @@ body.dark-theme {
   --shift-special-bg: rgba(250, 204, 21, 0.15);
   --shift-special-border: rgba(250, 204, 21, 0.5);
   
+  /* Отпуск (полоса в графике) */
+  --vacation-bg: #bdbdbd;
+  --vacation-text: #000000;
+
   --weekend-bg: rgba(255, 75, 75, 0.15);
   --weekend-strong: rgba(255, 75, 75, 0.28);
   --shadow-strong: 0 12px 40px rgba(0, 0, 0, 0.5);
@@ -456,6 +463,12 @@ body {
   background: var(--weekend-bg);
 }
 
+/* предпраздничный (сокращённый рабочий день) — лёгкая метка */
+.pre-holiday {
+  outline: 2px solid rgba(220, 0, 0, 0.25);
+  outline-offset: -2px;
+}
+
 .schedule-table .shift-cell {
   cursor: default;
   position: relative;
@@ -515,6 +528,72 @@ body {
   background: var(--shift-special-bg);
   border-color: var(--shift-special-border);
 }
+
+/* ===== Полоса отпуска (colSpan, readonly) ===== */
+
+.vacation-cell {
+  padding: 0;
+}
+
+.vacation-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: calc(100% - 6px);
+  height: calc(var(--cell-size) - 6px);
+  margin: 1px 3px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--vacation-text);
+  background: var(--vacation-bg);
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+}
+
+.vacation-label {
+  /* чуть ниже центра, чтобы бейджи сверху не конфликтовали с текстом */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding-top: 8px;
+  pointer-events: none;
+}
+
+/* ===== Маркер дня рождения ===== */
+
+.birthday-pill {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  background: #ff2b2b;
+  color: #000;
+  cursor: pointer;
+  user-select: none;
+  z-index: 3;
+}
+
+/* Когда ДР отображается поверх отпускной полосы */
+.birthday-pill-in-vacation {
+  top: 3px;
+  /* left задаётся инлайном в процентах относительно длины отпускной полосы */
+  transform: translateX(-50%);
+}
+
 
 /* Динамические цвета пилюль смен */
 .shift-pill[class*="shift-template-"] {
@@ -1054,4 +1133,59 @@ body {
 
 .change-log-empty {
   color: var(--text-muted);
+}
+
+
+/* Tabs for lines */
+.line-tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.line-tabs .btn{min-width:44px;}
+
+
+/* Mobile layout improvements */
+.mobile-only{display:none;}
+@media (max-width: 768px){
+  .mobile-only{display:inline-flex;}
+  .top-bar{flex-direction:column;align-items:stretch;gap:10px;}
+  .top-bar-right{flex-wrap:wrap;justify-content:flex-start;}
+  #line-tabs.line-tabs{
+    width:100%;
+    order: 10;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:4px 0;
+  }
+  #line-tabs.line-tabs .btn{flex:0 0 auto;}
+  .month-switcher{width:100%;justify-content:space-between;}
+  .schedule-container{position:relative;}
+  /* Bottom sheet toolbar on mobile */
+  .schedule-toolbar{
+    position:fixed;
+    left:0; right:0;
+    bottom:0;
+    z-index:60;
+    border-top:1px solid var(--border-strong);
+    background: var(--panel);
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    transform: translateY(calc(100% - 44px));
+    transition: transform .18s ease;
+    max-height: 70vh;
+    overflow:auto;
+    box-shadow: 0 -10px 24px rgba(0,0,0,.25);
+  }
+  body.mobile-toolbar-open .schedule-toolbar{
+    transform: translateY(0);
+  }
+  /* Make the open button sticky and easy to reach */
+  #btn-mobile-toolbar{
+    position:sticky;
+    top: 0;
+    z-index: 20;
+    margin: 10px 0;
+    width: fit-content;
+  }
+  /* Ensure schedule grid not covered by toolbar */
+  .schedule-scroll{
+    padding-bottom: 90px;
+  }
 }

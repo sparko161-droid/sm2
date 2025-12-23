@@ -1,0 +1,66 @@
+{
+  "graphHookUrl": "https://jolikcisout.beget.app/webhook/pyrus/graph",
+  "pyrus": {
+    "catalogs": {
+      "shifts": 281369
+    },
+    "forms": {
+      "otpusk": 2348174,
+      "smeni": 2375272
+    },
+    "fields": {
+      "otpusk": {
+        "person": 1,
+        "period": 2
+      },
+      "smeni": {
+        "line": 1,
+        "template": 10,
+        "person": 8,
+        "due": 4,
+        "amount": 5
+      }
+    }
+  },
+  "departments": {
+    "byLine": {
+      "L1": [
+        108368027
+      ],
+      "L2": [
+        108368026,
+        171248779,
+        171248780
+      ],
+      "OV": [
+        80208117
+      ],
+      "OP": [
+        108368021,
+        157753518,
+        157753516
+      ],
+      "OU": [
+        108368030
+      ],
+      "AI": [
+        166353950
+      ]
+    },
+    "orderByLine": {
+      "L2": [
+        108368026,
+        171248779,
+        171248780
+      ],
+      "OP": [
+        108368021,
+        157753518,
+        157753516
+      ]
+    }
+  },
+  "timezone": {
+    "localOffsetMin": 240
+  }
+}
