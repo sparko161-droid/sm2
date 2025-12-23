@@ -255,9 +255,10 @@ function applyAuthCache(data) {
   const login = (data.login || state.auth.user?.login || "").trim();
   if (currentUserLabelEl) {
     currentUserLabelEl.textContent = `${state.auth.user?.name || ""}${login ? " (" + login + ")" : ""}`;
-      saveAuthCache(login);
-
   }
+  // сохраняем сессию независимо от наличия UI-элементов
+  if (login || state.auth.user?.login) saveAuthCache(login);
+
   return true;
 }
 
@@ -737,6 +738,10 @@ function bindLoginForm() {
       currentUserLabelEl.textContent = `${
         authResult.user?.name || ""
       } (${login})`;
+
+      // кэшируем авторизацию, чтобы не логиниться после обновления страницы
+      saveAuthCache(login);
+
 
       renderLineTabs();
       updateLineToggleUI();
