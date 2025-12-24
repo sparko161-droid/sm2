@@ -29,66 +29,6 @@ let LOCAL_TZ_OFFSET_MIN = 4 * 60; // GMT+4
 // Загрузка конфигурации из config.json (с фолбеком на дефолты)
 // -------------------------------
 const DEFAULT_APP_CONFIG = {
-  graphHookUrl: GRAPH_HOOK_URL,
-  pyrus: {
-    catalogs: { shifts: 281369 },
-    forms: { otpusk: 2348174, smeni: 2375272 },
-    fields: {
-      otpusk: { person: 1, period: 2 },
-      smeni: { line: 1, template: 10, person: 8, due: 4, amount: 5 },
-    },
-  },
-  departments: {
-    byLine: {
-      L1: [108368027],
-      L2: [108368026, 171248779, 171248780],
-      OV: [80208117],
-      OP: [108368021, 157753518, 157753516],
-      OU: [108368030],
-      AI: [166353950],
-    },
-    orderByLine: {
-      L2: [108368026, 171248779, 171248780],
-      OP: [108368021, 157753518, 157753516],
-    },
-  },
-  timezone: { localOffsetMin: LOCAL_TZ_OFFSET_MIN },
-  ui: {
-    lines: {
-      order: ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"],
-      labels: { ALL: "ВСЕ", OP: "OP", OV: "OV", L1: "L1", L2: "L2", AI: "AI", OU: "OU" },
-    },
-  },
-  management: {
-    topManagementIds: [1167305, 314287],
-  },
-  pyrusLineItemIdByLine: {
-    L2: 157816613,
-    L1: 165474029,
-    OV: 157816614,
-    OU: 157816622,
-    AI: 168065907,
-    OP: 157816621,
-  },
-  storage: {
-    keys: {
-      localChanges: "sm1_local_changes",
-      changeHistory: "sm1_change_history",
-      theme: "sm1_theme_preference",
-    },
-    auth: {
-      key: "sm_graph_auth_v1",
-      ttlMs: 7 * 24 * 60 * 60 * 1000,
-      cookieDays: 7,
-    },
-  },
-  calendar: {
-    prodCal: {
-      ttlMs: 30 * 24 * 60 * 60 * 1000,
-      urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
-      cacheKeyPrefix: "prodcal_ru_",
-    },
-  },
 };
 
 let APP_CONFIG = DEFAULT_APP_CONFIG;
