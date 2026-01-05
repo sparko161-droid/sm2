@@ -168,6 +168,23 @@ const scheduleCacheByLine = {
 
 const STORAGE_KEYS = config.storage.keys;
 
+const CALENDAR_THEME_VAR_MAP = {
+  tableHeaderDayoffBg: "--table-header-dayoff-bg",
+  tableHeaderPreholidayBg: "--table-header-preholiday-bg",
+  calendarHolidayBg: "--calendar-holiday-bg",
+  calendarHolidayBorder: "--calendar-holiday-border",
+  calendarWeekendBg: "--calendar-weekend-bg",
+  calendarPreholidayBg: "--calendar-preholiday-bg",
+  calendarPreholidayDash: "--calendar-preholiday-dash",
+  weekendBg: "--weekend-bg",
+  weekendStrong: "--weekend-strong",
+};
+
+const CALENDAR_INDICATOR_VAR_MAP = {
+  birthdayBg: "--indicator-birthday-bg",
+  birthdayText: "--indicator-birthday-text",
+};
+
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -734,6 +751,8 @@ function persistChangeHistory() {
 }
 
 function initTheme() {
+  applyThemeConfigVariables();
+
   const storedTheme = localStorage.getItem(STORAGE_KEYS.theme);
   const preferredTheme = storedTheme === "light" ? "light" : "dark";
   applyTheme(preferredTheme);
@@ -756,6 +775,58 @@ function applyTheme(theme) {
   if (typeof ShiftColors !== 'undefined' && ShiftColors.applyTheme) {
     ShiftColors.applyTheme(theme);
   }
+}
+
+function applyThemeConfigVariables() {
+  const calendarColors = config.calendar?.colors ?? {};
+  const calendarIndicators = config.calendar?.indicators ?? {};
+
+  const lightVars = [
+    buildCssVarBlock(calendarColors.light, CALENDAR_THEME_VAR_MAP),
+    buildCssVarBlock(calendarIndicators, CALENDAR_INDICATOR_VAR_MAP),
+  ]
+    .filter(Boolean)
+    .join("\n  ");
+
+  const darkVars = [
+    buildCssVarBlock(calendarColors.dark, CALENDAR_THEME_VAR_MAP),
+    buildCssVarBlock(calendarIndicators, CALENDAR_INDICATOR_VAR_MAP),
+  ]
+    .filter(Boolean)
+    .join("\n  ");
+
+  if (!lightVars && !darkVars) return;
+
+  const styleLines = [];
+  if (lightVars) {
+    styleLines.push(`:root {\n  ${lightVars}\n}`);
+  }
+  if (darkVars) {
+    styleLines.push(`:root[data-theme="dark"] {\n  ${darkVars}\n}`);
+  }
+
+  const styleId = "theme-config-vars";
+  let styleEl = document.getElementById(styleId);
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = styleId;
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = styleLines.join("\n");
+}
+
+function buildCssVarBlock(source, map) {
+  if (!source || typeof source !== "object") return "";
+  const lines = [];
+
+  for (const [key, cssVar] of Object.entries(map)) {
+    const value = source[key];
+    if (value) {
+      lines.push(`${cssVar}: ${value};`);
+    }
+  }
+
+  return lines.join("\n  ");
 }
 
 function updateThemeToggleUI() {

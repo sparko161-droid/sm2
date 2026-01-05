@@ -87,6 +87,34 @@ const DEFAULT_CONFIG = {
       urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}&pre=1&holiday=1",
       cacheKeyPrefix: "prodcal_ru_",
     },
+    colors: {
+      light: {
+        tableHeaderDayoffBg: "#ead5d5",
+        tableHeaderPreholidayBg: "#f3e0e0",
+        calendarHolidayBg: "#fadddd",
+        calendarHolidayBorder: "#e06b6b",
+        calendarWeekendBg: "#f2e8e8",
+        calendarPreholidayBg: "#fff4cc",
+        calendarPreholidayDash: "#3a3522",
+        weekendBg: "rgba(200, 0, 0, 0.12)",
+        weekendStrong: "rgba(200, 0, 0, 0.25)",
+      },
+      dark: {
+        tableHeaderDayoffBg: "#3b2121",
+        tableHeaderPreholidayBg: "#332525",
+        calendarHolidayBg: "#4a2323",
+        calendarHolidayBorder: "#c45a5a",
+        calendarWeekendBg: "#332626",
+        calendarPreholidayBg: "#e6c65c",
+        calendarPreholidayDash: "#d1b84d",
+        weekendBg: "rgba(255, 75, 75, 0.15)",
+        weekendStrong: "rgba(255, 75, 75, 0.28)",
+      },
+    },
+    indicators: {
+      birthdayBg: "#ff2b2b",
+      birthdayText: "#000000",
+    },
   },
 };
 
@@ -129,6 +157,10 @@ function normalizeConfig(config) {
   const management = root.management ?? {};
   const calendar = root.calendar ?? {};
   const prodCal = calendar.prodCal ?? {};
+  const calendarColors = calendar.colors ?? {};
+  const calendarColorsLight = calendarColors.light ?? {};
+  const calendarColorsDark = calendarColors.dark ?? {};
+  const calendarIndicators = calendar.indicators ?? {};
 
   return {
     ...DEFAULT_CONFIG,
@@ -222,6 +254,22 @@ function normalizeConfig(config) {
       prodCal: {
         ...DEFAULT_CONFIG.calendar.prodCal,
         ...prodCal,
+      },
+      colors: {
+        ...DEFAULT_CONFIG.calendar.colors,
+        ...calendarColors,
+        light: {
+          ...DEFAULT_CONFIG.calendar.colors.light,
+          ...calendarColorsLight,
+        },
+        dark: {
+          ...DEFAULT_CONFIG.calendar.colors.dark,
+          ...calendarColorsDark,
+        },
+      },
+      indicators: {
+        ...DEFAULT_CONFIG.calendar.indicators,
+        ...calendarIndicators,
       },
     },
   };
