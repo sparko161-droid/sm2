@@ -2513,6 +2513,8 @@ function renderScheduleCurrentLine() {
   const { year, monthIndex } = state.monthMeta;
   const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
   const weekendDays = new Set(); // фактически "выходные дни" (по производственному календарю или фолбек СБ/ВС)
+  const holidayDays = new Set();
+  const preholidayDays = new Set();
 
   const prod = state.prodCalendar && state.prodCalendar.monthKey === monthKey ? state.prodCalendar : null;
 
@@ -2523,23 +2525,33 @@ function renderScheduleCurrentLine() {
     const dayType = prod && prod.dayTypeByDay ? prod.dayTypeByDay[day] : null;
     const isFallbackWeekend = weekday === "Сб" || weekday === "Вс";
 
-    const isDayOff = dayType === 1 || (dayType == null && isFallbackWeekend);
+    const isWeekend = dayType === 1 || (dayType == null && isFallbackWeekend);
+    const isHoliday = dayType === 8;
     const isPreHoliday = dayType === 2;
+    const isWorkday = dayType === 0 || dayType === 4 || (dayType == null && !isFallbackWeekend);
 
     const th1 = document.createElement("th");
     th1.textContent = String(day);
-    if (isDayOff) th1.classList.add("day-off");
-    if (isPreHoliday) th1.classList.add("pre-holiday");
+    if (isWeekend) th1.classList.add("day-weekend");
+    if (isHoliday) th1.classList.add("day-holiday");
+    if (isPreHoliday) th1.classList.add("day-preholiday");
     headRow1.appendChild(th1);
 
     const th2 = document.createElement("th");
     th2.textContent = weekday;
     th2.className = "weekday-header";
-    if (isDayOff) {
-      th2.classList.add("day-off");
+    if (isWeekend) {
+      th2.classList.add("day-weekend");
       weekendDays.add(day);
     }
-    if (isPreHoliday) th2.classList.add("pre-holiday");
+    if (isHoliday) {
+      th2.classList.add("day-holiday");
+      holidayDays.add(day);
+    }
+    if (isPreHoliday) {
+      th2.classList.add("day-preholiday");
+      preholidayDays.add(day);
+    }
     headRow2.appendChild(th2);
   }
 
@@ -2663,7 +2675,13 @@ function renderScheduleCurrentLine() {
       const td = document.createElement("td");
       td.className = "shift-cell";
       if (weekendDays.has(dayNumber)) {
-        td.classList.add("day-off");
+        td.classList.add("day-weekend");
+      }
+      if (holidayDays.has(dayNumber)) {
+        td.classList.add("day-holiday");
+      }
+      if (preholidayDays.has(dayNumber)) {
+        td.classList.add("day-preholiday");
       }
 
       // Маркер дня рождения (один день). Показываем даже если в этот день есть смена.
