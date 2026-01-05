@@ -136,7 +136,7 @@
   "calendar": {
     "prodCal": {
       "ttlMs": 2592000000,
-      "urlTemplate": "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
+      "urlTemplate": "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}&pre=1&holiday=1",
       "cacheKeyPrefix": "prodcal_ru_"
     },
     "ui": {
