@@ -14,6 +14,11 @@
   --table-header-bg: #f1f1f2;
   --table-header-dayoff-bg: #ead5d5;
   --table-header-preholiday-bg: #f3e0e0;
+  --calendar-holiday-bg: #fadddd;
+  --calendar-holiday-border: #e06b6b;
+  --calendar-weekend-bg: #f2e8e8;
+  --calendar-preholiday-bg: #fff4cc;
+  --calendar-preholiday-dash: #3a3522;
   --sticky-bg: #ffffff;
   --summary-bg: #f9f9f9;
   --toolbar-bg: rgba(247, 247, 248, 0.95);
@@ -80,6 +85,11 @@ body.dark-theme {
   --table-header-bg: #1a1a1a;
   --table-header-dayoff-bg: #3b2121;
   --table-header-preholiday-bg: #332525;
+  --calendar-holiday-bg: #4a2323;
+  --calendar-holiday-border: #c45a5a;
+  --calendar-weekend-bg: #332626;
+  --calendar-preholiday-bg: #e6c65c;
+  --calendar-preholiday-dash: #d1b84d;
   --sticky-bg: #181818;
   --summary-bg: #1a1a1a;
   --toolbar-bg: rgba(17, 17, 17, 0.95);
@@ -489,6 +499,70 @@ body {
 
 .schedule-table .day-off {
   background: var(--weekend-bg);
+}
+
+.schedule-table th.day-holiday,
+.schedule-table td.day-holiday {
+  background: var(--calendar-holiday-bg);
+  border-color: var(--calendar-holiday-border);
+}
+
+.schedule-table thead th.day-holiday {
+  border-top: 1px solid var(--calendar-holiday-border);
+}
+
+.schedule-table th.day-weekend,
+.schedule-table td.day-weekend {
+  background: var(--calendar-weekend-bg);
+}
+
+.schedule-table th.day-preholiday,
+.schedule-table td.day-preholiday {
+  background: var(--calendar-preholiday-bg);
+}
+
+.schedule-table thead th.day-preholiday {
+  border-bottom: 1px dashed var(--calendar-preholiday-dash);
+}
+
+.schedule-table td.day-preholiday {
+  border-bottom: 1px dashed var(--calendar-preholiday-dash);
+}
+
+.schedule-table thead th.day-holiday,
+.schedule-table thead th.day-weekend,
+.schedule-table thead th.day-preholiday {
+  position: relative;
+}
+
+.schedule-table thead th.day-holiday::after,
+.schedule-table thead th.day-weekend::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.schedule-table thead th.day-holiday::after {
+  background: var(--calendar-holiday-border);
+}
+
+.schedule-table thead th.day-weekend::after {
+  background: var(--calendar-weekend-bg);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.schedule-table thead th.day-preholiday::after {
+  content: "◐";
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 6px;
+  line-height: 1;
+  color: var(--calendar-preholiday-dash);
 }
 
 /* предпраздничный (сокращённый рабочий день) — лёгкая метка */
