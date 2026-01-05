@@ -585,7 +585,7 @@ body {
 .schedule-table thead th.day-holiday,
 .schedule-table thead th.day-weekend,
 .schedule-table thead th.day-preholiday {
-  position: relative;
+  position: sticky;
 }
 
 .schedule-table thead th.day-holiday::after,
