@@ -2,7 +2,8 @@
 // Главный модуль SPA для графика смен L1/L2
 // Чистый vanilla JS.
 
-const { config, getConfigValue } = await import("./config.js");
+import { config, getConfigValue } from "./config.js";
+
 
 /**
  * Основные сущности:
