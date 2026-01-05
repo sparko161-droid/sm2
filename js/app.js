@@ -223,8 +223,88 @@ function canViewLine(line) {
 // -----------------------------
 
 const AUTH_STORAGE_KEY = config.storage.auth.key;
-const AUTH_TTL_MS = config.storage.auth.ttlMs; // 7 дней
+const AUTH_TTL_MS =
+  Number(config.storage.auth.sessionTtlMs ?? config.storage.auth.ttlMs) || 0; // 7 дней
 const AUTH_COOKIE_DAYS = config.storage.auth.cookieDays;
+
+let loginCooldownTimerId = null;
+let loginCooldownEndsAt = null;
+
+function setLoginErrorMessage(message) {
+  if (loginErrorEl) loginErrorEl.textContent = message || "";
+}
+
+function formatRetryAfter(seconds) {
+  const total = Math.max(1, Math.ceil(Number(seconds) || 0));
+  if (total < 60) return `${total} сек.`;
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  if (!secs) return `${mins} мин.`;
+  return `${mins} мин. ${secs} сек.`;
+}
+
+function startLoginCooldown(retryAfterSec) {
+  const seconds = Math.max(1, Math.ceil(Number(retryAfterSec) || 0));
+  if (!seconds || !loginButtonEl) return;
+  loginCooldownEndsAt = Date.now() + seconds * 1000;
+
+  if (loginCooldownTimerId) {
+    clearInterval(loginCooldownTimerId);
+    loginCooldownTimerId = null;
+  }
+
+  const updateCooldown = () => {
+    const remaining = Math.max(
+      0,
+      Math.ceil((loginCooldownEndsAt - Date.now()) / 1000)
+    );
+    if (remaining <= 0) {
+      clearInterval(loginCooldownTimerId);
+      loginCooldownTimerId = null;
+      loginCooldownEndsAt = null;
+      loginButtonEl.disabled = false;
+      return;
+    }
+    loginButtonEl.disabled = true;
+    setLoginErrorMessage(
+      `Слишком много попыток. Попробуйте через ${formatRetryAfter(remaining)}`
+    );
+  };
+
+  updateCooldown();
+  loginCooldownTimerId = setInterval(updateCooldown, 1000);
+}
+
+function clearLoginCooldown() {
+  if (loginCooldownTimerId) {
+    clearInterval(loginCooldownTimerId);
+    loginCooldownTimerId = null;
+  }
+  loginCooldownEndsAt = null;
+  if (loginButtonEl) loginButtonEl.disabled = false;
+}
+
+function getFriendlyAuthErrorMessage(err) {
+  if (!err) return "Ошибка авторизации";
+
+  if (err.retryAfterSec) {
+    return `Слишком много попыток. Попробуйте через ${formatRetryAfter(err.retryAfterSec)}`;
+  }
+
+  if (err.status === 401 || err.status === 403) {
+    return "Неверный логин или пароль.";
+  }
+
+  const message = err.message || "";
+  if (message.includes("ACCESS_GRANTED")) {
+    return "Неверный логин или пароль.";
+  }
+  if (message.toLowerCase().includes("failed to fetch")) {
+    return "Не удалось подключиться к серверу. Проверьте соединение и попробуйте снова.";
+  }
+
+  return message || "Ошибка авторизации";
+}
 
 
 function setCookie(name, value, days) {
@@ -487,10 +567,45 @@ async function callGraphApi(type, payload) {
     body: JSON.stringify({ type, ...payload }),
   });
 
+  const contentType = res.headers.get("content-type") || "";
+
   if (!res.ok) {
+    let body = null;
+    let text = "";
+
+    if (contentType.includes("application/json")) {
+      try {
+        body = await res.json();
+      } catch (_) {
+        body = null;
+      }
+    } else {
+      text = await res.text().catch(() => "");
+    }
+
+    const retryAfterHeader = res.headers.get("retry-after");
+    const retryAfterSec = Number(retryAfterHeader) || 0;
+    const errorPayload = body?.error ?? body ?? {};
+    const message =
+      (typeof errorPayload === "string" && errorPayload) ||
+      errorPayload.message ||
+      body?.message ||
+      text ||
+      `Ошибка HTTP ${res.status}: ${res.statusText || ""}`;
+
+    const error = new Error(message);
+    error.status = res.status;
+    error.code = errorPayload.code || body?.code;
+    error.retryAfterSec =
+      Number(errorPayload.retryAfterSec || body?.retryAfterSec) || retryAfterSec || 0;
+
+    throw error;
+  }
+
+  if (!contentType.includes("application/json")) {
     const text = await res.text().catch(() => "");
     throw new Error(
-      `Ошибка HTTP ${res.status}: ${res.statusText || ""}\n${text}`
+      `Некорректный ответ сервера (ожидался JSON): ${text || "пустой ответ"}`
     );
   }
 
@@ -501,7 +616,12 @@ async function auth(login, password) {
   const result = await callGraphApi("auth", { login, password });
 
   if (!result || result.status !== "ACCESS_GRANTED") {
-    throw new Error("Доступ запрещён (status != ACCESS_GRANTED)");
+    const error = new Error(
+      result?.message || "Доступ запрещён (status != ACCESS_GRANTED)"
+    );
+    if (result?.retryAfterSec) error.retryAfterSec = result.retryAfterSec;
+    if (result?.code) error.code = result.code;
+    throw error;
   }
 
   state.auth.user = result.user || null;
@@ -696,7 +816,7 @@ async function init() {
       clearAuthCache();
       mainScreenEl.classList.add("hidden");
       loginScreenEl?.classList.remove("hidden");
-      if (loginErrorEl) loginErrorEl.textContent = "Сессия истекла — войдите снова";
+      setLoginErrorMessage("Сессия истекла — войдите снова");
     });
   }
 }
@@ -1182,7 +1302,8 @@ function openEmployeeFilterPopover({
 function bindLoginForm() {
   const handleLogin = async (e) => {
     e.preventDefault();
-    loginErrorEl.textContent = "";
+    setLoginErrorMessage("");
+    clearLoginCooldown();
 
     if (!loginFormEl) return;
     const btn = loginFormEl.querySelector("button[type=submit]") || loginButtonEl;
@@ -1191,8 +1312,15 @@ function bindLoginForm() {
     const login = loginInputEl.value.trim();
     const password = passwordInputEl.value;
 
+    if (!login || !password) {
+      setLoginErrorMessage("Введите логин и пароль.");
+      if (btn) btn.disabled = false;
+      return;
+    }
+
     try {
       const authResult = await auth(login, password);
+      clearLoginCooldown();
       currentUserLabelEl.textContent = `${
         authResult.user?.name || ""
       } (${login})`;
@@ -1215,9 +1343,12 @@ function bindLoginForm() {
       await loadInitialData();
     } catch (err) {
       console.error("Auth error:", err);
-      loginErrorEl.textContent = err.message || "Ошибка авторизации";
+      if (err.retryAfterSec) {
+        startLoginCooldown(err.retryAfterSec);
+      }
+      setLoginErrorMessage(getFriendlyAuthErrorMessage(err));
     } finally {
-      if (btn) btn.disabled = false;
+      if (btn && !loginCooldownEndsAt) btn.disabled = false;
     }
   };
 
@@ -1272,7 +1403,8 @@ function bindTopBarButtons() {
     state.auth.permissions = { ALL: "view", OP: "view", OV: "view", OU: "view", AI: "view", L1: "view", L2: "view" };
     mainScreenEl?.classList.add("hidden");
     loginScreenEl?.classList.remove("hidden");
-    if (loginErrorEl) loginErrorEl.textContent = "";
+    clearLoginCooldown();
+    setLoginErrorMessage("");
     updateLineToggleUI();
   });
 btnPrevMonthEl.addEventListener("click", () => {
