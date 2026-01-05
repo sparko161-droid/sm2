@@ -1,14 +1,14 @@
 // js/ui/shiftEditor.js
-import { config, getConfigValue } from "../config.js";
+import { getConfigValue } from "../config.js";
 
-const TIMEZONE_OFFSET_MIN =
-  config.timezone?.localOffsetMin ??
-  getConfigValue("timezone.localOffsetMin", {
-    defaultValue: 4 * 60,
-    required: true,
-  });
+const TIMEZONE_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+});
 
 function formatTimezoneLabel(offsetMin) {
+  if (!Number.isFinite(offsetMin)) return "локальное время";
+
   const sign = offsetMin >= 0 ? "+" : "-";
   const absMin = Math.abs(offsetMin);
   const hours = Math.floor(absMin / 60);
@@ -21,6 +21,7 @@ function formatTimezoneLabel(offsetMin) {
 }
 
 const TIMEZONE_LABEL = formatTimezoneLabel(TIMEZONE_OFFSET_MIN);
+
 
 
 /**
@@ -55,6 +56,13 @@ let amountEl = null;
 let errorEl = null;
 
 let currentCtx = null;
+
+function updateTimezoneLabel() {
+  if (!backdropEl) return;
+  const labelEl = backdropEl.querySelector("#shift-editor-timezone-label");
+  if (!labelEl) return;
+  labelEl.textContent = `Время смены (${TIMEZONE_LABEL})`;
+}
 
 export function initShiftEditor({ getShiftsForLine, onApply }) {
   getShiftsForLineFn = getShiftsForLine;

@@ -27,10 +27,6 @@ export function getConfig() {
   return cachedConfig || DEFAULT_CONFIG;
 }
 
-export function getTimezoneOffsetMin() {
-  return getConfig().timezone.localOffsetMin;
-}
-
 export async function loadConfig() {
   if (cachedConfig) return cachedConfig;
   if (configPromise) return configPromise;

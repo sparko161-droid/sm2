@@ -19,7 +19,11 @@ const GRAPH_HOOK_URL = getConfigValue("graphHookUrl", { required: true });
 const MAX_DAYS_IN_MONTH = 31;
 
 // Бизнес-часовой пояс (по умолчанию GMT+4)
-const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", { required: true }); // GMT+4
+const TIMEZONE_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+}); // GMT+4
+
 
 
 // -----------------------------
@@ -335,7 +339,7 @@ function convertUtcStartToLocalRange(utcIsoString, durationMinutes) {
   const startUtc = new Date(utcIsoString);
   if (Number.isNaN(startUtc.getTime())) return null;
 
-  const startLocalMs = startUtc.getTime() + LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+  const startLocalMs = startUtc.getTime() + TIMEZONE_OFFSET_MIN * 60 * 1000;
   const startLocalDate = new Date(startLocalMs);
 
   const startHH = String(startLocalDate.getUTCHours()).padStart(2, "0");
@@ -395,8 +399,7 @@ function convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLo
     if (startMin == null) return null;
     const hhNum = Math.floor(startMin / 60);
     const mmNum = startMin % 60;
-
-    const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+    const offsetMs = TIMEZONE_OFFSET_MIN * 60 * 1000;
     const baseUtcMs = Date.UTC(y, m, d, hhNum, mmNum);
     if (!Number.isFinite(baseUtcMs)) return null;
 
@@ -2145,7 +2148,8 @@ async function loadVacationsForMonth(year, monthIndex) {
   const tasks = (wrapper && wrapper.tasks) || [];
 
   const vacationsByEmployee = Object.create(null);
-  const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+  const offsetMs = TIMEZONE_OFFSET_MIN * 60 * 1000;
+
 
   const monthStartShiftedMs = Date.UTC(year, monthIndex, 1, 0, 0, 0, 0);
   const monthEndShiftedMs = Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0);
