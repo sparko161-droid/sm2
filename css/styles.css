@@ -502,7 +502,7 @@ body {
 
 /* Заголовки таблицы — тип дня */
 .schedule-table thead th.day-workday {
-  background: var(--calendar-workday-bg);
+  background: var(--table-header-bg);
 }
 
 .schedule-table thead th.day-weekend {
