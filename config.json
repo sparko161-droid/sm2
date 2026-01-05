@@ -17,7 +17,7 @@
         "person": 8,
         "due": 4,
         "amount": 5,
-        "shift": 10
+        "template": 10
       }
     }
   },
