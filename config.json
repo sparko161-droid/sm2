@@ -1,59 +1,83 @@
 {
-  "graphHookUrl": "https://quumahienot.beget.app/webhook/pyrus/graph",
+  "graphHookUrl": "https://jolikcisout.beget.app/webhook/pyrus/graph",
   "pyrus": {
     "catalogs": {
-      "shifts": 283386
+      "shifts": 281369
     },
     "forms": {
-      "otpusk": 2383799,
-      "smeni": 2383802
+      "otpusk": 2348174,
+      "smeni": 2375272
     },
     "fields": {
       "otpusk": {
-        "person": 2,
-        "period": 1
+        "person": 1,
+        "period": 2
       },
       "smeni": {
-        "line": 1,
-        "template": 7,
         "person": 8,
-        "due": 5,
-        "amount": 6
+        "due": 4,
+        "amount": 5,
+        "shift": 10
       }
     }
   },
   "departments": {
     "byLine": {
       "L1": [
-        
+        108368027
       ],
       "L2": [
-        167976424
+        108368026,
+        171248779,
+        171248780
       ],
       "OV": [
-        174349984
+        80208117
       ],
       "OP": [
-        170374055
+        108368021,
+        157753518,
+        157753516
       ],
       "OU": [
-        168659098
+        108368030
       ],
       "AI": [
-        
+        166353950
       ]
     },
     "orderByLine": {
       "L2": [
-        167976424
+        108368026,
+        171248779,
+        171248780
       ],
       "OP": [
-        170374055
+        108368021,
+        157753518,
+        157753516
+      ]
+    },
+    "byName": {
+      "L1": [
+        "Операторы"
+      ],
+      "L2": [
+        "Инженера 5/2",
+        "Инженера 2/2",
+        "Инженеры"
+      ]
+    },
+    "orderByName": {
+      "L2": [
+        "Инженеры",
+        "Инженера 5/2",
+        "Инженера 2/2"
       ]
     }
   },
   "timezone": {
-    "localOffsetMin": 180
+    "localOffsetMin": 240
   },
   "ui": {
     "lines": {
@@ -61,35 +85,47 @@
         "ALL",
         "OP",
         "OV",
-        "L2"
+        "L1",
+        "L2",
+        "AI",
+        "OU"
       ],
       "labels": {
         "ALL": "ВСЕ",
-        "OP": "ОП",
-        "OV": "ПНР",
-        "L2": "ТП"
+        "OP": "OP",
+        "OV": "OV",
+        "L1": "L1",
+        "L2": "L2",
+        "AI": "AI",
+        "OU": "OU"
       }
     }
   },
   "management": {
     "topManagementIds": [
-      1194300,
-      1194304
+      1167305,
+      314287
     ]
   },
   "pyrusLineItemIdByLine": {
-    "L2": 174347209,
-    "L1": 174347208,
-    "OV": 174347211,
-    "OU": 174347216,
-    "AI": 174347217,
-    "OP": 174347212
+    "L2": 157816613,
+    "L1": 165474029,
+    "OV": 157816614,
+    "OU": 157816622,
+    "AI": 168065907,
+    "OP": 157816621
   },
   "storage": {
     "keys": {
       "localChanges": "sm1_local_changes",
       "changeHistory": "sm1_change_history",
-      "theme": "sm1_theme_preference"
+      "theme": "sm1_theme_preference",
+      "currentLine": "sm1_current_line",
+      "employeeFilters": "sm1_employee_filters",
+      "cachedEmployees": "sm1_cached_employees",
+      "cachedShiftTemplates": "sm1_cached_shift_templates",
+      "cachedSchedulePrefix": "sm1_cached_schedule_",
+      "shiftDrafts": "graph_l1l2_shift_drafts_v1"
     },
     "auth": {
       "key": "sm_graph_auth_v1",

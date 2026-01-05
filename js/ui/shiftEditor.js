@@ -1,6 +1,25 @@
 // js/ui/shiftEditor.js
+import { getConfigValue } from "../config.js";
 
-import { getTimezoneOffsetMin, loadConfig } from "../state/config.js";
+const TIMEZONE_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+});
+
+function formatTimezoneLabel(offsetMin) {
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const absMin = Math.abs(offsetMin);
+  const hours = Math.floor(absMin / 60);
+  const minutes = absMin % 60;
+
+  if (minutes === 0) {
+    return `GMT${sign}${hours}`;
+  }
+  return `GMT${sign}${hours}:${String(minutes).padStart(2, "0")}`;
+}
+
+const TIMEZONE_LABEL = formatTimezoneLabel(TIMEZONE_OFFSET_MIN);
+
 
 /**
  * Панель редактирования смены.
@@ -81,13 +100,26 @@ export function initShiftEditor({ getShiftsForLine, onApply }) {
         <div class="shift-editor-row">
           <label for="shift-editor-select">Шаблон смены</label>
           <select id="shift-editor-select"></select>
-        </div>
-        <div class="shift-editor-row">
-          <label id="shift-editor-timezone-label">${timezoneLabel}</label>
-          <div style="display:flex; gap:6px;">
-            <input id="shift-editor-start" type="time" min="00:00" max="23:59" style="flex:1;" />
-            <input id="shift-editor-end" type="time" min="00:00" max="23:59" style="flex:1;" />
-          </div>
+</div>
+<div class="shift-editor-row">
+  <label>Время смены (локальное ${TIMEZONE_LABEL})</label>
+  <div style="display:flex; gap:6px;">
+    <input
+      id="shift-editor-start"
+      type="time"
+      min="00:00"
+      max="23:59"
+      style="flex:1;"
+    />
+    <input
+      id="shift-editor-end"
+      type="time"
+      min="00:00"
+      max="23:59"
+      style="flex:1;"
+    />
+  </div>
+
         </div>
         <div class="shift-editor-row">
           <label for="shift-editor-amount">Сумма за смену, ₽</label>

@@ -1,6 +1,27 @@
 // js/api/scheduleFromPyrus.js
 import { pyrusFetch } from "./pyrusAuth.js";
-import { getTimezoneOffsetMin, loadConfig } from "../state/config.js";
+import { getConfigValue } from "../config.js";
+
+// Бизнес-часовой пояс (по умолчанию GMT+4)
+const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+});
+
+const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+
+
+const PYRUS_FORM_IDS = getConfigValue("pyrus.forms", {
+  defaultValue: { smeni: 2375272 },
+  required: true,
+});
+
+const PYRUS_FIELD_IDS = getConfigValue("pyrus.fields", {
+  defaultValue: {
+    smeni: { due: 4, amount: 5, person: 8, shift: 10 },
+  },
+  required: true,
+});
 
 /**
  * Загружаем реестр задач формы 2375272 и строим карту графика на месяц.
@@ -26,11 +47,23 @@ import { getTimezoneOffsetMin, loadConfig } from "../state/config.js";
  * }
  */
 export async function loadScheduleForMonth(year, month0, employees, shifts) {
-  await loadConfig();
+import { getConfigValue } from "../config.js";
 
-  const localOffsetMin = getTimezoneOffsetMin();
-  const localOffsetMs = localOffsetMin * 60 * 1000;
-  const res = await pyrusFetch("/forms/2375272/register", { method: "GET" });
+const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+});
+const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+
+const scheduleFormId = getConfigValue("pyrus.forms.smeni", {
+  defaultValue: 2375272,
+  required: true,
+});
+
+const res = await pyrusFetch(`/forms/${scheduleFormId}/register`, {
+  method: "GET",
+});
+
   const json = await res.json();
 
   const wrapper = Array.isArray(json) ? json[0] : json;
@@ -41,10 +74,42 @@ export async function loadScheduleForMonth(year, month0, employees, shifts) {
   for (const task of tasks) {
     const fields = task.fields || [];
 
-    const dueField = fields.find((f) => f.id === 4 && f.type === "due_date_time");
-    const moneyField = fields.find((f) => f.id === 5 && f.type === "money");
-    const personField = fields.find((f) => f.id === 8 && f.type === "person");
-    const shiftField = fields.find((f) => f.id === 10 && f.type === "catalog");
+import { getConfigValue } from "../config.js";
+
+const dueFieldId = getConfigValue("pyrus.fields.smeni.due", {
+  defaultValue: 4,
+  required: true,
+});
+
+const moneyFieldId = getConfigValue("pyrus.fields.smeni.amount", {
+  defaultValue: 5,
+  required: true,
+});
+
+const personFieldId = getConfigValue("pyrus.fields.smeni.person", {
+  defaultValue: 8,
+  required: true,
+});
+
+const shiftFieldId = getConfigValue("pyrus.fields.smeni.template", {
+  defaultValue: 10,
+  required: true,
+});
+
+const dueField = fields.find(
+  (f) => f.id === dueFieldId && f.type === "due_date_time"
+);
+const moneyField = fields.find(
+  (f) => f.id === moneyFieldId && f.type === "money"
+);
+const personField = fields.find(
+  (f) => f.id === personFieldId && f.type === "person"
+);
+const shiftField = fields.find(
+  (f) => f.id === shiftFieldId && f.type === "catalog"
+);
+
+    );
 
     if (!dueField || !personField || !shiftField || !shiftField.value) continue;
 
