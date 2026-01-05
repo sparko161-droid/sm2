@@ -58,6 +58,7 @@ const DEFAULT_CONFIG = {
     },
     auth: {
       key: "sm_graph_auth_v1",
+      sessionTtlMs: 7 * 24 * 60 * 60 * 1000,
       ttlMs: 7 * 24 * 60 * 60 * 1000,
       cookieDays: 7,
     },

@@ -163,6 +163,7 @@
     },
     "auth": {
       "key": "sm_graph_auth_v1",
+      "sessionTtlMs": 604800000,
       "ttlMs": 604800000,
       "cookieDays": 7
     }
