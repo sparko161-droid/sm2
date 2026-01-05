@@ -138,6 +138,62 @@
       "ttlMs": 2592000000,
       "urlTemplate": "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
       "cacheKeyPrefix": "prodcal_ru_"
+    },
+    "ui": {
+      "light": {
+        "workday": {
+          "background": "transparent",
+          "border": "var(--table-border-strong)",
+          "dash": "transparent"
+        },
+        "weekend": {
+          "background": "#f2e8e8",
+          "border": "var(--table-border-strong)",
+          "dash": "transparent"
+        },
+        "holiday": {
+          "background": "#fadddd",
+          "border": "#e06b6b",
+          "dash": "transparent"
+        },
+        "preholiday": {
+          "background": "#fff4cc",
+          "border": "var(--table-border-strong)",
+          "dash": "#3a3522"
+        },
+        "microIndicators": {
+          "weekend": "#f2e8e8",
+          "holiday": "#e06b6b",
+          "preholiday": "#3a3522"
+        }
+      },
+      "dark": {
+        "workday": {
+          "background": "transparent",
+          "border": "var(--table-border-strong)",
+          "dash": "transparent"
+        },
+        "weekend": {
+          "background": "#332626",
+          "border": "var(--table-border-strong)",
+          "dash": "transparent"
+        },
+        "holiday": {
+          "background": "#4a2323",
+          "border": "#c45a5a",
+          "dash": "transparent"
+        },
+        "preholiday": {
+          "background": "#e6c65c",
+          "border": "var(--table-border-strong)",
+          "dash": "#d1b84d"
+        },
+        "microIndicators": {
+          "weekend": "#332626",
+          "holiday": "#c45a5a",
+          "preholiday": "#d1b84d"
+        }
+      }
     }
   }
 }
