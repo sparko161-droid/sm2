@@ -87,62 +87,68 @@ const DEFAULT_CONFIG = {
       urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}&pre=1&holiday=1",
       cacheKeyPrefix: "prodcal_ru_",
     },
-    ui: {
-      light: {
-        workday: {
-          background: "transparent",
-          border: "var(--table-border-strong)",
-          dash: "transparent",
-        },
-        weekend: {
-          background: "#f2e8e8",
-          border: "var(--table-border-strong)",
-          dash: "transparent",
-        },
-        holiday: {
-          background: "#fadddd",
-          border: "#e06b6b",
-          dash: "transparent",
-        },
-        preholiday: {
-          background: "#fff4cc",
-          border: "var(--table-border-strong)",
-          dash: "#3a3522",
-        },
-        microIndicators: {
-          weekend: "#f2e8e8",
-          holiday: "#e06b6b",
-          preholiday: "#3a3522",
-        },
-      },
-      dark: {
-        workday: {
-          background: "transparent",
-          border: "var(--table-border-strong)",
-          dash: "transparent",
-        },
-        weekend: {
-          background: "#332626",
-          border: "var(--table-border-strong)",
-          dash: "transparent",
-        },
-        holiday: {
-          background: "#4a2323",
-          border: "#c45a5a",
-          dash: "transparent",
-        },
-        preholiday: {
-          background: "#e6c65c",
-          border: "var(--table-border-strong)",
-          dash: "#d1b84d",
-        },
-        microIndicators: {
-          weekend: "#332626",
-          holiday: "#c45a5a",
-          preholiday: "#d1b84d",
-        },
-      },
+ui: {
+  light: {
+    workday: {
+      background: "transparent",
+      border: "var(--table-border-strong)",
+      dash: "transparent",
     },
+    weekend: {
+      background: "#f2e8e8",
+      border: "var(--table-border-strong)",
+      dash: "transparent",
+    },
+    holiday: {
+      background: "#fadddd",
+      border: "#e06b6b",
+      dash: "transparent",
+    },
+    preholiday: {
+      background: "#fff4cc",
+      border: "var(--table-border-strong)",
+      dash: "#3a3522",
+    },
+    microIndicators: {
+      weekend: "#f2e8e8",
+      holiday: "#e06b6b",
+      preholiday: "#3a3522",
+    },
+  },
+  dark: {
+    workday: {
+      background: "transparent",
+      border: "var(--table-border-strong)",
+      dash: "transparent",
+    },
+    weekend: {
+      background: "#332626",
+      border: "var(--table-border-strong)",
+      dash: "transparent",
+    },
+    holiday: {
+      background: "#4a2323",
+      border: "#c45a5a",
+      dash: "transparent",
+    },
+    preholiday: {
+      background: "#e6c65c",
+      border: "var(--table-border-strong)",
+      dash: "#d1b84d",
+    },
+    microIndicators: {
+      weekend: "#332626",
+      holiday: "#c45a5a",
+      preholiday: "#d1b84d",
+    },
+  },
+},
+
+indicators: {
+  birthdayBg: "#ff2b2b",
+  birthdayText: "#000000",
+},
+
   },
 };
 
@@ -185,19 +191,22 @@ function normalizeConfig(config) {
   const management = root.management ?? {};
   const calendar = root.calendar ?? {};
   const prodCal = calendar.prodCal ?? {};
-  const calendarUi = calendar.ui ?? {};
-  const calendarUiLight = calendarUi.light ?? {};
-  const calendarUiDark = calendarUi.dark ?? {};
-  const calendarUiLightWorkday = calendarUiLight.workday ?? {};
-  const calendarUiLightWeekend = calendarUiLight.weekend ?? {};
-  const calendarUiLightHoliday = calendarUiLight.holiday ?? {};
-  const calendarUiLightPreholiday = calendarUiLight.preholiday ?? {};
-  const calendarUiLightMicro = calendarUiLight.microIndicators ?? {};
-  const calendarUiDarkWorkday = calendarUiDark.workday ?? {};
-  const calendarUiDarkWeekend = calendarUiDark.weekend ?? {};
-  const calendarUiDarkHoliday = calendarUiDark.holiday ?? {};
-  const calendarUiDarkPreholiday = calendarUiDark.preholiday ?? {};
-  const calendarUiDarkMicro = calendarUiDark.microIndicators ?? {};
+const calendarUi = calendar.ui ?? {};
+const calendarUiLight = calendarUi.light ?? {};
+const calendarUiDark = calendarUi.dark ?? {};
+
+const calendarUiLightWorkday = calendarUiLight.workday ?? {};
+const calendarUiLightWeekend = calendarUiLight.weekend ?? {};
+const calendarUiLightHoliday = calendarUiLight.holiday ?? {};
+const calendarUiLightPreholiday = calendarUiLight.preholiday ?? {};
+const calendarUiLightMicro = calendarUiLight.microIndicators ?? {};
+
+const calendarUiDarkWorkday = calendarUiDark.workday ?? {};
+const calendarUiDarkWeekend = calendarUiDark.weekend ?? {};
+const calendarUiDarkHoliday = calendarUiDark.holiday ?? {};
+const calendarUiDarkPreholiday = calendarUiDark.preholiday ?? {};
+const calendarUiDarkMicro = calendarUiDark.microIndicators ?? {};
+
 
   return {
     ...DEFAULT_CONFIG,
@@ -292,58 +301,64 @@ function normalizeConfig(config) {
         ...DEFAULT_CONFIG.calendar.prodCal,
         ...prodCal,
       },
-      ui: {
-        ...DEFAULT_CONFIG.calendar.ui,
-        ...calendarUi,
-        light: {
-          ...DEFAULT_CONFIG.calendar.ui.light,
-          ...calendarUiLight,
-          workday: {
-            ...DEFAULT_CONFIG.calendar.ui.light.workday,
-            ...calendarUiLightWorkday,
-          },
-          weekend: {
-            ...DEFAULT_CONFIG.calendar.ui.light.weekend,
-            ...calendarUiLightWeekend,
-          },
-          holiday: {
-            ...DEFAULT_CONFIG.calendar.ui.light.holiday,
-            ...calendarUiLightHoliday,
-          },
-          preholiday: {
-            ...DEFAULT_CONFIG.calendar.ui.light.preholiday,
-            ...calendarUiLightPreholiday,
-          },
-          microIndicators: {
-            ...DEFAULT_CONFIG.calendar.ui.light.microIndicators,
-            ...calendarUiLightMicro,
-          },
-        },
-        dark: {
-          ...DEFAULT_CONFIG.calendar.ui.dark,
-          ...calendarUiDark,
-          workday: {
-            ...DEFAULT_CONFIG.calendar.ui.dark.workday,
-            ...calendarUiDarkWorkday,
-          },
-          weekend: {
-            ...DEFAULT_CONFIG.calendar.ui.dark.weekend,
-            ...calendarUiDarkWeekend,
-          },
-          holiday: {
-            ...DEFAULT_CONFIG.calendar.ui.dark.holiday,
-            ...calendarUiDarkHoliday,
-          },
-          preholiday: {
-            ...DEFAULT_CONFIG.calendar.ui.dark.preholiday,
-            ...calendarUiDarkPreholiday,
-          },
-          microIndicators: {
-            ...DEFAULT_CONFIG.calendar.ui.dark.microIndicators,
-            ...calendarUiDarkMicro,
-          },
-        },
-      },
+ui: {
+  ...DEFAULT_CONFIG.calendar.ui,
+  ...calendarUi,
+  light: {
+    ...DEFAULT_CONFIG.calendar.ui.light,
+    ...calendarUiLight,
+    workday: {
+      ...DEFAULT_CONFIG.calendar.ui.light.workday,
+      ...calendarUiLightWorkday,
+    },
+    weekend: {
+      ...DEFAULT_CONFIG.calendar.ui.light.weekend,
+      ...calendarUiLightWeekend,
+    },
+    holiday: {
+      ...DEFAULT_CONFIG.calendar.ui.light.holiday,
+      ...calendarUiLightHoliday,
+    },
+    preholiday: {
+      ...DEFAULT_CONFIG.calendar.ui.light.preholiday,
+      ...calendarUiLightPreholiday,
+    },
+    microIndicators: {
+      ...DEFAULT_CONFIG.calendar.ui.light.microIndicators,
+      ...calendarUiLightMicro,
+    },
+  },
+  dark: {
+    ...DEFAULT_CONFIG.calendar.ui.dark,
+    ...calendarUiDark,
+    workday: {
+      ...DEFAULT_CONFIG.calendar.ui.dark.workday,
+      ...calendarUiDarkWorkday,
+    },
+    weekend: {
+      ...DEFAULT_CONFIG.calendar.ui.dark.weekend,
+      ...calendarUiDarkWeekend,
+    },
+    holiday: {
+      ...DEFAULT_CONFIG.calendar.ui.dark.holiday,
+      ...calendarUiDarkHoliday,
+    },
+    preholiday: {
+      ...DEFAULT_CONFIG.calendar.ui.dark.preholiday,
+      ...calendarUiDarkPreholiday,
+    },
+    microIndicators: {
+      ...DEFAULT_CONFIG.calendar.ui.dark.microIndicators,
+      ...calendarUiDarkMicro,
+    },
+  },
+},
+
+indicators: {
+  ...DEFAULT_CONFIG.calendar.indicators,
+  ...calendarIndicators,
+},
+
     },
   };
 }

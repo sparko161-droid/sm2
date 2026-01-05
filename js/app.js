@@ -168,6 +168,23 @@ const scheduleCacheByLine = {
 
 const STORAGE_KEYS = config.storage.keys;
 
+const CALENDAR_THEME_VAR_MAP = {
+  tableHeaderDayoffBg: "--table-header-dayoff-bg",
+  tableHeaderPreholidayBg: "--table-header-preholiday-bg",
+  calendarHolidayBg: "--calendar-holiday-bg",
+  calendarHolidayBorder: "--calendar-holiday-border",
+  calendarWeekendBg: "--calendar-weekend-bg",
+  calendarPreholidayBg: "--calendar-preholiday-bg",
+  calendarPreholidayDash: "--calendar-preholiday-dash",
+  weekendBg: "--weekend-bg",
+  weekendStrong: "--weekend-strong",
+};
+
+const CALENDAR_INDICATOR_VAR_MAP = {
+  birthdayBg: "--indicator-birthday-bg",
+  birthdayText: "--indicator-birthday-text",
+};
+
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -734,6 +751,8 @@ function persistChangeHistory() {
 }
 
 function initTheme() {
+  applyThemeConfigVariables();
+
   const storedTheme = localStorage.getItem(STORAGE_KEYS.theme);
   const preferredTheme = storedTheme === "light" ? "light" : "dark";
   applyTheme(preferredTheme);
@@ -785,6 +804,8 @@ function applyCalendarUiTheme(theme) {
   setVar("--calendar-micro-weekend", micro.weekend);
   setVar("--calendar-micro-holiday", micro.holiday);
   setVar("--calendar-micro-preholiday", micro.preholiday);
+}
+
 }
 
 function updateThemeToggleUI() {
@@ -2511,6 +2532,7 @@ function renderScheduleCurrentLine() {
   thNameWrap.className = "employee-header";
 
   const thNameLabel = document.createElement("span");
+  thNameLabel.className = "header-text";
   thNameLabel.textContent = "Сотрудник";
 
   const filterBtn = document.createElement("button");
@@ -2572,15 +2594,23 @@ function renderScheduleCurrentLine() {
     const isWorkday = dayType === 0 || dayType === 4 || (dayType == null && !isFallbackWeekend);
 
     const th1 = document.createElement("th");
-    th1.textContent = String(day);
-    if (isWorkday) th1.classList.add("day-workday");
+const th1Label = document.createElement("span");
+th1Label.className = "header-text";
+th1Label.textContent = String(day);
+th1.appendChild(th1Label);
+
+if (isWorkday) th1.classList.add("day-workday");
+
     if (isWeekend) th1.classList.add("day-weekend");
     if (isHoliday) th1.classList.add("day-holiday");
     if (isPreHoliday) th1.classList.add("day-preholiday");
     headRow1.appendChild(th1);
 
     const th2 = document.createElement("th");
-    th2.textContent = weekday;
+    const th2Label = document.createElement("span");
+    th2Label.className = "header-text";
+    th2Label.textContent = weekday;
+    th2.appendChild(th2Label);
     th2.className = "weekday-header";
     if (isWorkday) {
       th2.classList.add("day-workday");
@@ -2602,7 +2632,10 @@ function renderScheduleCurrentLine() {
   }
 
   const thSum1 = document.createElement("th");
-  thSum1.textContent = "Сумма";
+  const thSum1Label = document.createElement("span");
+  thSum1Label.className = "header-text";
+  thSum1Label.textContent = "Сумма";
+  thSum1.appendChild(thSum1Label);
   thSum1.className = "summary-cell";
   headRow1.appendChild(thSum1);
 
