@@ -7,6 +7,40 @@
 
 const DEFAULT_CONFIG = {
   graphHookUrl: "https://jolikcisout.beget.app/webhook/pyrus/graph",
+  auth: {
+    methods: {
+      loginPassword: {
+        enabled: true,
+      },
+      emailOtp: {
+        enabled: false,
+      },
+      telegram: {
+        enabled: false,
+      },
+    },
+    ttlMs: 10 * 60 * 1000,
+    codeLength: 6,
+    resendTimerSec: 60,
+    uiTexts: {
+      title: "Вход",
+      subtitle: "Подтвердите доступ",
+      loginLabel: "Логин",
+      passwordLabel: "Пароль",
+      emailLabel: "Email",
+      otpLabel: "Код из письма",
+      telegramLabel: "Telegram",
+      submitLabel: "Продолжить",
+      resendLabel: "Отправить код ещё раз",
+      loadingLabel: "Проверяем данные...",
+      errorGeneric: "Не удалось войти. Попробуйте ещё раз.",
+    },
+    webhooks: {
+      emailInit: "",
+      emailVerify: "",
+      telegramInit: "",
+    },
+  },
   timezone: {
     localOffsetMin: 4 * 60, // GMT+4
   },
@@ -154,6 +188,13 @@ indicators: {
 
 const REQUIRED_PATHS = [
   "graphHookUrl",
+  "auth",
+  "auth.methods",
+  "auth.ttlMs",
+  "auth.codeLength",
+  "auth.resendTimerSec",
+  "auth.uiTexts",
+  "auth.webhooks",
   "pyrus",
   "pyrus.catalogs",
   "pyrus.forms",
@@ -170,6 +211,14 @@ const REQUIRED_PATHS = [
 
 function normalizeConfig(config) {
   const root = config && typeof config === "object" ? config : {};
+
+  const auth = root.auth ?? {};
+  const authMethods = auth.methods ?? {};
+  const authMethodLoginPassword = authMethods.loginPassword ?? {};
+  const authMethodEmailOtp = authMethods.emailOtp ?? {};
+  const authMethodTelegram = authMethods.telegram ?? {};
+  const authUiTexts = auth.uiTexts ?? {};
+  const authWebhooks = auth.webhooks ?? {};
 
   const storage = root.storage ?? {};
   const storageKeys = storage.keys ?? {};
@@ -214,6 +263,35 @@ const calendarUiDarkMicro = calendarUiDark.microIndicators ?? {};
     ...root,
 
     graphHookUrl: root.graphHookUrl ?? DEFAULT_CONFIG.graphHookUrl,
+
+    auth: {
+      ...DEFAULT_CONFIG.auth,
+      ...auth,
+      methods: {
+        ...DEFAULT_CONFIG.auth.methods,
+        ...authMethods,
+        loginPassword: {
+          ...DEFAULT_CONFIG.auth.methods.loginPassword,
+          ...authMethodLoginPassword,
+        },
+        emailOtp: {
+          ...DEFAULT_CONFIG.auth.methods.emailOtp,
+          ...authMethodEmailOtp,
+        },
+        telegram: {
+          ...DEFAULT_CONFIG.auth.methods.telegram,
+          ...authMethodTelegram,
+        },
+      },
+      uiTexts: {
+        ...DEFAULT_CONFIG.auth.uiTexts,
+        ...authUiTexts,
+      },
+      webhooks: {
+        ...DEFAULT_CONFIG.auth.webhooks,
+        ...authWebhooks,
+      },
+    },
 
     timezone: {
       ...DEFAULT_CONFIG.timezone,
