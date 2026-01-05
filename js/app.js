@@ -2,7 +2,6 @@
 // Главный модуль SPA для графика смен L1/L2
 // Чистый vanilla JS.
 
-import { config, getConfigValue } from "./config.js";
 
 /**
  * Основные сущности:
@@ -15,62 +14,29 @@ import { config, getConfigValue } from "./config.js";
 // Единый источник истины — нормализованный config.
 // window.APP_CONFIG оставляем только как отладочный дамп в config.js, без чтения здесь.
 
-const GRAPH_HOOK_URL = getConfigValue("graphHookUrl", {
-  defaultValue: "https://jolikcisout.beget.app/webhook/pyrus/graph",
-  required: true,
-});
+const GRAPH_HOOK_URL = getConfigValue("graphHookUrl", { required: true });
 
 const MAX_DAYS_IN_MONTH = 31;
 
 // Бизнес-часовой пояс (по умолчанию GMT+4)
-const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
-  defaultValue: 4 * 60,
-  required: true,
-}); // GMT+4
+const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", { required: true }); // GMT+4
 
 
 // -----------------------------
 // Конфиг вкладок (линий)
 // -----------------------------
-const LINE_KEYS_IN_UI_ORDER =
-  config.ui?.lines?.order ?? ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"];
+const LINE_KEYS_IN_UI_ORDER = config.ui.lines.order;
 
-const LINE_LABELS =
-  config.ui?.lines?.labels ?? {
-    ALL: "ВСЕ",
-    OP: "OP",
-    OV: "OV",
-    L1: "L1",
-    L2: "L2",
-    AI: "AI",
-    OU: "OU",
-  };
+const LINE_LABELS = config.ui.lines.labels;
 
 // Жёсткая привязка department_id -> вкладка
-const LINE_DEPT_IDS =
-  config.departments?.byLine ?? {
-    L1: [108368027],
-    L2: [108368026, 171248779, 171248780],
-    OV: [80208117],
-    OP: [108368021, 157753518, 157753516], // важно: порядок групп
-    OU: [108368030],
-    AI: [166353950],
-  };
+const LINE_DEPT_IDS = config.departments.byLine;
 
 // Руководители/учредители (всегда сверху во "ВСЕ")
-const TOP_MANAGEMENT_IDS =
-  config.management?.topManagementIds ?? [1167305, 314287]; // Лузин, Сухачев
+const TOP_MANAGEMENT_IDS = config.management.topManagementIds; // Лузин, Сухачев
 
 // Pyrus: значение каталога "Линия/Отдел" (field id=1) в форме явок
-const PYRUS_LINE_ITEM_ID =
-  config.pyrusLineItemIdByLine ?? {
-    L2: 157816613,
-    L1: 165474029,
-    OV: 157816614,
-    OU: 157816622,
-    AI: 168065907,
-    OP: 157816621,
-  };
+const PYRUS_LINE_ITEM_ID = config.pyrusLineItemIdByLine;
 
 
 function resolvePyrusLineItemIdByDepartmentId(deptId) {
@@ -86,8 +52,8 @@ function resolvePyrusLineItemIdByDepartmentId(deptId) {
 
 // Порядок групп (department_id) для сортировки внутри вкладок
 const DEPT_ORDER_BY_LINE = {
-  L2: config.departments?.orderByLine?.L2 ?? LINE_DEPT_IDS.L2.slice(),
-  OP: config.departments?.orderByLine?.OP ?? LINE_DEPT_IDS.OP.slice(),
+  L2: config.departments.orderByLine.L2,
+  OP: config.departments.orderByLine.OP,
 };
 
 const PYRUS_CATALOG_IDS = config.pyrus.catalogs;
@@ -525,6 +491,11 @@ async function pyrusApi(path, method = "GET", body = null) {
 // Производственный календарь РФ (isdayoff.ru) — помесячно, с кэшем и фолбеком на СБ/ВС
 // -----------------------------
 let appConfigPromise = null;
+const DEFAULT_PROD_CAL_CONFIG = {
+  ttlMs: 30 * 24 * 60 * 60 * 1000,
+  urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
+  cacheKeyPrefix: "prodcal_ru_",
+};
 
 async function loadAppConfig() {
   if (!appConfigPromise) {
@@ -542,7 +513,13 @@ async function loadAppConfig() {
 }
 
 function getProdCalConfig(config) {
-  return (config && config.calendar && config.calendar.prodCal) ? config.calendar.prodCal : {};
+  const root = config && typeof config === "object" ? config : {};
+  const calendar = root.calendar && typeof root.calendar === "object" ? root.calendar : {};
+  const prodCal = calendar.prodCal && typeof calendar.prodCal === "object" ? calendar.prodCal : {};
+  return {
+    ...DEFAULT_PROD_CAL_CONFIG,
+    ...prodCal,
+  };
 }
 
 function prodCalCacheKey(prodCalConfig, year, monthIndex) {
