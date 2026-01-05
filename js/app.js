@@ -2602,6 +2602,15 @@ function renderScheduleCurrentLine() {
     const isHoliday = dayType === 8;
     const isPreHoliday = dayType === 2;
     const isWorkday = dayType === 0 || dayType === 4 || (dayType == null && !isFallbackWeekend);
+    const dayKind = isHoliday
+      ? "holiday"
+      : isPreHoliday
+        ? "preholiday"
+        : isWeekend
+          ? "weekend"
+          : isWorkday
+            ? "workday"
+            : null;
 
     const th1 = document.createElement("th");
 const th1Label = document.createElement("span");
@@ -2609,11 +2618,9 @@ th1Label.className = "header-text";
 th1Label.textContent = String(day);
 th1.appendChild(th1Label);
 
-if (isWorkday) th1.classList.add("day-workday");
-
-    if (isWeekend) th1.classList.add("day-weekend");
-    if (isHoliday) th1.classList.add("day-holiday");
-    if (isPreHoliday) th1.classList.add("day-preholiday");
+    if (dayKind) {
+      th1.classList.add(`day-${dayKind}`);
+    }
     headRow1.appendChild(th1);
 
     const th2 = document.createElement("th");
@@ -2622,21 +2629,17 @@ if (isWorkday) th1.classList.add("day-workday");
     th2Label.textContent = weekday;
     th2.appendChild(th2Label);
     th2.className = "weekday-header";
-    if (isWorkday) {
-      th2.classList.add("day-workday");
-      workdayDays.add(day);
-    }
-    if (isWeekend) {
-      th2.classList.add("day-weekend");
-      weekendDays.add(day);
-    }
-    if (isHoliday) {
-      th2.classList.add("day-holiday");
-      holidayDays.add(day);
-    }
-    if (isPreHoliday) {
-      th2.classList.add("day-preholiday");
-      preholidayDays.add(day);
+    if (dayKind) {
+      th2.classList.add(`day-${dayKind}`);
+      if (dayKind === "workday") {
+        workdayDays.add(day);
+      } else if (dayKind === "weekend") {
+        weekendDays.add(day);
+      } else if (dayKind === "holiday") {
+        holidayDays.add(day);
+      } else if (dayKind === "preholiday") {
+        preholidayDays.add(day);
+      }
     }
     headRow2.appendChild(th2);
   }
