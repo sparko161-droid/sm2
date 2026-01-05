@@ -10,6 +10,7 @@ const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
 
 const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
 
+
 const PYRUS_FORM_IDS = getConfigValue("pyrus.forms", {
   defaultValue: { smeni: 2375272 },
   required: true,
@@ -35,7 +36,7 @@ const PYRUS_FIELD_IDS = getConfigValue("pyrus.fields", {
  *         // UTC-время (для отправки в API):
  *         startUtcMinutes,
  *         endUtcMinutes,
- *         // Локальное время (GMT+4) — для отображения:
+ *         // Локальное время — для отображения:
  *         startMinutes,
  *         endMinutes,
  *         amount,
@@ -47,6 +48,12 @@ const PYRUS_FIELD_IDS = getConfigValue("pyrus.fields", {
  */
 export async function loadScheduleForMonth(year, month0, employees, shifts) {
 import { getConfigValue } from "../config.js";
+
+const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+});
+const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
 
 const scheduleFormId = getConfigValue("pyrus.forms.smeni", {
   defaultValue: 2375272,
@@ -113,8 +120,8 @@ const shiftField = fields.find(
     const dueUtc = new Date(dueVal);
     if (isNaN(dueUtc.getTime())) continue;
 
-    // Переводим в локальное GMT+4, чтобы определить ДЕНЬ и МЕСЯЦ
-    const dueLocal = new Date(dueUtc.getTime() + LOCAL_TZ_OFFSET_MS);
+    // Переводим в локальное время, чтобы определить ДЕНЬ и МЕСЯЦ
+    const dueLocal = new Date(dueUtc.getTime() + localOffsetMs);
 
     // Фильтрация по выбранному месяцу — именно по ЛОКАЛЬНОЙ дате
     if (dueLocal.getFullYear() !== year || dueLocal.getMonth() !== month0) {
@@ -127,7 +134,7 @@ const shiftField = fields.find(
     const shiftItemId = shiftField.value.item_id;
     const shiftDef = shifts.byId[shiftItemId];
 
-    // День в календаре — по локальному времени (GMT+4)
+    // День в календаре — по локальному времени
     const day = dueLocal.getDate();
 
     // ---------- ВРЕМЯ СМЕНЫ ----------
@@ -144,36 +151,36 @@ const shiftField = fields.find(
       startUtcMinutes = hUtc * 60 + mUtc;
       endUtcMinutes = (startUtcMinutes + dueField.duration) % (24 * 60);
 
-      // Локальное время = UTC + 4 часа
+      // Локальное время = UTC + offset
       startMinutesLocal =
-        (startUtcMinutes + LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (startUtcMinutes + localOffsetMin + 24 * 60) % (24 * 60);
       endMinutesLocal =
-        (endUtcMinutes + LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (endUtcMinutes + localOffsetMin + 24 * 60) % (24 * 60);
     } else if (
       shiftDef &&
       shiftDef.startMinutes != null &&
       shiftDef.durationMinutes != null
     ) {
       // 2) duration нет → используем шаблон смены.
-      // В справочнике время уже в GMT+4:
+      // В справочнике время уже в локальном поясе:
       //   - локальное время берём как есть,
-      //   - UTC считаем как local - 4 часа.
+      //   - UTC считаем как local - offset.
       startMinutesLocal = shiftDef.startMinutes;
       endMinutesLocal =
         (shiftDef.startMinutes + shiftDef.durationMinutes) % (24 * 60);
 
       startUtcMinutes =
-        (startMinutesLocal - LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (startMinutesLocal - localOffsetMin + 24 * 60) % (24 * 60);
       endUtcMinutes =
-        (endMinutesLocal - LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (endMinutesLocal - localOffsetMin + 24 * 60) % (24 * 60);
     } else {
       // 3) Нет информации о времени → считаем 00:00–00:00
       startUtcMinutes = 0;
       endUtcMinutes = 0;
       startMinutesLocal =
-        (startUtcMinutes + LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (startUtcMinutes + localOffsetMin + 24 * 60) % (24 * 60);
       endMinutesLocal =
-        (endUtcMinutes + LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (endUtcMinutes + localOffsetMin + 24 * 60) % (24 * 60);
     }
 
     // ---------- ДЕНЬГИ ----------
@@ -203,7 +210,7 @@ const shiftField = fields.find(
       // UTC (для API):
       startUtcMinutes,
       endUtcMinutes,
-      // Локальное время GMT+4 (для UI):
+      // Локальное время (для UI):
       startMinutes: startMinutesLocal,
       endMinutes: endMinutesLocal,
       amount,
@@ -211,6 +218,6 @@ const shiftField = fields.find(
     };
   }
 
-  console.log("График из Pyrus (учёт GMT+4 и дней)", byEmployee);
+  console.log("График из Pyrus (учёт локального времени и дней)", byEmployee);
   return { byEmployee };
 }

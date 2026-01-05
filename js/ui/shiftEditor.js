@@ -1,13 +1,17 @@
 // js/ui/shiftEditor.js
-import { config } from "../config.js";
+import { getConfigValue } from "../config.js";
 
-const TIMEZONE_OFFSET_MIN = config?.timezone?.localOffsetMin ?? 4 * 60;
+const TIMEZONE_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+});
 
 function formatTimezoneLabel(offsetMin) {
   const sign = offsetMin >= 0 ? "+" : "-";
   const absMin = Math.abs(offsetMin);
   const hours = Math.floor(absMin / 60);
   const minutes = absMin % 60;
+
   if (minutes === 0) {
     return `GMT${sign}${hours}`;
   }
@@ -15,6 +19,7 @@ function formatTimezoneLabel(offsetMin) {
 }
 
 const TIMEZONE_LABEL = formatTimezoneLabel(TIMEZONE_OFFSET_MIN);
+
 
 /**
  * Панель редактирования смены.
@@ -49,11 +54,34 @@ let errorEl = null;
 
 let currentCtx = null;
 
+function formatTimezoneLabel() {
+  const offsetMin = getTimezoneOffsetMin();
+  if (!Number.isFinite(offsetMin)) return "локальное время";
+  const normalizedOffsetMin = Math.round(offsetMin);
+  const sign = normalizedOffsetMin >= 0 ? "+" : "-";
+  const absMin = Math.abs(normalizedOffsetMin);
+  const hours = Math.floor(absMin / 60);
+  const minutes = absMin % 60;
+  const offsetText = minutes
+    ? `${hours}:${String(minutes).padStart(2, "0")}`
+    : `${hours}`;
+  return `локальное GMT${sign}${offsetText}`;
+}
+
+function updateTimezoneLabel() {
+  if (!backdropEl) return;
+  const labelEl = backdropEl.querySelector("#shift-editor-timezone-label");
+  if (!labelEl) return;
+  labelEl.textContent = `Время смены (${formatTimezoneLabel()})`;
+}
+
 export function initShiftEditor({ getShiftsForLine, onApply }) {
   getShiftsForLineFn = getShiftsForLine;
   onApplyFn = onApply;
 
   if (backdropEl) return; // уже инициализировано
+
+  const timezoneLabel = `Время смены (${formatTimezoneLabel()})`;
 
   backdropEl = document.createElement("div");
   backdropEl.className = "shift-editor-backdrop";
@@ -72,13 +100,26 @@ export function initShiftEditor({ getShiftsForLine, onApply }) {
         <div class="shift-editor-row">
           <label for="shift-editor-select">Шаблон смены</label>
           <select id="shift-editor-select"></select>
-        </div>
-        <div class="shift-editor-row">
-          <label>Время смены (локальное ${TIMEZONE_LABEL})</label>
-          <div style="display:flex; gap:6px;">
-            <input id="shift-editor-start" type="time" min="00:00" max="23:59" style="flex:1;" />
-            <input id="shift-editor-end" type="time" min="00:00" max="23:59" style="flex:1;" />
-          </div>
+</div>
+<div class="shift-editor-row">
+  <label>Время смены (локальное ${TIMEZONE_LABEL})</label>
+  <div style="display:flex; gap:6px;">
+    <input
+      id="shift-editor-start"
+      type="time"
+      min="00:00"
+      max="23:59"
+      style="flex:1;"
+    />
+    <input
+      id="shift-editor-end"
+      type="time"
+      min="00:00"
+      max="23:59"
+      style="flex:1;"
+    />
+  </div>
+
         </div>
         <div class="shift-editor-row">
           <label for="shift-editor-amount">Сумма за смену, ₽</label>
@@ -125,6 +166,10 @@ export function initShiftEditor({ getShiftsForLine, onApply }) {
   });
 
   selectShiftEl.addEventListener("change", handleTemplateChange);
+
+  loadConfig()
+    .then(() => updateTimezoneLabel())
+    .catch(() => updateTimezoneLabel());
 }
 
 export function openShiftEditor(context) {
