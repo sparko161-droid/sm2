@@ -89,7 +89,13 @@
     "keys": {
       "localChanges": "sm1_local_changes",
       "changeHistory": "sm1_change_history",
-      "theme": "sm1_theme_preference"
+      "theme": "sm1_theme_preference",
+      "currentLine": "sm1_current_line",
+      "employeeFilters": "sm1_employee_filters",
+      "cachedEmployees": "sm1_cached_employees",
+      "cachedShiftTemplates": "sm1_cached_shift_templates",
+      "cachedSchedulePrefix": "sm1_cached_schedule_",
+      "shiftDrafts": "graph_l1l2_shift_drafts_v1"
     },
     "auth": {
       "key": "sm_graph_auth_v1",
