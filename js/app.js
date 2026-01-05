@@ -2584,10 +2584,7 @@ function renderScheduleCurrentLine() {
   const weekdayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
   const { year, monthIndex } = state.monthMeta;
   const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
-  const weekendDays = new Set(); // фактически "выходные дни" (по производственному календарю или фолбек СБ/ВС)
-  const holidayDays = new Set();
-  const preholidayDays = new Set();
-  const workdayDays = new Set();
+  const dayKindByDay = Object.create(null);
 
   const prod = state.prodCalendar && state.prodCalendar.monthKey === monthKey ? state.prodCalendar : null;
 
@@ -2598,19 +2595,17 @@ function renderScheduleCurrentLine() {
     const dayType = prod && prod.dayTypeByDay ? prod.dayTypeByDay[day] : null;
     const isFallbackWeekend = weekday === "Сб" || weekday === "Вс";
 
-    const isWeekend = dayType === 1 || (dayType == null && isFallbackWeekend);
-    const isHoliday = dayType === 8;
-    const isPreHoliday = dayType === 2;
-    const isWorkday = dayType === 0 || dayType === 4 || (dayType == null && !isFallbackWeekend);
-    const dayKind = isHoliday
-      ? "holiday"
-      : isPreHoliday
-        ? "preholiday"
-        : isWeekend
-          ? "weekend"
-          : isWorkday
+    const dayKind = dayType === 1
+      ? "weekend"
+      : dayType === 8
+        ? "holiday"
+        : dayType === 2
+          ? "preholiday"
+          : dayType === 0 || dayType === 4
             ? "workday"
-            : null;
+            : dayType == null
+              ? (isFallbackWeekend ? "weekend" : "workday")
+              : null;
 
     const th1 = document.createElement("th");
 const th1Label = document.createElement("span");
@@ -2620,6 +2615,7 @@ th1.appendChild(th1Label);
 
     if (dayKind) {
       th1.classList.add(`day-${dayKind}`);
+      dayKindByDay[day] = dayKind;
     }
     headRow1.appendChild(th1);
 
@@ -2631,15 +2627,6 @@ th1.appendChild(th1Label);
     th2.className = "weekday-header";
     if (dayKind) {
       th2.classList.add(`day-${dayKind}`);
-      if (dayKind === "workday") {
-        workdayDays.add(day);
-      } else if (dayKind === "weekend") {
-        weekendDays.add(day);
-      } else if (dayKind === "holiday") {
-        holidayDays.add(day);
-      } else if (dayKind === "preholiday") {
-        preholidayDays.add(day);
-      }
     }
     headRow2.appendChild(th2);
   }
@@ -2766,17 +2753,9 @@ th1.appendChild(th1Label);
 
       const td = document.createElement("td");
       td.className = "shift-cell";
-      if (weekendDays.has(dayNumber)) {
-        td.classList.add("day-weekend");
-      }
-      if (holidayDays.has(dayNumber)) {
-        td.classList.add("day-holiday");
-      }
-      if (preholidayDays.has(dayNumber)) {
-        td.classList.add("day-preholiday");
-      }
-      if (workdayDays.has(dayNumber)) {
-        td.classList.add("day-workday");
+      const dayKind = dayKindByDay[dayNumber];
+      if (dayKind) {
+        td.classList.add(`day-${dayKind}`);
       }
 
       // Маркер дня рождения (один день). Показываем даже если в этот день есть смена.
