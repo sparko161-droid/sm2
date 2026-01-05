@@ -8,6 +8,7 @@ const TIMEZONE_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
 
 function formatTimezoneLabel(offsetMin) {
   if (!Number.isFinite(offsetMin)) return "локальное время";
+
   const sign = offsetMin >= 0 ? "+" : "-";
   const absMin = Math.abs(offsetMin);
   const hours = Math.floor(absMin / 60);
@@ -20,6 +21,7 @@ function formatTimezoneLabel(offsetMin) {
 }
 
 const TIMEZONE_LABEL = formatTimezoneLabel(TIMEZONE_OFFSET_MIN);
+
 
 
 /**
@@ -152,9 +154,6 @@ export function initShiftEditor({ getShiftsForLine, onApply }) {
 
   selectShiftEl.addEventListener("change", handleTemplateChange);
 
-  loadConfig()
-    .then(() => updateTimezoneLabel())
-    .catch(() => updateTimezoneLabel());
 }
 
 export function openShiftEditor(context) {

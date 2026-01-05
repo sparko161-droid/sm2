@@ -64,8 +64,10 @@ const DEFAULT_CONFIG = {
       OU: [108368030],
       AI: [166353950],
     },
-    // orderByLine — опционально, в коде есть fallback на LINE_DEPT_IDS.*.slice()
-    // сюда можно положить значения, если нужно.
+    orderByLine: {
+      L2: [108368026, 171248779, 171248780],
+      OP: [108368021, 157753518, 157753516],
+    },
   },
   management: {
     topManagementIds: [1167305, 314287], // Лузин, Сухачев
@@ -78,6 +80,13 @@ const DEFAULT_CONFIG = {
     OU: 157816622,
     AI: 168065907,
     OP: 157816621,
+  },
+  calendar: {
+    prodCal: {
+      ttlMs: 30 * 24 * 60 * 60 * 1000,
+      urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
+      cacheKeyPrefix: "prodcal_ru_",
+    },
   },
 };
 
@@ -92,6 +101,9 @@ const REQUIRED_PATHS = [
   "storage",
   "storage.keys",
   "storage.auth",
+  "calendar",
+  "calendar.prodCal",
+  "calendar.prodCal.urlTemplate",
 ];
 
 function normalizeConfig(config) {
@@ -113,7 +125,10 @@ function normalizeConfig(config) {
   const uiLines = ui.lines ?? {};
   const departments = root.departments ?? {};
   const deptByLine = departments.byLine ?? {};
+  const deptOrderByLine = departments.orderByLine ?? {};
   const management = root.management ?? {};
+  const calendar = root.calendar ?? {};
+  const prodCal = calendar.prodCal ?? {};
 
   return {
     ...DEFAULT_CONFIG,
@@ -186,6 +201,10 @@ function normalizeConfig(config) {
         ...DEFAULT_CONFIG.departments.byLine,
         ...deptByLine,
       },
+      orderByLine: {
+        ...DEFAULT_CONFIG.departments.orderByLine,
+        ...deptOrderByLine,
+      },
     },
 
     management: {
@@ -196,6 +215,15 @@ function normalizeConfig(config) {
     },
 
     pyrusLineItemIdByLine: root.pyrusLineItemIdByLine ?? DEFAULT_CONFIG.pyrusLineItemIdByLine,
+
+    calendar: {
+      ...DEFAULT_CONFIG.calendar,
+      ...calendar,
+      prodCal: {
+        ...DEFAULT_CONFIG.calendar.prodCal,
+        ...prodCal,
+      },
+    },
   };
 }
 
