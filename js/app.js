@@ -2,6 +2,7 @@
 // Главный модуль SPA для графика смен L1/L2
 // Чистый vanilla JS.
 
+
 /**
  * Основные сущности:
  * - Авторизация через n8n /graph (type: "auth")
@@ -10,9 +11,6 @@
  * - UI: таблица, ховер строки, анимация ячеек, компактный поповер смены
  * - Система прав доступа: edit/view для L1 и L2
  */
-
-import { config, getConfigValue } from "./config.js";
-
 // Единый источник истины — нормализованный config.
 // window.APP_CONFIG оставляем только как отладочный дамп в config.js, без чтения здесь.
 
@@ -162,8 +160,6 @@ const scheduleCacheByLine = {
   L2: Object.create(null),
 };
 
-import { config } from "../config.js";
-
 const STORAGE_KEYS = config.storage.keys;
 
 
@@ -190,8 +186,6 @@ function canViewLine(line) {
 // -----------------------------
 // Персистентная авторизация (localStorage + cookie)
 // -----------------------------
-
-import { config } from "../config.js";
 
 const AUTH_STORAGE_KEY = config.storage.auth.key;
 const AUTH_TTL_MS = config.storage.auth.ttlMs; // 7 дней
@@ -341,8 +335,7 @@ function convertUtcStartToLocalRange(utcIsoString, durationMinutes) {
   const startUtc = new Date(utcIsoString);
   if (Number.isNaN(startUtc.getTime())) return null;
 
-  const startLocalMs =
-    startUtc.getTime() + getTimezoneOffsetMin() * 60 * 1000;
+  const startLocalMs = startUtc.getTime() + LOCAL_TZ_OFFSET_MIN * 60 * 1000;
   const startLocalDate = new Date(startLocalMs);
 
   const startHH = String(startLocalDate.getUTCHours()).padStart(2, "0");
@@ -403,7 +396,7 @@ function convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLo
     const hhNum = Math.floor(startMin / 60);
     const mmNum = startMin % 60;
 
-    const offsetMs = getTimezoneOffsetMin() * 60 * 1000;
+    const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
     const baseUtcMs = Date.UTC(y, m, d, hhNum, mmNum);
     if (!Number.isFinite(baseUtcMs)) return null;
 
@@ -658,12 +651,6 @@ let employeeFilterPopoverControlsEl = null;
 // -----------------------------
 
 async function init() {
-  try {
-    await loadConfig();
-  } catch (err) {
-    console.warn("Не удалось загрузить конфиг", err);
-  }
-
   resetLocalEditingState();
   initTheme();
   loadCurrentLinePreference();
@@ -2158,7 +2145,7 @@ async function loadVacationsForMonth(year, monthIndex) {
   const tasks = (wrapper && wrapper.tasks) || [];
 
   const vacationsByEmployee = Object.create(null);
-  const offsetMs = getTimezoneOffsetMin() * 60 * 1000;
+  const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
 
   const monthStartShiftedMs = Date.UTC(year, monthIndex, 1, 0, 0, 0, 0);
   const monthEndShiftedMs = Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0);
