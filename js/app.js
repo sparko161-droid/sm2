@@ -2,6 +2,8 @@
 // Главный модуль SPA для графика смен L1/L2
 // Чистый vanilla JS.
 
+import { config } from "./config.js";
+
 /**
  * Основные сущности:
  * - Авторизация через n8n /graph (type: "auth")
@@ -200,16 +202,7 @@ const scheduleCacheByLine = {
   L2: Object.create(null),
 };
 
-const STORAGE_KEYS = {
-  localChanges: "sm1_local_changes",
-  changeHistory: "sm1_change_history",
-  theme: "sm1_theme_preference",
-  currentLine: "sm1_current_line",
-  employeeFilters: "sm1_employee_filters",
-  cachedEmployees: "sm1_cached_employees",
-  cachedShiftTemplates: "sm1_cached_shift_templates",
-  cachedSchedulePrefix: "sm1_cached_schedule_",
-};
+const STORAGE_KEYS = config.storage.keys;
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -235,8 +228,9 @@ function canViewLine(line) {
 // Персистентная авторизация (localStorage + cookie)
 // -----------------------------
 
-const AUTH_STORAGE_KEY = "sm_graph_auth_v1";
-const AUTH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 дней
+const AUTH_STORAGE_KEY = config.storage.auth.key;
+const AUTH_TTL_MS = config.storage.auth.ttlMs; // 7 дней
+const AUTH_COOKIE_DAYS = config.storage.auth.cookieDays;
 
 function setCookie(name, value, days) {
   try {
@@ -272,7 +266,7 @@ function saveAuthCache(login) {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
   } catch (_) {}
   // Дублируем в cookie (минимальный объём) — на случай очистки localStorage
-  setCookie(AUTH_STORAGE_KEY, JSON.stringify(payload), 7);
+  setCookie(AUTH_STORAGE_KEY, JSON.stringify(payload), AUTH_COOKIE_DAYS);
 }
 
 function loadAuthCache() {
