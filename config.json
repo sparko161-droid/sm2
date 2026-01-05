@@ -147,8 +147,8 @@
           "dash": "transparent"
         },
         "weekend": {
-          "background": "#f2e8e8",
-          "border": "var(--table-border-strong)",
+          "background": "#e3f0ff",
+          "border": "#8bbcff",
           "dash": "transparent"
         },
         "holiday": {
@@ -162,7 +162,7 @@
           "dash": "#3a3522"
         },
         "microIndicators": {
-          "weekend": "#f2e8e8",
+          "weekend": "#3b82f6",
           "holiday": "#e06b6b",
           "preholiday": "#3a3522"
         }
@@ -170,11 +170,11 @@
       "dark": {
         "workday": {
           "background": "transparent",
-          "border": "var(--table-border-strong)",
+          "border": "#2f5d91",
           "dash": "transparent"
         },
         "weekend": {
-          "background": "#232a33",
+          "background": "#1e3a5f",
           "border": "var(--table-border-strong)",
           "dash": "transparent"
         },
@@ -189,7 +189,7 @@
           "dash": "#d1b84d"
         },
         "microIndicators": {
-          "weekend": "#232a33",
+          "weekend": "#4fa3ff",
           "holiday": "#c45a5a",
           "preholiday": "#d1b84d"
         }
