@@ -770,6 +770,7 @@ function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   localStorage.setItem(STORAGE_KEYS.theme, theme);
   updateThemeToggleUI();
+  applyCalendarUiTheme(theme);
 
   // Обновление цветов при смене темы
   if (typeof ShiftColors !== 'undefined' && ShiftColors.applyTheme) {
@@ -777,56 +778,34 @@ function applyTheme(theme) {
   }
 }
 
-function applyThemeConfigVariables() {
-  const calendarColors = config.calendar?.colors ?? {};
-  const calendarIndicators = config.calendar?.indicators ?? {};
+function applyCalendarUiTheme(theme) {
+  const calendarUi = config.calendar?.ui ?? {};
+  const themeKey = theme === "light" ? "light" : "dark";
+  const themeConfig = calendarUi[themeKey] ?? calendarUi.light ?? {};
+  const rootStyle = document.documentElement.style;
 
-  const lightVars = [
-    buildCssVarBlock(calendarColors.light, CALENDAR_THEME_VAR_MAP),
-    buildCssVarBlock(calendarIndicators, CALENDAR_INDICATOR_VAR_MAP),
-  ]
-    .filter(Boolean)
-    .join("\n  ");
+  const setVar = (name, value) => {
+    if (typeof value === "string") rootStyle.setProperty(name, value);
+  };
 
-  const darkVars = [
-    buildCssVarBlock(calendarColors.dark, CALENDAR_THEME_VAR_MAP),
-    buildCssVarBlock(calendarIndicators, CALENDAR_INDICATOR_VAR_MAP),
-  ]
-    .filter(Boolean)
-    .join("\n  ");
+  const applyDayVars = (type, values) => {
+    if (!values) return;
+    setVar(`--calendar-${type}-bg`, values.background);
+    setVar(`--calendar-${type}-border`, values.border);
+    setVar(`--calendar-${type}-dash`, values.dash);
+  };
 
-  if (!lightVars && !darkVars) return;
+  applyDayVars("workday", themeConfig.workday);
+  applyDayVars("weekend", themeConfig.weekend);
+  applyDayVars("holiday", themeConfig.holiday);
+  applyDayVars("preholiday", themeConfig.preholiday);
 
-  const styleLines = [];
-  if (lightVars) {
-    styleLines.push(`:root {\n  ${lightVars}\n}`);
-  }
-  if (darkVars) {
-    styleLines.push(`:root[data-theme="dark"] {\n  ${darkVars}\n}`);
-  }
-
-  const styleId = "theme-config-vars";
-  let styleEl = document.getElementById(styleId);
-  if (!styleEl) {
-    styleEl = document.createElement("style");
-    styleEl.id = styleId;
-    document.head.appendChild(styleEl);
-  }
-  styleEl.textContent = styleLines.join("\n");
+  const micro = themeConfig.microIndicators ?? {};
+  setVar("--calendar-micro-weekend", micro.weekend);
+  setVar("--calendar-micro-holiday", micro.holiday);
+  setVar("--calendar-micro-preholiday", micro.preholiday);
 }
 
-function buildCssVarBlock(source, map) {
-  if (!source || typeof source !== "object") return "";
-  const lines = [];
-
-  for (const [key, cssVar] of Object.entries(map)) {
-    const value = source[key];
-    if (value) {
-      lines.push(`${cssVar}: ${value};`);
-    }
-  }
-
-  return lines.join("\n  ");
 }
 
 function updateThemeToggleUI() {
@@ -2598,6 +2577,7 @@ function renderScheduleCurrentLine() {
   const weekendDays = new Set(); // фактически "выходные дни" (по производственному календарю или фолбек СБ/ВС)
   const holidayDays = new Set();
   const preholidayDays = new Set();
+  const workdayDays = new Set();
 
   const prod = state.prodCalendar && state.prodCalendar.monthKey === monthKey ? state.prodCalendar : null;
 
@@ -2614,10 +2594,13 @@ function renderScheduleCurrentLine() {
     const isWorkday = dayType === 0 || dayType === 4 || (dayType == null && !isFallbackWeekend);
 
     const th1 = document.createElement("th");
-    const th1Label = document.createElement("span");
-    th1Label.className = "header-text";
-    th1Label.textContent = String(day);
-    th1.appendChild(th1Label);
+const th1Label = document.createElement("span");
+th1Label.className = "header-text";
+th1Label.textContent = String(day);
+th1.appendChild(th1Label);
+
+if (isWorkday) th1.classList.add("day-workday");
+
     if (isWeekend) th1.classList.add("day-weekend");
     if (isHoliday) th1.classList.add("day-holiday");
     if (isPreHoliday) th1.classList.add("day-preholiday");
@@ -2629,6 +2612,10 @@ function renderScheduleCurrentLine() {
     th2Label.textContent = weekday;
     th2.appendChild(th2Label);
     th2.className = "weekday-header";
+    if (isWorkday) {
+      th2.classList.add("day-workday");
+      workdayDays.add(day);
+    }
     if (isWeekend) {
       th2.classList.add("day-weekend");
       weekendDays.add(day);
@@ -2774,6 +2761,9 @@ function renderScheduleCurrentLine() {
       }
       if (preholidayDays.has(dayNumber)) {
         td.classList.add("day-preholiday");
+      }
+      if (workdayDays.has(dayNumber)) {
+        td.classList.add("day-workday");
       }
 
       // Маркер дня рождения (один день). Показываем даже если в этот день есть смена.
