@@ -4,6 +4,7 @@
 
 import { config, getConfigValue } from "./config.js";
 
+
 /**
  * Основные сущности:
  * - Авторизация через n8n /graph (type: "auth")
