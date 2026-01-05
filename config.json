@@ -174,7 +174,7 @@
           "dash": "transparent"
         },
         "weekend": {
-          "background": "#332626",
+          "background": "#232a33",
           "border": "var(--table-border-strong)",
           "dash": "transparent"
         },
@@ -189,7 +189,7 @@
           "dash": "#d1b84d"
         },
         "microIndicators": {
-          "weekend": "#332626",
+          "weekend": "#232a33",
           "holiday": "#c45a5a",
           "preholiday": "#d1b84d"
         }
