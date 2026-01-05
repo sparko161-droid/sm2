@@ -470,11 +470,14 @@ body {
     inset 0 1px 0 var(--table-border-strong);
 }
 
-.schedule-table thead th.day-off {
+.schedule-table thead th.day-off,
+.schedule-table thead th.day-weekend,
+.schedule-table thead th.day-holiday {
   background: var(--table-header-dayoff-bg);
 }
 
-.schedule-table thead th.pre-holiday {
+.schedule-table thead th.pre-holiday,
+.schedule-table thead th.day-preholiday {
   background: var(--table-header-preholiday-bg);
 }
 
@@ -487,12 +490,15 @@ body {
   font-size: 11px;
 }
 
-.schedule-table .day-off {
+.schedule-table .day-off,
+.schedule-table .day-weekend,
+.schedule-table .day-holiday {
   background: var(--weekend-bg);
 }
 
 /* предпраздничный (сокращённый рабочий день) — лёгкая метка */
-.pre-holiday {
+.pre-holiday,
+.day-preholiday {
   outline: 2px solid rgba(220, 0, 0, 0.25);
   outline-offset: -2px;
 }
@@ -831,7 +837,9 @@ body {
   background-color: var(--bg-alt);
 }
 
-.schedule-table tr.row-hover td.day-off {
+.schedule-table tr.row-hover td.day-off,
+.schedule-table tr.row-hover td.day-weekend,
+.schedule-table tr.row-hover td.day-holiday {
   background-color: var(--weekend-strong);
 }
 
