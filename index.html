@@ -136,10 +136,10 @@
 
   <script src="js/shift-colors.js"></script>
   <script type="module">
-    import { loadConfig } from "./js/config.js";
+    import { config } from "./js/config.js";
 
     try {
-      await loadConfig();
+      void config;
       await import("./js/app.js");
     } catch (error) {
       console.error("Не удалось загрузить конфигурацию приложения.", error);
