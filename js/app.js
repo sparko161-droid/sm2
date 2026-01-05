@@ -185,6 +185,18 @@ const CALENDAR_INDICATOR_VAR_MAP = {
   birthdayText: "--indicator-birthday-text",
 };
 
+function applyThemeConfigVariables() {
+  const indicators = config.calendar?.indicators ?? {};
+  const rootStyle = document.documentElement.style;
+
+  for (const [key, cssVar] of Object.entries(CALENDAR_INDICATOR_VAR_MAP)) {
+    const value = indicators[key];
+    if (typeof value === "string") {
+      rootStyle.setProperty(cssVar, value);
+    }
+  }
+}
+
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));

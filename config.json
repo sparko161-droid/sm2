@@ -194,6 +194,10 @@
           "preholiday": "#d1b84d"
         }
       }
+    },
+    "indicators": {
+      "birthdayBg": "#ff2b2b",
+      "birthdayText": "#000000"
     }
   }
 }
