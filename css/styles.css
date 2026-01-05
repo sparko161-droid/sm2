@@ -564,7 +564,10 @@ body {
 
 .schedule-table th.day-weekend,
 .schedule-table td.day-weekend {
-  background: var(--calendar-weekend-bg);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.04) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.04) 75%, transparent 75%, transparent),
+    var(--calendar-weekend-bg);
+  background-size: 10px 10px;
   border-color: var(--calendar-weekend-border);
 }
 
