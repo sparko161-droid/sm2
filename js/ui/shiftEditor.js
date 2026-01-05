@@ -1,5 +1,7 @@
 // js/ui/shiftEditor.js
 
+import { getTimezoneOffsetMin, loadConfig } from "../state/config.js";
+
 /**
  * Панель редактирования смены.
  *
@@ -33,11 +35,34 @@ let errorEl = null;
 
 let currentCtx = null;
 
+function formatTimezoneLabel() {
+  const offsetMin = getTimezoneOffsetMin();
+  if (!Number.isFinite(offsetMin)) return "локальное время";
+  const normalizedOffsetMin = Math.round(offsetMin);
+  const sign = normalizedOffsetMin >= 0 ? "+" : "-";
+  const absMin = Math.abs(normalizedOffsetMin);
+  const hours = Math.floor(absMin / 60);
+  const minutes = absMin % 60;
+  const offsetText = minutes
+    ? `${hours}:${String(minutes).padStart(2, "0")}`
+    : `${hours}`;
+  return `локальное GMT${sign}${offsetText}`;
+}
+
+function updateTimezoneLabel() {
+  if (!backdropEl) return;
+  const labelEl = backdropEl.querySelector("#shift-editor-timezone-label");
+  if (!labelEl) return;
+  labelEl.textContent = `Время смены (${formatTimezoneLabel()})`;
+}
+
 export function initShiftEditor({ getShiftsForLine, onApply }) {
   getShiftsForLineFn = getShiftsForLine;
   onApplyFn = onApply;
 
   if (backdropEl) return; // уже инициализировано
+
+  const timezoneLabel = `Время смены (${formatTimezoneLabel()})`;
 
   backdropEl = document.createElement("div");
   backdropEl.className = "shift-editor-backdrop";
@@ -58,7 +83,7 @@ export function initShiftEditor({ getShiftsForLine, onApply }) {
           <select id="shift-editor-select"></select>
         </div>
         <div class="shift-editor-row">
-          <label>Время смены (локальное GMT+4)</label>
+          <label id="shift-editor-timezone-label">${timezoneLabel}</label>
           <div style="display:flex; gap:6px;">
             <input id="shift-editor-start" type="time" min="00:00" max="23:59" style="flex:1;" />
             <input id="shift-editor-end" type="time" min="00:00" max="23:59" style="flex:1;" />
@@ -109,6 +134,10 @@ export function initShiftEditor({ getShiftsForLine, onApply }) {
   });
 
   selectShiftEl.addEventListener("change", handleTemplateChange);
+
+  loadConfig()
+    .then(() => updateTimezoneLabel())
+    .catch(() => updateTimezoneLabel());
 }
 
 export function openShiftEditor(context) {

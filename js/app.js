@@ -2,6 +2,8 @@
 // Главный модуль SPA для графика смен L1/L2
 // Чистый vanilla JS.
 
+import { getTimezoneOffsetMin, loadConfig } from "./state/config.js";
+
 /**
  * Основные сущности:
  * - Авторизация через n8n /graph (type: "auth")
@@ -13,7 +15,6 @@
 
 const GRAPH_HOOK_URL = "https://jolikcisout.beget.app/webhook/pyrus/graph";
 const MAX_DAYS_IN_MONTH = 31;
-const LOCAL_TZ_OFFSET_MIN = 4 * 60; // GMT+4
 
 // -----------------------------
 // Конфиг вкладок (линий)
@@ -340,7 +341,7 @@ function convertUtcStartToLocalRange(utcIsoString, durationMinutes) {
   if (Number.isNaN(startUtc.getTime())) return null;
 
   const startLocalMs =
-    startUtc.getTime() + LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+    startUtc.getTime() + getTimezoneOffsetMin() * 60 * 1000;
   const startLocalDate = new Date(startLocalMs);
 
   const startHH = String(startLocalDate.getUTCHours()).padStart(2, "0");
@@ -401,7 +402,7 @@ function convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLo
     const hhNum = Math.floor(startMin / 60);
     const mmNum = startMin % 60;
 
-    const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+    const offsetMs = getTimezoneOffsetMin() * 60 * 1000;
     const baseUtcMs = Date.UTC(y, m, d, hhNum, mmNum);
     if (!Number.isFinite(baseUtcMs)) return null;
 
@@ -616,7 +617,13 @@ let employeeFilterPopoverControlsEl = null;
 // Инициализация
 // -----------------------------
 
-function init() {
+async function init() {
+  try {
+    await loadConfig();
+  } catch (err) {
+    console.warn("Не удалось загрузить конфиг", err);
+  }
+
   resetLocalEditingState();
   initTheme();
   loadCurrentLinePreference();
@@ -2111,7 +2118,7 @@ async function loadVacationsForMonth(year, monthIndex) {
   const tasks = (wrapper && wrapper.tasks) || [];
 
   const vacationsByEmployee = Object.create(null);
-  const offsetMs = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+  const offsetMs = getTimezoneOffsetMin() * 60 * 1000;
 
   const monthStartShiftedMs = Date.UTC(year, monthIndex, 1, 0, 0, 0, 0);
   const monthEndShiftedMs = Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0);
@@ -3287,4 +3294,8 @@ function applyLocalChangesToSchedule() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", () => {
+  init().catch((err) => {
+    console.error("Init error:", err);
+  });
+});

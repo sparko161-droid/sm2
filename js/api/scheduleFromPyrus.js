@@ -1,9 +1,6 @@
 // js/api/scheduleFromPyrus.js
 import { pyrusFetch } from "./pyrusAuth.js";
-
-// Жёстко задаём бизнес-часовой пояс: GMT+4
-const LOCAL_TZ_OFFSET_MIN = 4 * 60;
-const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+import { getTimezoneOffsetMin, loadConfig } from "../state/config.js";
 
 /**
  * Загружаем реестр задач формы 2375272 и строим карту графика на месяц.
@@ -18,7 +15,7 @@ const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
  *         // UTC-время (для отправки в API):
  *         startUtcMinutes,
  *         endUtcMinutes,
- *         // Локальное время (GMT+4) — для отображения:
+ *         // Локальное время — для отображения:
  *         startMinutes,
  *         endMinutes,
  *         amount,
@@ -29,6 +26,10 @@ const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
  * }
  */
 export async function loadScheduleForMonth(year, month0, employees, shifts) {
+  await loadConfig();
+
+  const localOffsetMin = getTimezoneOffsetMin();
+  const localOffsetMs = localOffsetMin * 60 * 1000;
   const res = await pyrusFetch("/forms/2375272/register", { method: "GET" });
   const json = await res.json();
 
@@ -54,8 +55,8 @@ export async function loadScheduleForMonth(year, month0, employees, shifts) {
     const dueUtc = new Date(dueVal);
     if (isNaN(dueUtc.getTime())) continue;
 
-    // Переводим в локальное GMT+4, чтобы определить ДЕНЬ и МЕСЯЦ
-    const dueLocal = new Date(dueUtc.getTime() + LOCAL_TZ_OFFSET_MS);
+    // Переводим в локальное время, чтобы определить ДЕНЬ и МЕСЯЦ
+    const dueLocal = new Date(dueUtc.getTime() + localOffsetMs);
 
     // Фильтрация по выбранному месяцу — именно по ЛОКАЛЬНОЙ дате
     if (dueLocal.getFullYear() !== year || dueLocal.getMonth() !== month0) {
@@ -68,7 +69,7 @@ export async function loadScheduleForMonth(year, month0, employees, shifts) {
     const shiftItemId = shiftField.value.item_id;
     const shiftDef = shifts.byId[shiftItemId];
 
-    // День в календаре — по локальному времени (GMT+4)
+    // День в календаре — по локальному времени
     const day = dueLocal.getDate();
 
     // ---------- ВРЕМЯ СМЕНЫ ----------
@@ -85,36 +86,36 @@ export async function loadScheduleForMonth(year, month0, employees, shifts) {
       startUtcMinutes = hUtc * 60 + mUtc;
       endUtcMinutes = (startUtcMinutes + dueField.duration) % (24 * 60);
 
-      // Локальное время = UTC + 4 часа
+      // Локальное время = UTC + offset
       startMinutesLocal =
-        (startUtcMinutes + LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (startUtcMinutes + localOffsetMin + 24 * 60) % (24 * 60);
       endMinutesLocal =
-        (endUtcMinutes + LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (endUtcMinutes + localOffsetMin + 24 * 60) % (24 * 60);
     } else if (
       shiftDef &&
       shiftDef.startMinutes != null &&
       shiftDef.durationMinutes != null
     ) {
       // 2) duration нет → используем шаблон смены.
-      // В справочнике время уже в GMT+4:
+      // В справочнике время уже в локальном поясе:
       //   - локальное время берём как есть,
-      //   - UTC считаем как local - 4 часа.
+      //   - UTC считаем как local - offset.
       startMinutesLocal = shiftDef.startMinutes;
       endMinutesLocal =
         (shiftDef.startMinutes + shiftDef.durationMinutes) % (24 * 60);
 
       startUtcMinutes =
-        (startMinutesLocal - LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (startMinutesLocal - localOffsetMin + 24 * 60) % (24 * 60);
       endUtcMinutes =
-        (endMinutesLocal - LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (endMinutesLocal - localOffsetMin + 24 * 60) % (24 * 60);
     } else {
       // 3) Нет информации о времени → считаем 00:00–00:00
       startUtcMinutes = 0;
       endUtcMinutes = 0;
       startMinutesLocal =
-        (startUtcMinutes + LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (startUtcMinutes + localOffsetMin + 24 * 60) % (24 * 60);
       endMinutesLocal =
-        (endUtcMinutes + LOCAL_TZ_OFFSET_MIN + 24 * 60) % (24 * 60);
+        (endUtcMinutes + localOffsetMin + 24 * 60) % (24 * 60);
     }
 
     // ---------- ДЕНЬГИ ----------
@@ -144,7 +145,7 @@ export async function loadScheduleForMonth(year, month0, employees, shifts) {
       // UTC (для API):
       startUtcMinutes,
       endUtcMinutes,
-      // Локальное время GMT+4 (для UI):
+      // Локальное время (для UI):
       startMinutes: startMinutesLocal,
       endMinutes: endMinutesLocal,
       amount,
@@ -152,6 +153,6 @@ export async function loadScheduleForMonth(year, month0, employees, shifts) {
     };
   }
 
-  console.log("График из Pyrus (учёт GMT+4 и дней)", byEmployee);
+  console.log("График из Pyrus (учёт локального времени и дней)", byEmployee);
   return { byEmployee };
 }
