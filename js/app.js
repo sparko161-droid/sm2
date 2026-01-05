@@ -531,11 +531,31 @@ async function pyrusApi(path, method = "GET", body = null) {
 // -----------------------------
 // Производственный календарь РФ (isdayoff.ru) — помесячно, с кэшем и фолбеком на СБ/ВС
 // -----------------------------
-const PROD_CAL_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 дней
+let appConfigPromise = null;
 
-function prodCalCacheKey(year, monthIndex) {
+async function loadAppConfig() {
+  if (!appConfigPromise) {
+    appConfigPromise = fetch("config.json", { cache: "no-store" })
+      .then((resp) => {
+        if (!resp.ok) throw new Error(`Config load error: ${resp.status}`);
+        return resp.json();
+      })
+      .catch((err) => {
+        console.warn("Не удалось загрузить config.json, используем пустой конфиг", err);
+        return {};
+      });
+  }
+  return appConfigPromise;
+}
+
+function getProdCalConfig(config) {
+  return (config && config.calendar && config.calendar.prodCal) ? config.calendar.prodCal : {};
+}
+
+function prodCalCacheKey(prodCalConfig, year, monthIndex) {
   const mm = String(monthIndex + 1).padStart(2, "0");
-  return `prodcal_ru_${year}-${mm}_pre1`;
+  const prefix = prodCalConfig.cacheKeyPrefix || "";
+  return `${prefix}${year}-${mm}_pre1`;
 }
 
 function formatYmdForKey(year, monthIndex, day) {
@@ -551,12 +571,15 @@ function formatYmdCompact(year, monthIndex, day) {
 }
 
 async function loadProdCalendarForMonth(year, monthIndex) {
-  const cacheKey = prodCalCacheKey(year, monthIndex);
+  const appConfig = await loadAppConfig();
+  const prodCalConfig = getProdCalConfig(appConfig);
+  const cacheKey = prodCalCacheKey(prodCalConfig, year, monthIndex);
+  const ttlMs = Number(prodCalConfig.ttlMs) || 0;
   try {
     const cachedRaw = localStorage.getItem(cacheKey);
     if (cachedRaw) {
       const cached = JSON.parse(cachedRaw);
-      if (cached && cached.fetchedAt && (Date.now() - cached.fetchedAt) < PROD_CAL_TTL_MS && cached.dayTypeByDay) {
+      if (cached && cached.fetchedAt && ttlMs > 0 && (Date.now() - cached.fetchedAt) < ttlMs && cached.dayTypeByDay) {
         return cached;
       }
     }
@@ -565,10 +588,15 @@ async function loadProdCalendarForMonth(year, monthIndex) {
   }
 
   const lastDay = new Date(year, monthIndex + 1, 0).getDate();
-  const date1 = formatYmdCompact(year, monthIndex, 1);
-  const date2 = formatYmdCompact(year, monthIndex, lastDay);
-
-  const url = `https://isdayoff.ru/api/getdata?date1=${date1}&date2=${date2}&cc=ru&pre=1`;
+  const urlTemplate = prodCalConfig.urlTemplate;
+  if (!urlTemplate) {
+    throw new Error("ProdCal urlTemplate is missing in config");
+  }
+  const month = String(monthIndex + 1).padStart(2, "0");
+  const url = urlTemplate
+    .replace(/{year}/g, String(year))
+    .replace(/{month}/g, month)
+    .replace(/{lastDay}/g, String(lastDay));
 
   const resp = await fetch(url, { method: "GET" });
   const text = (await resp.text()).trim();
