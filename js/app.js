@@ -2482,6 +2482,7 @@ function renderScheduleCurrentLine() {
   thNameWrap.className = "employee-header";
 
   const thNameLabel = document.createElement("span");
+  thNameLabel.className = "header-text";
   thNameLabel.textContent = "Сотрудник";
 
   const filterBtn = document.createElement("button");
@@ -2542,14 +2543,20 @@ function renderScheduleCurrentLine() {
     const isWorkday = dayType === 0 || dayType === 4 || (dayType == null && !isFallbackWeekend);
 
     const th1 = document.createElement("th");
-    th1.textContent = String(day);
+    const th1Label = document.createElement("span");
+    th1Label.className = "header-text";
+    th1Label.textContent = String(day);
+    th1.appendChild(th1Label);
     if (isWeekend) th1.classList.add("day-weekend");
     if (isHoliday) th1.classList.add("day-holiday");
     if (isPreHoliday) th1.classList.add("day-preholiday");
     headRow1.appendChild(th1);
 
     const th2 = document.createElement("th");
-    th2.textContent = weekday;
+    const th2Label = document.createElement("span");
+    th2Label.className = "header-text";
+    th2Label.textContent = weekday;
+    th2.appendChild(th2Label);
     th2.className = "weekday-header";
     if (isWeekend) {
       th2.classList.add("day-weekend");
@@ -2567,7 +2574,10 @@ function renderScheduleCurrentLine() {
   }
 
   const thSum1 = document.createElement("th");
-  thSum1.textContent = "Сумма";
+  const thSum1Label = document.createElement("span");
+  thSum1Label.className = "header-text";
+  thSum1Label.textContent = "Сумма";
+  thSum1.appendChild(thSum1Label);
   thSum1.className = "summary-cell";
   headRow1.appendChild(thSum1);
 
