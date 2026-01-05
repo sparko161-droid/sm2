@@ -64,8 +64,10 @@ const DEFAULT_CONFIG = {
       OU: [108368030],
       AI: [166353950],
     },
-    // orderByLine — опционально, в коде есть fallback на LINE_DEPT_IDS.*.slice()
-    // сюда можно положить значения, если нужно.
+    orderByLine: {
+      L2: [108368026, 171248779, 171248780],
+      OP: [108368021, 157753518, 157753516],
+    },
   },
   management: {
     topManagementIds: [1167305, 314287], // Лузин, Сухачев
@@ -113,6 +115,7 @@ function normalizeConfig(config) {
   const uiLines = ui.lines ?? {};
   const departments = root.departments ?? {};
   const deptByLine = departments.byLine ?? {};
+  const deptOrderByLine = departments.orderByLine ?? {};
   const management = root.management ?? {};
 
   return {
@@ -185,6 +188,10 @@ function normalizeConfig(config) {
       byLine: {
         ...DEFAULT_CONFIG.departments.byLine,
         ...deptByLine,
+      },
+      orderByLine: {
+        ...DEFAULT_CONFIG.departments.orderByLine,
+        ...deptOrderByLine,
       },
     },
 
