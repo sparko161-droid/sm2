@@ -806,8 +806,6 @@ function applyCalendarUiTheme(theme) {
   setVar("--calendar-micro-preholiday", micro.preholiday);
 }
 
-}
-
 function updateThemeToggleUI() {
   if (!btnThemeToggleEl) return;
   const isDark = state.ui.theme === "dark";
