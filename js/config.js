@@ -191,6 +191,7 @@ function normalizeConfig(config) {
   const management = root.management ?? {};
   const calendar = root.calendar ?? {};
   const prodCal = calendar.prodCal ?? {};
+  const calendarIndicators = calendar.indicators ?? {};
 const calendarUi = calendar.ui ?? {};
 const calendarUiLight = calendarUi.light ?? {};
 const calendarUiDark = calendarUi.dark ?? {};
