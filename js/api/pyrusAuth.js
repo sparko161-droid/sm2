@@ -3,8 +3,9 @@ import { getConfigValue } from "../config.js";
 
 const N8N_GRAPH_URL = getConfigValue("graphHookUrl", {
   defaultValue: "https://jolikcisout.beget.app/webhook/pyrus/graph",
-  required: true
+  required: true,
 });
+
 
 /**
  * Универсальный вызов Pyrus через n8n-хук /graph с type="pyrus-api".

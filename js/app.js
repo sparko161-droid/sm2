@@ -13,13 +13,18 @@ import { config } from "./config.js";
  * - Система прав доступа: edit/view для L1 и L2
  */
 
-import { getConfigValue } from "./config.js";
+import { config, getConfigValue } from "./config.js";
+
+// Единый источник истины — нормализованный config.
+// window.APP_CONFIG оставляем только как отладочный дамп в config.js, без чтения здесь.
 
 const GRAPH_HOOK_URL = getConfigValue("graphHookUrl", {
   defaultValue: "https://jolikcisout.beget.app/webhook/pyrus/graph",
   required: true,
 });
+
 const MAX_DAYS_IN_MONTH = 31;
+
 const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
   defaultValue: 4 * 60,
   required: true,
@@ -28,44 +33,46 @@ const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
 // -----------------------------
 // Конфиг вкладок (линий)
 // -----------------------------
-const LINE_KEYS_IN_UI_ORDER = getConfigValue("ui.lines.order", {
-  defaultValue: ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"],
-});
-const LINE_LABELS = getConfigValue("ui.lines.labels", {
-  defaultValue: { ALL: "ВСЕ", OP: "OP", OV: "OV", L1: "L1", L2: "L2", AI: "AI", OU: "OU" },
-});
+const LINE_KEYS_IN_UI_ORDER =
+  config.ui?.lines?.order ?? ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"];
+
+const LINE_LABELS =
+  config.ui?.lines?.labels ?? {
+    ALL: "ВСЕ",
+    OP: "OP",
+    OV: "OV",
+    L1: "L1",
+    L2: "L2",
+    AI: "AI",
+    OU: "OU",
+  };
 
 // Жёсткая привязка department_id -> вкладка
-const LINE_DEPT_IDS = getConfigValue("departments.byLine", {
-  defaultValue: {
+const LINE_DEPT_IDS =
+  config.departments?.byLine ?? {
     L1: [108368027],
     L2: [108368026, 171248779, 171248780],
     OV: [80208117],
     OP: [108368021, 157753518, 157753516], // важно: порядок групп
     OU: [108368030],
     AI: [166353950],
-  },
-  required: true,
-});
+  };
 
 // Руководители/учредители (всегда сверху во "ВСЕ")
-const TOP_MANAGEMENT_IDS = getConfigValue("management.topManagementIds", {
-  defaultValue: [1167305, 314287],
-  required: true,
-}); // Лузин, Сухачев
+const TOP_MANAGEMENT_IDS =
+  config.management?.topManagementIds ?? [1167305, 314287]; // Лузин, Сухачев
 
 // Pyrus: значение каталога "Линия/Отдел" (field id=1) в форме явок
-const PYRUS_LINE_ITEM_ID = getConfigValue("pyrusLineItemIdByLine", {
-  defaultValue: {
+const PYRUS_LINE_ITEM_ID =
+  config.pyrusLineItemIdByLine ?? {
     L2: 157816613,
     L1: 165474029,
     OV: 157816614,
     OU: 157816622,
     AI: 168065907,
     OP: 157816621,
-  },
-  required: true,
-});
+  };
+
 
 function resolvePyrusLineItemIdByDepartmentId(deptId) {
   if (deptId == null) return null;
@@ -79,31 +86,19 @@ function resolvePyrusLineItemIdByDepartmentId(deptId) {
 }
 
 // Порядок групп (department_id) для сортировки внутри вкладок
-const DEPT_ORDER_BY_LINE = getConfigValue("departments.orderByLine", {
-  defaultValue: {
-    L2: LINE_DEPT_IDS.L2.slice(),
-    OP: LINE_DEPT_IDS.OP.slice(),
-  },
-  required: true,
-});
+import { config } from "../config.js";
 
-const PYRUS_CATALOG_IDS = getConfigValue("pyrus.catalogs", {
-  defaultValue: { shifts: 281369 },
-  required: true,
-});
+const DEPT_ORDER_BY_LINE = {
+  L2: config.departments?.orderByLine?.L2 ?? LINE_DEPT_IDS.L2.slice(),
+  OP: config.departments?.orderByLine?.OP ?? LINE_DEPT_IDS.OP.slice(),
+};
 
-const PYRUS_FORM_IDS = getConfigValue("pyrus.forms", {
-  defaultValue: { otpusk: 2348174, smeni: 2375272 },
-  required: true,
-});
+const PYRUS_CATALOG_IDS = config.pyrus.catalogs;
 
-const PYRUS_FIELD_IDS = getConfigValue("pyrus.fields", {
-  defaultValue: {
-    otpusk: { person: 1, period: 2 },
-    smeni: { due: 4, amount: 5, person: 8, shift: 10 },
-  },
-  required: true,
-});
+const PYRUS_FORM_IDS = config.pyrus.forms;
+
+const PYRUS_FIELD_IDS = config.pyrus.fields;
+
 
 
 // Универсальный helper для n8n-обёртки Pyrus { success, data }
@@ -202,7 +197,10 @@ const scheduleCacheByLine = {
   L2: Object.create(null),
 };
 
+import { config } from "../config.js";
+
 const STORAGE_KEYS = config.storage.keys;
+
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -228,9 +226,12 @@ function canViewLine(line) {
 // Персистентная авторизация (localStorage + cookie)
 // -----------------------------
 
+import { config } from "../config.js";
+
 const AUTH_STORAGE_KEY = config.storage.auth.key;
 const AUTH_TTL_MS = config.storage.auth.ttlMs; // 7 дней
 const AUTH_COOKIE_DAYS = config.storage.auth.cookieDays;
+
 
 function setCookie(name, value, days) {
   try {
