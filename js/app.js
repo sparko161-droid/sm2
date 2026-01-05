@@ -13,38 +13,59 @@ import { config } from "./config.js";
  * - Система прав доступа: edit/view для L1 и L2
  */
 
-const GRAPH_HOOK_URL = "https://jolikcisout.beget.app/webhook/pyrus/graph";
+import { getConfigValue } from "./config.js";
+
+const GRAPH_HOOK_URL = getConfigValue("graphHookUrl", {
+  defaultValue: "https://jolikcisout.beget.app/webhook/pyrus/graph",
+  required: true,
+});
 const MAX_DAYS_IN_MONTH = 31;
-const LOCAL_TZ_OFFSET_MIN = 4 * 60; // GMT+4
+const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+}); // GMT+4
 
 // -----------------------------
 // Конфиг вкладок (линий)
 // -----------------------------
-const LINE_KEYS_IN_UI_ORDER = ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"];
-const LINE_LABELS = { ALL: "ВСЕ", OP: "OP", OV: "OV", L1: "L1", L2: "L2", AI: "AI", OU: "OU" };
+const LINE_KEYS_IN_UI_ORDER = getConfigValue("ui.lines.order", {
+  defaultValue: ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"],
+});
+const LINE_LABELS = getConfigValue("ui.lines.labels", {
+  defaultValue: { ALL: "ВСЕ", OP: "OP", OV: "OV", L1: "L1", L2: "L2", AI: "AI", OU: "OU" },
+});
 
 // Жёсткая привязка department_id -> вкладка
-const LINE_DEPT_IDS = {
-  L1: [108368027],
-  L2: [108368026, 171248779, 171248780],
-  OV: [80208117],
-  OP: [108368021, 157753518, 157753516], // важно: порядок групп
-  OU: [108368030],
-  AI: [166353950],
-};
+const LINE_DEPT_IDS = getConfigValue("departments.byLine", {
+  defaultValue: {
+    L1: [108368027],
+    L2: [108368026, 171248779, 171248780],
+    OV: [80208117],
+    OP: [108368021, 157753518, 157753516], // важно: порядок групп
+    OU: [108368030],
+    AI: [166353950],
+  },
+  required: true,
+});
 
 // Руководители/учредители (всегда сверху во "ВСЕ")
-const TOP_MANAGEMENT_IDS = [1167305, 314287]; // Лузин, Сухачев
+const TOP_MANAGEMENT_IDS = getConfigValue("management.topManagementIds", {
+  defaultValue: [1167305, 314287],
+  required: true,
+}); // Лузин, Сухачев
 
 // Pyrus: значение каталога "Линия/Отдел" (field id=1) в форме явок
-const PYRUS_LINE_ITEM_ID = {
-  L2: 157816613,
-  L1: 165474029,
-  OV: 157816614,
-  OU: 157816622,
-  AI: 168065907,
-  OP: 157816621,
-};
+const PYRUS_LINE_ITEM_ID = getConfigValue("pyrusLineItemIdByLine", {
+  defaultValue: {
+    L2: 157816613,
+    L1: 165474029,
+    OV: 157816614,
+    OU: 157816622,
+    AI: 168065907,
+    OP: 157816621,
+  },
+  required: true,
+});
 
 function resolvePyrusLineItemIdByDepartmentId(deptId) {
   if (deptId == null) return null;
@@ -58,10 +79,31 @@ function resolvePyrusLineItemIdByDepartmentId(deptId) {
 }
 
 // Порядок групп (department_id) для сортировки внутри вкладок
-const DEPT_ORDER_BY_LINE = {
-  L2: LINE_DEPT_IDS.L2.slice(),
-  OP: LINE_DEPT_IDS.OP.slice(),
-};
+const DEPT_ORDER_BY_LINE = getConfigValue("departments.orderByLine", {
+  defaultValue: {
+    L2: LINE_DEPT_IDS.L2.slice(),
+    OP: LINE_DEPT_IDS.OP.slice(),
+  },
+  required: true,
+});
+
+const PYRUS_CATALOG_IDS = getConfigValue("pyrus.catalogs", {
+  defaultValue: { shifts: 281369 },
+  required: true,
+});
+
+const PYRUS_FORM_IDS = getConfigValue("pyrus.forms", {
+  defaultValue: { otpusk: 2348174, smeni: 2375272 },
+  required: true,
+});
+
+const PYRUS_FIELD_IDS = getConfigValue("pyrus.fields", {
+  defaultValue: {
+    otpusk: { person: 1, period: 2 },
+    smeni: { due: 4, amount: 5, person: 8, shift: 10 },
+  },
+  required: true,
+});
 
 
 // Универсальный helper для n8n-обёртки Pyrus { success, data }
@@ -1995,7 +2037,7 @@ persistCachedEmployees();
 }
 
 async function loadShiftsCatalog() {
-  const raw = await pyrusApi("/v4/catalogs/281369", "GET");
+  const raw = await pyrusApi(`/v4/catalogs/${PYRUS_CATALOG_IDS.shifts}`, "GET");
   const data = unwrapPyrusData(raw);
 
   const catalog = Array.isArray(data) ? data[0] : data;
@@ -2099,7 +2141,7 @@ async function loadShiftsCatalog() {
 
 
 async function loadVacationsForMonth(year, monthIndex) {
-  const raw = await pyrusApi("/v4/forms/2348174/register", "GET");
+  const raw = await pyrusApi(`/v4/forms/${PYRUS_FORM_IDS.otpusk}/register`, "GET");
   const data = unwrapPyrusData(raw);
   const wrapper = Array.isArray(data) ? data[0] : data;
   const tasks = (wrapper && wrapper.tasks) || [];
@@ -2131,8 +2173,12 @@ async function loadVacationsForMonth(year, monthIndex) {
 
   for (const task of tasks) {
     const fields = task.fields || [];
-    const personField = fields.find((f) => f && f.id === 1 && f.type === "person");
-    const periodField = fields.find((f) => f && f.id === 2 && f.type === "due_date_time");
+    const personField = fields.find(
+      (f) => f && f.id === PYRUS_FIELD_IDS.otpusk?.person && f.type === "person"
+    );
+    const periodField = fields.find(
+      (f) => f && f.id === PYRUS_FIELD_IDS.otpusk?.period && f.type === "due_date_time"
+    );
     if (!personField || !periodField) continue;
 
     const empId = personField.value && personField.value.id;
@@ -2191,7 +2237,7 @@ async function loadVacationsForMonth(year, monthIndex) {
 async function reloadScheduleForCurrentMonth() {
   const { year, monthIndex } = state.monthMeta;
 
-  const raw = await pyrusApi("/v4/forms/2375272/register", "GET");
+  const raw = await pyrusApi(`/v4/forms/${PYRUS_FORM_IDS.smeni}/register`, "GET");
   const data = unwrapPyrusData(raw);
 
   // Отпуска: внешняя система, только отображение
@@ -2257,10 +2303,10 @@ async function reloadScheduleForCurrentMonth() {
 
   for (const task of tasks) {
     const fields = task.fields || [];
-    const dueField = findField(fields, 4);
-    const moneyField = findField(fields, 5);
-    const personField = findField(fields, 8);
-    const shiftField = findField(fields, 10);
+    const dueField = findField(fields, PYRUS_FIELD_IDS.smeni?.due);
+    const moneyField = findField(fields, PYRUS_FIELD_IDS.smeni?.amount);
+    const personField = findField(fields, PYRUS_FIELD_IDS.smeni?.person);
+    const shiftField = findField(fields, PYRUS_FIELD_IDS.smeni?.shift);
 
     if (!dueField || !personField || !shiftField) continue;
 
