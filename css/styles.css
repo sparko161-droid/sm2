@@ -623,8 +623,7 @@ body {
 
 /* предпраздничный (сокращённый рабочий день) — лёгкая метка */
 .day-preholiday {
-  outline: 1px solid var(--table-border-strong);
-  outline-offset: -1px;
+  outline: none
 }
 
 .schedule-table .shift-cell {
