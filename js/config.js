@@ -84,7 +84,7 @@ const DEFAULT_CONFIG = {
   calendar: {
     prodCal: {
       ttlMs: 30 * 24 * 60 * 60 * 1000,
-      urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
+      urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}&pre=1&holiday=1",
       cacheKeyPrefix: "prodcal_ru_",
     },
   },

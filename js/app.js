@@ -557,7 +557,18 @@ async function loadProdCalendarForMonth(year, monthIndex) {
   const dayTypeByDay = Object.create(null);
   for (let d = 1; d <= lastDay; d++) {
     const ch = text[d - 1];
-    const code = ch === "0" ? 0 : ch === "1" ? 1 : ch === "2" ? 2 : null;
+    // Поддерживаемые коды isdayoff.ru: 0, 1, 2, 4, 8.
+    const code = ch === "0"
+      ? 0
+      : ch === "1"
+        ? 1
+        : ch === "2"
+          ? 2
+          : ch === "4"
+            ? 4
+            : ch === "8"
+              ? 8
+              : null;
     if (code !== null) dayTypeByDay[d] = code;
   }
 
