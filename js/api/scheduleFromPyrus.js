@@ -1,9 +1,25 @@
 // js/api/scheduleFromPyrus.js
 import { pyrusFetch } from "./pyrusAuth.js";
+import { getConfigValue } from "../config.js";
 
 // Жёстко задаём бизнес-часовой пояс: GMT+4
-const LOCAL_TZ_OFFSET_MIN = 4 * 60;
+const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+});
 const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
+
+const PYRUS_FORM_IDS = getConfigValue("pyrus.forms", {
+  defaultValue: { smeni: 2375272 },
+  required: true,
+});
+
+const PYRUS_FIELD_IDS = getConfigValue("pyrus.fields", {
+  defaultValue: {
+    smeni: { due: 4, amount: 5, person: 8, shift: 10 },
+  },
+  required: true,
+});
 
 /**
  * Загружаем реестр задач формы 2375272 и строим карту графика на месяц.
@@ -29,7 +45,7 @@ const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
  * }
  */
 export async function loadScheduleForMonth(year, month0, employees, shifts) {
-  const res = await pyrusFetch("/forms/2375272/register", { method: "GET" });
+  const res = await pyrusFetch(`/forms/${PYRUS_FORM_IDS.smeni}/register`, { method: "GET" });
   const json = await res.json();
 
   const wrapper = Array.isArray(json) ? json[0] : json;
@@ -40,10 +56,18 @@ export async function loadScheduleForMonth(year, month0, employees, shifts) {
   for (const task of tasks) {
     const fields = task.fields || [];
 
-    const dueField = fields.find((f) => f.id === 4 && f.type === "due_date_time");
-    const moneyField = fields.find((f) => f.id === 5 && f.type === "money");
-    const personField = fields.find((f) => f.id === 8 && f.type === "person");
-    const shiftField = fields.find((f) => f.id === 10 && f.type === "catalog");
+    const dueField = fields.find(
+      (f) => f.id === PYRUS_FIELD_IDS.smeni?.due && f.type === "due_date_time"
+    );
+    const moneyField = fields.find(
+      (f) => f.id === PYRUS_FIELD_IDS.smeni?.amount && f.type === "money"
+    );
+    const personField = fields.find(
+      (f) => f.id === PYRUS_FIELD_IDS.smeni?.person && f.type === "person"
+    );
+    const shiftField = fields.find(
+      (f) => f.id === PYRUS_FIELD_IDS.smeni?.shift && f.type === "catalog"
+    );
 
     if (!dueField || !personField || !shiftField || !shiftField.value) continue;
 
