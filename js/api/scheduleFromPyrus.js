@@ -1,8 +1,9 @@
 // js/api/scheduleFromPyrus.js
 import { pyrusFetch } from "./pyrusAuth.js";
+import { config } from "../config.js";
 
 // Жёстко задаём бизнес-часовой пояс: GMT+4
-const LOCAL_TZ_OFFSET_MIN = 4 * 60;
+const LOCAL_TZ_OFFSET_MIN = config?.timezone?.localOffsetMin ?? 4 * 60;
 const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
 
 /**
@@ -29,7 +30,10 @@ const LOCAL_TZ_OFFSET_MS = LOCAL_TZ_OFFSET_MIN * 60 * 1000;
  * }
  */
 export async function loadScheduleForMonth(year, month0, employees, shifts) {
-  const res = await pyrusFetch("/forms/2375272/register", { method: "GET" });
+  const scheduleFormId = config?.pyrus?.forms?.smeni ?? 2375272;
+  const res = await pyrusFetch(`/forms/${scheduleFormId}/register`, {
+    method: "GET",
+  });
   const json = await res.json();
 
   const wrapper = Array.isArray(json) ? json[0] : json;
@@ -40,10 +44,23 @@ export async function loadScheduleForMonth(year, month0, employees, shifts) {
   for (const task of tasks) {
     const fields = task.fields || [];
 
-    const dueField = fields.find((f) => f.id === 4 && f.type === "due_date_time");
-    const moneyField = fields.find((f) => f.id === 5 && f.type === "money");
-    const personField = fields.find((f) => f.id === 8 && f.type === "person");
-    const shiftField = fields.find((f) => f.id === 10 && f.type === "catalog");
+    const dueFieldId = config?.pyrus?.fields?.smeni?.due ?? 4;
+    const moneyFieldId = config?.pyrus?.fields?.smeni?.amount ?? 5;
+    const personFieldId = config?.pyrus?.fields?.smeni?.person ?? 8;
+    const shiftFieldId = config?.pyrus?.fields?.smeni?.template ?? 10;
+
+    const dueField = fields.find(
+      (f) => f.id === dueFieldId && f.type === "due_date_time"
+    );
+    const moneyField = fields.find(
+      (f) => f.id === moneyFieldId && f.type === "money"
+    );
+    const personField = fields.find(
+      (f) => f.id === personFieldId && f.type === "person"
+    );
+    const shiftField = fields.find(
+      (f) => f.id === shiftFieldId && f.type === "catalog"
+    );
 
     if (!dueField || !personField || !shiftField || !shiftField.value) continue;
 

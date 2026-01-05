@@ -2,6 +2,8 @@
 // Главный модуль SPA для графика смен L1/L2
 // Чистый vanilla JS.
 
+import { config } from "./config.js";
+
 /**
  * Основные сущности:
  * - Авторизация через n8n /graph (type: "auth")
@@ -11,18 +13,39 @@
  * - Система прав доступа: edit/view для L1 и L2
  */
 
-const GRAPH_HOOK_URL = "https://jolikcisout.beget.app/webhook/pyrus/graph";
+const APP_CONFIG = config ?? window.APP_CONFIG;
+if (!APP_CONFIG) {
+  throw new Error("Конфигурация приложения не загружена.");
+}
+
+const GRAPH_HOOK_URL = APP_CONFIG.graphHookUrl;
 const MAX_DAYS_IN_MONTH = 31;
-const LOCAL_TZ_OFFSET_MIN = 4 * 60; // GMT+4
+const LOCAL_TZ_OFFSET_MIN = APP_CONFIG.timezone?.localOffsetMin ?? 4 * 60; // GMT+4
 
 // -----------------------------
 // Конфиг вкладок (линий)
 // -----------------------------
-const LINE_KEYS_IN_UI_ORDER = ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"];
-const LINE_LABELS = { ALL: "ВСЕ", OP: "OP", OV: "OV", L1: "L1", L2: "L2", AI: "AI", OU: "OU" };
+const LINE_KEYS_IN_UI_ORDER = APP_CONFIG.ui?.lines?.order ?? [
+  "ALL",
+  "OP",
+  "OV",
+  "L1",
+  "L2",
+  "AI",
+  "OU",
+];
+const LINE_LABELS = APP_CONFIG.ui?.lines?.labels ?? {
+  ALL: "ВСЕ",
+  OP: "OP",
+  OV: "OV",
+  L1: "L1",
+  L2: "L2",
+  AI: "AI",
+  OU: "OU",
+};
 
 // Жёсткая привязка department_id -> вкладка
-const LINE_DEPT_IDS = {
+const LINE_DEPT_IDS = APP_CONFIG.departments?.byLine ?? {
   L1: [108368027],
   L2: [108368026, 171248779, 171248780],
   OV: [80208117],
@@ -32,10 +55,13 @@ const LINE_DEPT_IDS = {
 };
 
 // Руководители/учредители (всегда сверху во "ВСЕ")
-const TOP_MANAGEMENT_IDS = [1167305, 314287]; // Лузин, Сухачев
+const TOP_MANAGEMENT_IDS = APP_CONFIG.management?.topManagementIds ?? [
+  1167305,
+  314287,
+]; // Лузин, Сухачев
 
 // Pyrus: значение каталога "Линия/Отдел" (field id=1) в форме явок
-const PYRUS_LINE_ITEM_ID = {
+const PYRUS_LINE_ITEM_ID = APP_CONFIG.pyrusLineItemIdByLine ?? {
   L2: 157816613,
   L1: 165474029,
   OV: 157816614,
@@ -57,8 +83,8 @@ function resolvePyrusLineItemIdByDepartmentId(deptId) {
 
 // Порядок групп (department_id) для сортировки внутри вкладок
 const DEPT_ORDER_BY_LINE = {
-  L2: LINE_DEPT_IDS.L2.slice(),
-  OP: LINE_DEPT_IDS.OP.slice(),
+  L2: APP_CONFIG.departments?.orderByLine?.L2 ?? LINE_DEPT_IDS.L2.slice(),
+  OP: APP_CONFIG.departments?.orderByLine?.OP ?? LINE_DEPT_IDS.OP.slice(),
 };
 
 
@@ -167,6 +193,7 @@ const STORAGE_KEYS = {
   cachedEmployees: "sm1_cached_employees",
   cachedShiftTemplates: "sm1_cached_shift_templates",
   cachedSchedulePrefix: "sm1_cached_schedule_",
+  ...(APP_CONFIG.storage?.keys ?? {}),
 };
 
 function deepClone(obj) {
@@ -193,8 +220,10 @@ function canViewLine(line) {
 // Персистентная авторизация (localStorage + cookie)
 // -----------------------------
 
-const AUTH_STORAGE_KEY = "sm_graph_auth_v1";
-const AUTH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 дней
+const AUTH_STORAGE_KEY = APP_CONFIG.storage?.auth?.key ?? "sm_graph_auth_v1";
+const AUTH_TTL_MS =
+  APP_CONFIG.storage?.auth?.ttlMs ?? 7 * 24 * 60 * 60 * 1000; // 7 дней
+const AUTH_COOKIE_DAYS = APP_CONFIG.storage?.auth?.cookieDays ?? 7;
 
 function setCookie(name, value, days) {
   try {
@@ -230,7 +259,7 @@ function saveAuthCache(login) {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
   } catch (_) {}
   // Дублируем в cookie (минимальный объём) — на случай очистки localStorage
-  setCookie(AUTH_STORAGE_KEY, JSON.stringify(payload), 7);
+  setCookie(AUTH_STORAGE_KEY, JSON.stringify(payload), AUTH_COOKIE_DAYS);
 }
 
 function loadAuthCache() {

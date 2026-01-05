@@ -1,4 +1,20 @@
 // js/ui/shiftEditor.js
+import { config } from "../config.js";
+
+const TIMEZONE_OFFSET_MIN = config?.timezone?.localOffsetMin ?? 4 * 60;
+
+function formatTimezoneLabel(offsetMin) {
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const absMin = Math.abs(offsetMin);
+  const hours = Math.floor(absMin / 60);
+  const minutes = absMin % 60;
+  if (minutes === 0) {
+    return `GMT${sign}${hours}`;
+  }
+  return `GMT${sign}${hours}:${String(minutes).padStart(2, "0")}`;
+}
+
+const TIMEZONE_LABEL = formatTimezoneLabel(TIMEZONE_OFFSET_MIN);
 
 /**
  * Панель редактирования смены.
@@ -58,7 +74,7 @@ export function initShiftEditor({ getShiftsForLine, onApply }) {
           <select id="shift-editor-select"></select>
         </div>
         <div class="shift-editor-row">
-          <label>Время смены (локальное GMT+4)</label>
+          <label>Время смены (локальное ${TIMEZONE_LABEL})</label>
           <div style="display:flex; gap:6px;">
             <input id="shift-editor-start" type="time" min="00:00" max="23:59" style="flex:1;" />
             <input id="shift-editor-end" type="time" min="00:00" max="23:59" style="flex:1;" />
