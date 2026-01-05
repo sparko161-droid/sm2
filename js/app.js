@@ -481,6 +481,19 @@ async function callGraphApi(type, payload) {
     throw new Error("callGraphApi: не указан тип хука");
   }
 
+  const allowedTypes = new Set([
+    "auth",
+    "auth_email_init",
+    "auth_email_verify",
+    "auth_telegram_init",
+    "pyrus_api",
+    "pyrus_save",
+  ]);
+  if (!allowedTypes.has(type)) {
+    console.warn(`callGraphApi: неизвестный тип хука "${type}"`);
+  }
+
+  // Единый формат ответа n8n: { status, user, permissions, error?, retryAfterSec? }
   const res = await fetch(GRAPH_HOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -501,7 +514,8 @@ async function auth(login, password) {
   const result = await callGraphApi("auth", { login, password });
 
   if (!result || result.status !== "ACCESS_GRANTED") {
-    throw new Error("Доступ запрещён (status != ACCESS_GRANTED)");
+    const errorText = result && result.error ? `: ${result.error}` : "";
+    throw new Error(`Доступ запрещён (status != ACCESS_GRANTED)${errorText}`);
   }
 
   state.auth.user = result.user || null;
