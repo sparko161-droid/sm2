@@ -81,6 +81,13 @@ const DEFAULT_CONFIG = {
     AI: 168065907,
     OP: 157816621,
   },
+  calendar: {
+    prodCal: {
+      ttlMs: 30 * 24 * 60 * 60 * 1000,
+      urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
+      cacheKeyPrefix: "prodcal_ru_",
+    },
+  },
 };
 
 const REQUIRED_PATHS = [
@@ -94,6 +101,9 @@ const REQUIRED_PATHS = [
   "storage",
   "storage.keys",
   "storage.auth",
+  "calendar",
+  "calendar.prodCal",
+  "calendar.prodCal.urlTemplate",
 ];
 
 function normalizeConfig(config) {
@@ -117,6 +127,8 @@ function normalizeConfig(config) {
   const deptByLine = departments.byLine ?? {};
   const deptOrderByLine = departments.orderByLine ?? {};
   const management = root.management ?? {};
+  const calendar = root.calendar ?? {};
+  const prodCal = calendar.prodCal ?? {};
 
   return {
     ...DEFAULT_CONFIG,
@@ -203,6 +215,15 @@ function normalizeConfig(config) {
     },
 
     pyrusLineItemIdByLine: root.pyrusLineItemIdByLine ?? DEFAULT_CONFIG.pyrusLineItemIdByLine,
+
+    calendar: {
+      ...DEFAULT_CONFIG.calendar,
+      ...calendar,
+      prodCal: {
+        ...DEFAULT_CONFIG.calendar.prodCal,
+        ...prodCal,
+      },
+    },
   };
 }
 

@@ -498,6 +498,11 @@ async function pyrusApi(path, method = "GET", body = null) {
 // Производственный календарь РФ (isdayoff.ru) — помесячно, с кэшем и фолбеком на СБ/ВС
 // -----------------------------
 let appConfigPromise = null;
+const DEFAULT_PROD_CAL_CONFIG = {
+  ttlMs: 30 * 24 * 60 * 60 * 1000,
+  urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
+  cacheKeyPrefix: "prodcal_ru_",
+};
 
 async function loadAppConfig() {
   if (!appConfigPromise) {
@@ -515,7 +520,13 @@ async function loadAppConfig() {
 }
 
 function getProdCalConfig(config) {
-  return (config && config.calendar && config.calendar.prodCal) ? config.calendar.prodCal : {};
+  const root = config && typeof config === "object" ? config : {};
+  const calendar = root.calendar && typeof root.calendar === "object" ? root.calendar : {};
+  const prodCal = calendar.prodCal && typeof calendar.prodCal === "object" ? calendar.prodCal : {};
+  return {
+    ...DEFAULT_PROD_CAL_CONFIG,
+    ...prodCal,
+  };
 }
 
 function prodCalCacheKey(prodCalConfig, year, monthIndex) {
