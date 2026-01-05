@@ -91,7 +91,7 @@ body.dark-theme {
   --border: #333333;
   --border-strong: #444444;
   --table-border: #333333;
-  --table-border-strong: #444444;
+  --table-border-strong: #2b2f36;
   --table-header-bg: #1a1a1a;
   --calendar-workday-bg: transparent;
   --calendar-workday-border: var(--table-border-strong);
@@ -100,7 +100,7 @@ body.dark-theme {
   --calendar-weekend-border: var(--table-border-strong);
   --calendar-weekend-dash: transparent;
   --calendar-holiday-bg: #4a2323;
-  --calendar-holiday-border: #c45a5a;
+  --calendar-holiday-border: var(--table-border-strong);
   --calendar-holiday-dash: transparent;
   --calendar-preholiday-bg: #e6c65c;
   --calendar-preholiday-border: var(--table-border-strong);
