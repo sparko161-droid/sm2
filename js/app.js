@@ -2283,7 +2283,9 @@ async function reloadScheduleForCurrentMonth() {
     const dueField = findField(fields, PYRUS_FIELD_IDS.smeni?.due);
     const moneyField = findField(fields, PYRUS_FIELD_IDS.smeni?.amount);
     const personField = findField(fields, PYRUS_FIELD_IDS.smeni?.person);
-    const shiftField = findField(fields, PYRUS_FIELD_IDS.smeni?.shift);
+    const shiftFieldId =
+      PYRUS_FIELD_IDS.smeni?.shift ?? PYRUS_FIELD_IDS.smeni?.template;
+    const shiftField = findField(fields, shiftFieldId);
 
     if (!dueField || !personField || !shiftField) continue;
 
