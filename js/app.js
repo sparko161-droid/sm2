@@ -3304,8 +3304,13 @@ function applyLocalChangesToSchedule() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+const start = () =>
   init().catch((err) => {
     console.error("Init error:", err);
   });
-});
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", start);
+} else {
+  start();
+}

@@ -135,21 +135,6 @@
   </div>
 
   <script src="js/shift-colors.js"></script>
-  <script type="module">
-    import { config } from "./js/config.js";
-
-    try {
-      void config;
-      await import("./js/app.js");
-    } catch (error) {
-      console.error("Не удалось загрузить конфигурацию приложения.", error);
-      const errorBanner = document.createElement("div");
-      errorBanner.className = "card";
-      errorBanner.style.margin = "24px";
-      errorBanner.textContent =
-        "Не удалось загрузить конфигурацию приложения. Проверьте config.json.";
-      document.body.prepend(errorBanner);
-    }
-  </script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
