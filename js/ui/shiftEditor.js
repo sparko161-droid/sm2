@@ -7,6 +7,7 @@ const TIMEZONE_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
 });
 
 function formatTimezoneLabel(offsetMin) {
+  if (!Number.isFinite(offsetMin)) return "локальное время";
   const sign = offsetMin >= 0 ? "+" : "-";
   const absMin = Math.abs(offsetMin);
   const hours = Math.floor(absMin / 60);
@@ -54,25 +55,11 @@ let errorEl = null;
 
 let currentCtx = null;
 
-function formatTimezoneLabel() {
-  const offsetMin = getTimezoneOffsetMin();
-  if (!Number.isFinite(offsetMin)) return "локальное время";
-  const normalizedOffsetMin = Math.round(offsetMin);
-  const sign = normalizedOffsetMin >= 0 ? "+" : "-";
-  const absMin = Math.abs(normalizedOffsetMin);
-  const hours = Math.floor(absMin / 60);
-  const minutes = absMin % 60;
-  const offsetText = minutes
-    ? `${hours}:${String(minutes).padStart(2, "0")}`
-    : `${hours}`;
-  return `локальное GMT${sign}${offsetText}`;
-}
-
 function updateTimezoneLabel() {
   if (!backdropEl) return;
   const labelEl = backdropEl.querySelector("#shift-editor-timezone-label");
   if (!labelEl) return;
-  labelEl.textContent = `Время смены (${formatTimezoneLabel()})`;
+  labelEl.textContent = `Время смены (${TIMEZONE_LABEL})`;
 }
 
 export function initShiftEditor({ getShiftsForLine, onApply }) {
@@ -80,8 +67,6 @@ export function initShiftEditor({ getShiftsForLine, onApply }) {
   onApplyFn = onApply;
 
   if (backdropEl) return; // уже инициализировано
-
-  const timezoneLabel = `Время смены (${formatTimezoneLabel()})`;
 
   backdropEl = document.createElement("div");
   backdropEl.className = "shift-editor-backdrop";
