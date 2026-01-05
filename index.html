@@ -11,28 +11,101 @@
     <!-- Экран логина -->
     <div id="login-screen" class="card">
       <h1>График смен</h1>
-      <p class="muted">Вход по логину и паролю (через n8n <code>/graph</code>).</p>
+      <p class="muted">Выберите способ входа.</p>
 
-      <form id="login-form">
-        <div class="field">
-          <span>Логин</span>
-          <input id="login-input" autocomplete="username" />
-        </div>
-
-        <div class="field">
-          <span>Пароль</span>
-          <input
-            id="password-input"
-            type="password"
-            autocomplete="current-password"
-          />
-        </div>
-
-        <button type="submit" class="btn primary full-width" id="login-button">
-          Войти
+      <div class="auth-tabs" role="tablist" aria-label="Способы входа">
+        <button type="button" class="auth-tab active" data-auth-tab="password" role="tab" aria-selected="true">
+          Логин/пароль
         </button>
-        <div id="login-error" class="error"></div>
-      </form>
+        <button type="button" class="auth-tab" data-auth-tab="email" role="tab" aria-selected="false">
+          Email + код
+        </button>
+        <button type="button" class="auth-tab" data-auth-tab="telegram" role="tab" aria-selected="false">
+          Telegram
+        </button>
+      </div>
+
+      <div class="auth-panels">
+        <section class="auth-panel" data-auth-panel="password" role="tabpanel">
+          <p class="muted auth-panel-hint">Вход по логину и паролю (через n8n <code>/graph</code>).</p>
+          <form id="login-form">
+            <div class="field">
+              <span>Логин</span>
+              <input id="login-input" autocomplete="username" />
+            </div>
+
+            <div class="field">
+              <span>Пароль</span>
+              <input
+                id="password-input"
+                type="password"
+                autocomplete="current-password"
+              />
+            </div>
+
+            <button type="submit" class="btn primary full-width" id="login-button">
+              Войти
+            </button>
+            <div id="login-error" class="error"></div>
+          </form>
+        </section>
+
+        <section class="auth-panel hidden" data-auth-panel="email" role="tabpanel">
+          <p class="muted auth-panel-hint">Отправим код на ваш email для подтверждения.</p>
+
+          <div class="email-auth-step" id="email-step-request">
+            <div class="field">
+              <span>Email</span>
+              <input id="email-input" type="email" autocomplete="email" placeholder="name@company.ru" />
+            </div>
+            <button type="button" class="btn primary full-width" id="email-send-button">
+              Получить код
+            </button>
+            <div id="email-request-error" class="error"></div>
+          </div>
+
+          <div class="email-auth-step hidden" id="email-step-code">
+            <div class="email-auth-meta">
+              <span class="email-auth-label">Код отправлен на</span>
+              <span id="email-target-label" class="email-auth-target">—</span>
+              <button type="button" class="btn ghost email-change-button" id="email-change-button">
+                Изменить email
+              </button>
+            </div>
+            <div class="otp-group" id="otp-group" aria-label="Введите код подтверждения">
+              <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="Цифра 1" />
+              <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="Цифра 2" />
+              <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="Цифра 3" />
+              <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="Цифра 4" />
+              <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="Цифра 5" />
+              <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="Цифра 6" />
+            </div>
+            <div class="email-auth-actions">
+              <button type="button" class="btn primary full-width" id="email-verify-button">
+                Подтвердить
+              </button>
+              <button type="button" class="btn ghost full-width" id="email-resend-button">
+                Повторная отправка
+              </button>
+            </div>
+            <div id="email-code-error" class="error"></div>
+          </div>
+        </section>
+
+        <section class="auth-panel hidden" data-auth-panel="telegram" role="tabpanel">
+          <p class="muted auth-panel-hint">Подтвердите вход через Telegram-бота.</p>
+          <div class="telegram-auth-card">
+            <div class="telegram-auth-icon">💬</div>
+            <div class="telegram-auth-text">
+              Откройте Telegram и подтвердите вход в боте.
+            </div>
+          </div>
+          <button type="button" class="btn primary full-width" id="telegram-auth-button">
+            Открыть Telegram
+          </button>
+          <div id="telegram-error" class="error"></div>
+        </section>
+      </div>
     </div>
 
     <!-- Основной экран -->

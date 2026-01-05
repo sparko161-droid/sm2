@@ -104,6 +104,7 @@ const state = {
     currentLine: "ALL",
     theme: "dark",
     isScheduleCached: false,
+    authMethod: "password",
   },
   quickMode: {
     enabled: false,
@@ -561,6 +562,19 @@ async function callGraphApi(type, payload) {
     throw new Error("callGraphApi: не указан тип хука");
   }
 
+  const allowedTypes = new Set([
+    "auth",
+    "auth_email_init",
+    "auth_email_verify",
+    "auth_telegram_init",
+    "pyrus_api",
+    "pyrus_save",
+  ]);
+  if (!allowedTypes.has(type)) {
+    console.warn(`callGraphApi: неизвестный тип хука "${type}"`);
+  }
+
+  // Единый формат ответа n8n: { status, user, permissions, error?, retryAfterSec? }
   const res = await fetch(GRAPH_HOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -616,12 +630,13 @@ async function auth(login, password) {
   const result = await callGraphApi("auth", { login, password });
 
   if (!result || result.status !== "ACCESS_GRANTED") {
-    const error = new Error(
-      result?.message || "Доступ запрещён (status != ACCESS_GRANTED)"
-    );
-    if (result?.retryAfterSec) error.retryAfterSec = result.retryAfterSec;
-    if (result?.code) error.code = result.code;
-    throw error;
+const error = new Error(
+  result?.message || "Доступ запрещён (status != ACCESS_GRANTED)"
+);
+if (result?.retryAfterSec) error.retryAfterSec = result.retryAfterSec;
+if (result?.code) error.code = result.code;
+throw error;
+
   }
 
   state.auth.user = result.user || null;
@@ -750,6 +765,22 @@ const loginInputEl = $("#login-input");
 const passwordInputEl = $("#password-input");
 const loginErrorEl = $("#login-error");
 const loginButtonEl = $("#login-button");
+const authTabButtons = document.querySelectorAll("[data-auth-tab]");
+const authPanels = document.querySelectorAll("[data-auth-panel]");
+const emailInputEl = $("#email-input");
+const emailSendButtonEl = $("#email-send-button");
+const emailStepRequestEl = $("#email-step-request");
+const emailStepCodeEl = $("#email-step-code");
+const emailTargetLabelEl = $("#email-target-label");
+const emailChangeButtonEl = $("#email-change-button");
+const otpGroupEl = $("#otp-group");
+const otpInputs = otpGroupEl ? Array.from(otpGroupEl.querySelectorAll(".otp-input")) : [];
+const emailVerifyButtonEl = $("#email-verify-button");
+const emailResendButtonEl = $("#email-resend-button");
+const emailRequestErrorEl = $("#email-request-error");
+const emailCodeErrorEl = $("#email-code-error");
+const telegramAuthButtonEl = $("#telegram-auth-button");
+const telegramErrorEl = $("#telegram-error");
 
 const currentUserLabelEl = $("#current-user-label");
 const currentMonthLabelEl = $("#current-month-label");
@@ -794,6 +825,7 @@ async function init() {
   loadCurrentLinePreference();
   loadEmployeeFilters();
   initMonthMetaToToday();
+  initAuthTabs();
   bindLoginForm();
 
   // Автовосстановление сессии (без повторного ввода пароля)
@@ -880,6 +912,226 @@ function persistChangeHistory() {
   } catch (err) {
     console.warn("Не удалось сохранить историю", err);
   }
+}
+
+// -----------------------------
+// Авторизация: вкладки и OTP
+// -----------------------------
+
+const emailAuthState = {
+  step: "request",
+  targetEmail: "",
+  resendRemaining: 0,
+  timerId: null,
+};
+
+function clearAuthErrors() {
+  if (loginErrorEl) loginErrorEl.textContent = "";
+  if (emailRequestErrorEl) emailRequestErrorEl.textContent = "";
+  if (emailCodeErrorEl) emailCodeErrorEl.textContent = "";
+  if (telegramErrorEl) telegramErrorEl.textContent = "";
+  otpGroupEl?.classList.remove("error");
+}
+
+function setAuthTab(method) {
+  state.ui.authMethod = method;
+  authTabButtons.forEach((btn) => {
+    const isActive = btn.dataset.authTab === method;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+  authPanels.forEach((panel) => {
+    const isActive = panel.dataset.authPanel === method;
+    panel.classList.toggle("hidden", !isActive);
+  });
+  clearAuthErrors();
+  if (method !== "email") {
+    resetEmailAuthState(false);
+  }
+}
+
+function initAuthTabs() {
+  if (!authTabButtons.length) return;
+  authTabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => setAuthTab(btn.dataset.authTab));
+  });
+  setAuthTab(state.ui.authMethod || "password");
+  bindEmailAuth();
+  bindTelegramAuth();
+}
+
+function resetEmailAuthState(keepEmail = true) {
+  clearResendTimer();
+  emailAuthState.step = "request";
+  emailAuthState.resendRemaining = 0;
+  if (!keepEmail && emailInputEl) emailInputEl.value = "";
+  if (emailTargetLabelEl) emailTargetLabelEl.textContent = "—";
+  otpInputs.forEach((input) => {
+    input.value = "";
+  });
+  updateResendButton();
+  setEmailAuthStep("request");
+}
+
+function setEmailAuthStep(step) {
+  emailAuthState.step = step;
+  emailStepRequestEl?.classList.toggle("hidden", step !== "request");
+  emailStepCodeEl?.classList.toggle("hidden", step !== "code");
+  clearAuthErrors();
+  if (step === "request") {
+    emailInputEl?.focus();
+  } else {
+    otpInputs[0]?.focus();
+  }
+}
+
+function normalizeOtpValue(value) {
+  return value.replace(/\D/g, "");
+}
+
+function setOtpError(message) {
+  if (emailCodeErrorEl) emailCodeErrorEl.textContent = message || "";
+  otpGroupEl?.classList.toggle("error", Boolean(message));
+}
+
+function getOtpValue() {
+  return otpInputs.map((input) => input.value).join("");
+}
+
+function fillOtpFromString(value) {
+  const digits = normalizeOtpValue(value).slice(0, otpInputs.length).split("");
+  otpInputs.forEach((input, index) => {
+    input.value = digits[index] || "";
+  });
+  const nextIndex = Math.min(digits.length, otpInputs.length - 1);
+  otpInputs[nextIndex]?.focus();
+}
+
+function handleOtpInput(event) {
+  const input = event.target;
+  const index = otpInputs.indexOf(input);
+  const clean = normalizeOtpValue(input.value);
+  input.value = clean.slice(-1);
+  setOtpError("");
+  if (input.value && index < otpInputs.length - 1) {
+    otpInputs[index + 1].focus();
+  }
+}
+
+function handleOtpKeydown(event) {
+  const input = event.target;
+  const index = otpInputs.indexOf(input);
+  if (event.key === "Backspace" && !input.value && index > 0) {
+    otpInputs[index - 1].value = "";
+    otpInputs[index - 1].focus();
+    event.preventDefault();
+  }
+  if (event.key === "ArrowLeft" && index > 0) {
+    otpInputs[index - 1].focus();
+    event.preventDefault();
+  }
+  if (event.key === "ArrowRight" && index < otpInputs.length - 1) {
+    otpInputs[index + 1].focus();
+    event.preventDefault();
+  }
+}
+
+function handleOtpPaste(event) {
+  const data = event.clipboardData?.getData("text");
+  if (!data) return;
+  event.preventDefault();
+  fillOtpFromString(data);
+}
+
+function updateResendButton() {
+  if (!emailResendButtonEl) return;
+  if (emailAuthState.resendRemaining > 0) {
+    emailResendButtonEl.disabled = true;
+    emailResendButtonEl.textContent = `Повторная отправка (${emailAuthState.resendRemaining}с)`;
+  } else {
+    emailResendButtonEl.disabled = false;
+    emailResendButtonEl.textContent = "Повторная отправка";
+  }
+}
+
+function clearResendTimer() {
+  if (emailAuthState.timerId) {
+    clearInterval(emailAuthState.timerId);
+    emailAuthState.timerId = null;
+  }
+}
+
+function startResendTimer() {
+  clearResendTimer();
+  emailAuthState.resendRemaining = 60;
+  updateResendButton();
+  emailAuthState.timerId = setInterval(() => {
+    emailAuthState.resendRemaining -= 1;
+    if (emailAuthState.resendRemaining <= 0) {
+      emailAuthState.resendRemaining = 0;
+      clearResendTimer();
+    }
+    updateResendButton();
+  }, 1000);
+}
+
+function bindEmailAuth() {
+  if (!emailInputEl) return;
+  otpInputs.forEach((input) => {
+    input.addEventListener("input", handleOtpInput);
+    input.addEventListener("keydown", handleOtpKeydown);
+  });
+  otpGroupEl?.addEventListener("paste", handleOtpPaste);
+
+  emailSendButtonEl?.addEventListener("click", () => {
+    clearAuthErrors();
+    const email = emailInputEl.value.trim();
+    const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!isValid) {
+      if (emailRequestErrorEl) emailRequestErrorEl.textContent = "Введите корректный email";
+      emailInputEl.focus();
+      return;
+    }
+    emailAuthState.targetEmail = email;
+    if (emailTargetLabelEl) emailTargetLabelEl.textContent = email;
+    otpInputs.forEach((input) => {
+      input.value = "";
+    });
+    setEmailAuthStep("code");
+    startResendTimer();
+  });
+
+  emailChangeButtonEl?.addEventListener("click", () => {
+    setEmailAuthStep("request");
+  });
+
+  emailVerifyButtonEl?.addEventListener("click", () => {
+    clearAuthErrors();
+    const code = getOtpValue();
+    if (code.length < otpInputs.length) {
+      setOtpError("Введите 6-значный код");
+      return;
+    }
+    if (code !== "123456") {
+      setOtpError("Неверный код. Попробуйте ещё раз");
+      return;
+    }
+    setOtpError("Код подтвержден, но вход через email ещё не подключен.");
+  });
+
+  emailResendButtonEl?.addEventListener("click", () => {
+    if (emailAuthState.resendRemaining > 0) return;
+    clearAuthErrors();
+    startResendTimer();
+  });
+}
+
+function bindTelegramAuth() {
+  telegramAuthButtonEl?.addEventListener("click", () => {
+    if (telegramErrorEl) {
+      telegramErrorEl.textContent = "Метод входа через Telegram ещё не подключен.";
+    }
+  });
 }
 
 function initTheme() {

@@ -1,1 +1,97 @@
-sm
+# График смен (sm2)
+
+Веб‑клиент для просмотра и редактирования графика смен с интеграцией через n8n и Pyrus API.
+
+## Авторизация
+
+Поддерживаются два режима, которые не требуют правки кода на фронтенде:
+
+1. **Логин/пароль через n8n `/graph`** (по умолчанию).
+   - Форма входа отправляет `type=auth`, `login`, `password` на webhook `graphHookUrl`.
+   - n8n возвращает статус и права доступа по линиям.
+2. **Автовход по сохранённой сессии** (кеш в браузере).
+   - Сессия хранится в `localStorage` и cookie, параметры задаются в `config.json` → `storage.auth`.
+   - При истечении `ttlMs` приложение просит логин/пароль снова.
+
+> ⚠️ В интерфейсе остаётся логин/пароль. Любые дополнительные проверки (например, одноразовые коды) реализуются на стороне n8n.
+
+## Требования к n8n
+
+Необходим доступный webhook, указанный в `config.json` → `graphHookUrl`. Он должен принимать POST JSON и обрабатывать следующие типы:
+
+- **`type: "auth"`**
+  - Вход: `{ login, password }`
+  - Выход: `{ status: "ACCESS_GRANTED", user, permissions }`
+    - `permissions` — объект прав по линиям (`ALL`, `L1`, `L2`, `OP`, `OV`, `OU`, `AI`), значения `view|edit`.
+
+- **`type: "pyrus_api"`**
+  - Вход: `{ path, method, body? }`
+  - Назначение: прокси к Pyrus API (используется в `js/app.js`).
+  - Выход: JSON‑ответ Pyrus (как есть).
+
+- **`type: "pyrus_save"`**
+  - Вход: `{ changes, meta }`
+  - Назначение: сохранение изменений смен (используется в `js/app.js`).
+
+- **`type: "pyrus-api"`**
+  - Вход: `{ path, method, payload }`
+  - Назначение: прокси к Pyrus API (используется в `js/api/pyrusAuth.js`).
+  - Выход: `{ success: true, data: <ответ Pyrus> }`.
+
+Также убедитесь, что webhook:
+- доступен из браузера (CORS, HTTPS),
+- отвечает быстро (таймауты браузера),
+- может работать с учётными данными Pyrus (токен/логин в н8н‑креденшелах).
+
+## SMTP / бот‑настройки (n8n)
+
+Фронтенд **не хранит** SMTP‑параметры или токены ботов. Если вы добавляете в n8n:
+
+- отправку одноразовых кодов,
+- уведомления по почте,
+- авторизацию через бота,
+
+то соответствующие креденшелы должны быть настроены **в n8n** (SMTP, Telegram‑бот, и т. п.). На стороне клиента менять ничего не нужно — достаточно обновить workflow в n8n.
+
+## Структура `config.json`
+
+`config.json` — единственный источник настройки без правки кода. Основные разделы:
+
+- `graphHookUrl` — URL n8n webhook `/graph`.
+- `pyrus` — ID каталогов/форм/полей Pyrus:
+  - `pyrus.catalogs.shifts`
+  - `pyrus.forms.otpusk`, `pyrus.forms.smeni`
+  - `pyrus.fields.otpusk.{person,period}`
+  - `pyrus.fields.smeni.{person,due,amount,template}`
+- `departments` — маппинг отделов по линиям и порядок сортировки.
+- `timezone.localOffsetMin` — локальный сдвиг в минутах.
+- `ui.lines` — порядок вкладок и отображаемые названия.
+- `management.topManagementIds` — список руководителей.
+- `pyrusLineItemIdByLine` — ID значения каталога «Линия/Отдел» по линиям.
+- `storage` — ключи локального хранения и настройки сессии:
+  - `storage.keys.*`
+  - `storage.auth.{key,ttlMs,cookieDays}`
+- `calendar` — прод‑календарь и UI‑цвета:
+  - `calendar.prodCal.{ttlMs,urlTemplate,cacheKeyPrefix}`
+  - `calendar.ui.{light,dark}`
+  - `calendar.indicators`
+
+## Что можно менять без правки кода
+
+Все перечисленные параметры меняются **только через `config.json`**:
+
+- `graphHookUrl`
+- все `pyrus.*`
+- `departments.*`
+- `timezone.localOffsetMin`
+- `ui.lines.*`
+- `management.topManagementIds`
+- `pyrusLineItemIdByLine.*`
+- `storage.keys.*` и `storage.auth.*`
+- `calendar.*`
+
+## Откат / совместимость
+
+- Если новые интеграции (SMTP/бот/доп. проверка) выключены в n8n, вход по логину/паролю остаётся **рабочим по умолчанию**.
+- Для отката достаточно вернуть прежний `config.json` и/или workflow в n8n — код фронтенда менять не требуется.
+- Кеш авторизации можно сбросить кнопкой «Выйти» или очисткой `storage.auth.key` в браузере.

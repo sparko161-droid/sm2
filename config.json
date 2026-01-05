@@ -1,5 +1,39 @@
 {
   "graphHookUrl": "https://jolikcisout.beget.app/webhook/pyrus/graph",
+  "auth": {
+    "methods": {
+      "loginPassword": {
+        "enabled": true
+      },
+      "emailOtp": {
+        "enabled": true
+      },
+      "telegram": {
+        "enabled": false
+      }
+    },
+    "ttlMs": 600000,
+    "codeLength": 6,
+    "resendTimerSec": 60,
+    "uiTexts": {
+      "title": "Вход",
+      "subtitle": "Подтвердите доступ",
+      "loginLabel": "Логин",
+      "passwordLabel": "Пароль",
+      "emailLabel": "Email",
+      "otpLabel": "Код из письма",
+      "telegramLabel": "Telegram",
+      "submitLabel": "Продолжить",
+      "resendLabel": "Отправить код ещё раз",
+      "loadingLabel": "Проверяем данные...",
+      "errorGeneric": "Не удалось войти. Попробуйте ещё раз."
+    },
+    "webhooks": {
+      "emailInit": "https://example.com/webhook/auth/email/init",
+      "emailVerify": "https://example.com/webhook/auth/email/verify",
+      "telegramInit": "https://example.com/webhook/auth/telegram/init"
+    }
+  },
   "pyrus": {
     "catalogs": {
       "shifts": 281369
