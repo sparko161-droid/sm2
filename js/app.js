@@ -2,6 +2,7 @@
 // Главный модуль SPA для графика смен L1/L2
 // Чистый vanilla JS.
 
+const { config, getConfigValue } = await import("./config.js");
 
 /**
  * Основные сущности:
@@ -493,37 +494,7 @@ async function pyrusApi(path, method = "GET", body = null) {
 // -----------------------------
 // Производственный календарь РФ (isdayoff.ru) — помесячно, с кэшем и фолбеком на СБ/ВС
 // -----------------------------
-let appConfigPromise = null;
-const DEFAULT_PROD_CAL_CONFIG = {
-  ttlMs: 30 * 24 * 60 * 60 * 1000,
-  urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}",
-  cacheKeyPrefix: "prodcal_ru_",
-};
-
-async function loadAppConfig() {
-  if (!appConfigPromise) {
-    appConfigPromise = fetch("config.json", { cache: "no-store" })
-      .then((resp) => {
-        if (!resp.ok) throw new Error(`Config load error: ${resp.status}`);
-        return resp.json();
-      })
-      .catch((err) => {
-        console.warn("Не удалось загрузить config.json, используем пустой конфиг", err);
-        return {};
-      });
-  }
-  return appConfigPromise;
-}
-
-function getProdCalConfig(config) {
-  const root = config && typeof config === "object" ? config : {};
-  const calendar = root.calendar && typeof root.calendar === "object" ? root.calendar : {};
-  const prodCal = calendar.prodCal && typeof calendar.prodCal === "object" ? calendar.prodCal : {};
-  return {
-    ...DEFAULT_PROD_CAL_CONFIG,
-    ...prodCal,
-  };
-}
+const PROD_CAL_CONFIG = config.calendar.prodCal;
 
 function prodCalCacheKey(prodCalConfig, year, monthIndex) {
   const mm = String(monthIndex + 1).padStart(2, "0");
@@ -544,8 +515,7 @@ function formatYmdCompact(year, monthIndex, day) {
 }
 
 async function loadProdCalendarForMonth(year, monthIndex) {
-  const appConfig = await loadAppConfig();
-  const prodCalConfig = getProdCalConfig(appConfig);
+  const prodCalConfig = PROD_CAL_CONFIG;
   const cacheKey = prodCalCacheKey(prodCalConfig, year, monthIndex);
   const ttlMs = Number(prodCalConfig.ttlMs) || 0;
   try {
@@ -566,10 +536,14 @@ async function loadProdCalendarForMonth(year, monthIndex) {
     throw new Error("ProdCal urlTemplate is missing in config");
   }
   const month = String(monthIndex + 1).padStart(2, "0");
-  const url = urlTemplate
+  const date1 = formatYmdCompact(year, monthIndex, 1);
+  const date2 = formatYmdCompact(year, monthIndex, lastDay);
+  const url = String(urlTemplate)
     .replace(/{year}/g, String(year))
     .replace(/{month}/g, month)
-    .replace(/{lastDay}/g, String(lastDay));
+    .replace(/{lastDay}/g, String(lastDay))
+    .replace(/{date1}/g, date1)
+    .replace(/{date2}/g, date2);
 
   const resp = await fetch(url, { method: "GET" });
   const text = (await resp.text()).trim();
