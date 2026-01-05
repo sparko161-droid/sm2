@@ -13,62 +13,66 @@ import { config } from "./config.js";
  * - Система прав доступа: edit/view для L1 и L2
  */
 
-const APP_CONFIG = config ?? window.APP_CONFIG;
-if (!APP_CONFIG) {
-  throw new Error("Конфигурация приложения не загружена.");
-}
+import { config, getConfigValue } from "./config.js";
 
-const GRAPH_HOOK_URL = APP_CONFIG.graphHookUrl;
+// Единый источник истины — нормализованный config.
+// window.APP_CONFIG оставляем только как отладочный дамп в config.js, без чтения здесь.
+
+const GRAPH_HOOK_URL = getConfigValue("graphHookUrl", {
+  defaultValue: "https://jolikcisout.beget.app/webhook/pyrus/graph",
+  required: true,
+});
+
 const MAX_DAYS_IN_MONTH = 31;
-const LOCAL_TZ_OFFSET_MIN = APP_CONFIG.timezone?.localOffsetMin ?? 4 * 60; // GMT+4
+
+const LOCAL_TZ_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
+  defaultValue: 4 * 60,
+  required: true,
+}); // GMT+4
 
 // -----------------------------
 // Конфиг вкладок (линий)
 // -----------------------------
-const LINE_KEYS_IN_UI_ORDER = APP_CONFIG.ui?.lines?.order ?? [
-  "ALL",
-  "OP",
-  "OV",
-  "L1",
-  "L2",
-  "AI",
-  "OU",
-];
-const LINE_LABELS = APP_CONFIG.ui?.lines?.labels ?? {
-  ALL: "ВСЕ",
-  OP: "OP",
-  OV: "OV",
-  L1: "L1",
-  L2: "L2",
-  AI: "AI",
-  OU: "OU",
-};
+const LINE_KEYS_IN_UI_ORDER =
+  config.ui?.lines?.order ?? ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"];
+
+const LINE_LABELS =
+  config.ui?.lines?.labels ?? {
+    ALL: "ВСЕ",
+    OP: "OP",
+    OV: "OV",
+    L1: "L1",
+    L2: "L2",
+    AI: "AI",
+    OU: "OU",
+  };
 
 // Жёсткая привязка department_id -> вкладка
-const LINE_DEPT_IDS = APP_CONFIG.departments?.byLine ?? {
-  L1: [108368027],
-  L2: [108368026, 171248779, 171248780],
-  OV: [80208117],
-  OP: [108368021, 157753518, 157753516], // важно: порядок групп
-  OU: [108368030],
-  AI: [166353950],
-};
+const LINE_DEPT_IDS =
+  config.departments?.byLine ?? {
+    L1: [108368027],
+    L2: [108368026, 171248779, 171248780],
+    OV: [80208117],
+    OP: [108368021, 157753518, 157753516], // важно: порядок групп
+    OU: [108368030],
+    AI: [166353950],
+  };
 
 // Руководители/учредители (всегда сверху во "ВСЕ")
-const TOP_MANAGEMENT_IDS = APP_CONFIG.management?.topManagementIds ?? [
-  1167305,
-  314287,
-]; // Лузин, Сухачев
+const TOP_MANAGEMENT_IDS =
+  config.management?.topManagementIds ?? [1167305, 314287]; // Лузин, Сухачев
 
 // Pyrus: значение каталога "Линия/Отдел" (field id=1) в форме явок
-const PYRUS_LINE_ITEM_ID = APP_CONFIG.pyrusLineItemIdByLine ?? {
-  L2: 157816613,
-  L1: 165474029,
-  OV: 157816614,
-  OU: 157816622,
-  AI: 168065907,
-  OP: 157816621,
-};
+const PYRUS_LINE_ITEM_ID =
+  config.pyrusLineItemIdByLine ?? {
+    L2: 157816613,
+    L1: 165474029,
+    OV: 157816614,
+    OU: 157816622,
+    AI: 168065907,
+    OP: 157816621,
+  };
+
 
 function resolvePyrusLineItemIdByDepartmentId(deptId) {
   if (deptId == null) return null;
@@ -82,10 +86,19 @@ function resolvePyrusLineItemIdByDepartmentId(deptId) {
 }
 
 // Порядок групп (department_id) для сортировки внутри вкладок
+import { config } from "../config.js";
+
 const DEPT_ORDER_BY_LINE = {
-  L2: APP_CONFIG.departments?.orderByLine?.L2 ?? LINE_DEPT_IDS.L2.slice(),
-  OP: APP_CONFIG.departments?.orderByLine?.OP ?? LINE_DEPT_IDS.OP.slice(),
+  L2: config.departments?.orderByLine?.L2 ?? LINE_DEPT_IDS.L2.slice(),
+  OP: config.departments?.orderByLine?.OP ?? LINE_DEPT_IDS.OP.slice(),
 };
+
+const PYRUS_CATALOG_IDS = config.pyrus.catalogs;
+
+const PYRUS_FORM_IDS = config.pyrus.forms;
+
+const PYRUS_FIELD_IDS = config.pyrus.fields;
+
 
 
 // Универсальный helper для n8n-обёртки Pyrus { success, data }
@@ -184,17 +197,10 @@ const scheduleCacheByLine = {
   L2: Object.create(null),
 };
 
-const STORAGE_KEYS = {
-  localChanges: "sm1_local_changes",
-  changeHistory: "sm1_change_history",
-  theme: "sm1_theme_preference",
-  currentLine: "sm1_current_line",
-  employeeFilters: "sm1_employee_filters",
-  cachedEmployees: "sm1_cached_employees",
-  cachedShiftTemplates: "sm1_cached_shift_templates",
-  cachedSchedulePrefix: "sm1_cached_schedule_",
-  ...(APP_CONFIG.storage?.keys ?? {}),
-};
+import { config } from "../config.js";
+
+const STORAGE_KEYS = config.storage.keys;
+
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -220,10 +226,12 @@ function canViewLine(line) {
 // Персистентная авторизация (localStorage + cookie)
 // -----------------------------
 
-const AUTH_STORAGE_KEY = APP_CONFIG.storage?.auth?.key ?? "sm_graph_auth_v1";
-const AUTH_TTL_MS =
-  APP_CONFIG.storage?.auth?.ttlMs ?? 7 * 24 * 60 * 60 * 1000; // 7 дней
-const AUTH_COOKIE_DAYS = APP_CONFIG.storage?.auth?.cookieDays ?? 7;
+import { config } from "../config.js";
+
+const AUTH_STORAGE_KEY = config.storage.auth.key;
+const AUTH_TTL_MS = config.storage.auth.ttlMs; // 7 дней
+const AUTH_COOKIE_DAYS = config.storage.auth.cookieDays;
+
 
 function setCookie(name, value, days) {
   try {
@@ -524,11 +532,31 @@ async function pyrusApi(path, method = "GET", body = null) {
 // -----------------------------
 // Производственный календарь РФ (isdayoff.ru) — помесячно, с кэшем и фолбеком на СБ/ВС
 // -----------------------------
-const PROD_CAL_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 дней
+let appConfigPromise = null;
 
-function prodCalCacheKey(year, monthIndex) {
+async function loadAppConfig() {
+  if (!appConfigPromise) {
+    appConfigPromise = fetch("config.json", { cache: "no-store" })
+      .then((resp) => {
+        if (!resp.ok) throw new Error(`Config load error: ${resp.status}`);
+        return resp.json();
+      })
+      .catch((err) => {
+        console.warn("Не удалось загрузить config.json, используем пустой конфиг", err);
+        return {};
+      });
+  }
+  return appConfigPromise;
+}
+
+function getProdCalConfig(config) {
+  return (config && config.calendar && config.calendar.prodCal) ? config.calendar.prodCal : {};
+}
+
+function prodCalCacheKey(prodCalConfig, year, monthIndex) {
   const mm = String(monthIndex + 1).padStart(2, "0");
-  return `prodcal_ru_${year}-${mm}_pre1`;
+  const prefix = prodCalConfig.cacheKeyPrefix || "";
+  return `${prefix}${year}-${mm}_pre1`;
 }
 
 function formatYmdForKey(year, monthIndex, day) {
@@ -544,12 +572,15 @@ function formatYmdCompact(year, monthIndex, day) {
 }
 
 async function loadProdCalendarForMonth(year, monthIndex) {
-  const cacheKey = prodCalCacheKey(year, monthIndex);
+  const appConfig = await loadAppConfig();
+  const prodCalConfig = getProdCalConfig(appConfig);
+  const cacheKey = prodCalCacheKey(prodCalConfig, year, monthIndex);
+  const ttlMs = Number(prodCalConfig.ttlMs) || 0;
   try {
     const cachedRaw = localStorage.getItem(cacheKey);
     if (cachedRaw) {
       const cached = JSON.parse(cachedRaw);
-      if (cached && cached.fetchedAt && (Date.now() - cached.fetchedAt) < PROD_CAL_TTL_MS && cached.dayTypeByDay) {
+      if (cached && cached.fetchedAt && ttlMs > 0 && (Date.now() - cached.fetchedAt) < ttlMs && cached.dayTypeByDay) {
         return cached;
       }
     }
@@ -558,10 +589,15 @@ async function loadProdCalendarForMonth(year, monthIndex) {
   }
 
   const lastDay = new Date(year, monthIndex + 1, 0).getDate();
-  const date1 = formatYmdCompact(year, monthIndex, 1);
-  const date2 = formatYmdCompact(year, monthIndex, lastDay);
-
-  const url = `https://isdayoff.ru/api/getdata?date1=${date1}&date2=${date2}&cc=ru&pre=1`;
+  const urlTemplate = prodCalConfig.urlTemplate;
+  if (!urlTemplate) {
+    throw new Error("ProdCal urlTemplate is missing in config");
+  }
+  const month = String(monthIndex + 1).padStart(2, "0");
+  const url = urlTemplate
+    .replace(/{year}/g, String(year))
+    .replace(/{month}/g, month)
+    .replace(/{lastDay}/g, String(lastDay));
 
   const resp = await fetch(url, { method: "GET" });
   const text = (await resp.text()).trim();
@@ -2030,7 +2066,7 @@ persistCachedEmployees();
 }
 
 async function loadShiftsCatalog() {
-  const raw = await pyrusApi("/v4/catalogs/281369", "GET");
+  const raw = await pyrusApi(`/v4/catalogs/${PYRUS_CATALOG_IDS.shifts}`, "GET");
   const data = unwrapPyrusData(raw);
 
   const catalog = Array.isArray(data) ? data[0] : data;
@@ -2134,7 +2170,7 @@ async function loadShiftsCatalog() {
 
 
 async function loadVacationsForMonth(year, monthIndex) {
-  const raw = await pyrusApi("/v4/forms/2348174/register", "GET");
+  const raw = await pyrusApi(`/v4/forms/${PYRUS_FORM_IDS.otpusk}/register`, "GET");
   const data = unwrapPyrusData(raw);
   const wrapper = Array.isArray(data) ? data[0] : data;
   const tasks = (wrapper && wrapper.tasks) || [];
@@ -2166,8 +2202,12 @@ async function loadVacationsForMonth(year, monthIndex) {
 
   for (const task of tasks) {
     const fields = task.fields || [];
-    const personField = fields.find((f) => f && f.id === 1 && f.type === "person");
-    const periodField = fields.find((f) => f && f.id === 2 && f.type === "due_date_time");
+    const personField = fields.find(
+      (f) => f && f.id === PYRUS_FIELD_IDS.otpusk?.person && f.type === "person"
+    );
+    const periodField = fields.find(
+      (f) => f && f.id === PYRUS_FIELD_IDS.otpusk?.period && f.type === "due_date_time"
+    );
     if (!personField || !periodField) continue;
 
     const empId = personField.value && personField.value.id;
@@ -2226,7 +2266,7 @@ async function loadVacationsForMonth(year, monthIndex) {
 async function reloadScheduleForCurrentMonth() {
   const { year, monthIndex } = state.monthMeta;
 
-  const raw = await pyrusApi("/v4/forms/2375272/register", "GET");
+  const raw = await pyrusApi(`/v4/forms/${PYRUS_FORM_IDS.smeni}/register`, "GET");
   const data = unwrapPyrusData(raw);
 
   // Отпуска: внешняя система, только отображение
@@ -2292,10 +2332,10 @@ async function reloadScheduleForCurrentMonth() {
 
   for (const task of tasks) {
     const fields = task.fields || [];
-    const dueField = findField(fields, 4);
-    const moneyField = findField(fields, 5);
-    const personField = findField(fields, 8);
-    const shiftField = findField(fields, 10);
+    const dueField = findField(fields, PYRUS_FIELD_IDS.smeni?.due);
+    const moneyField = findField(fields, PYRUS_FIELD_IDS.smeni?.amount);
+    const personField = findField(fields, PYRUS_FIELD_IDS.smeni?.person);
+    const shiftField = findField(fields, PYRUS_FIELD_IDS.smeni?.shift);
 
     if (!dueField || !personField || !shiftField) continue;
 

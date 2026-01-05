@@ -1,9 +1,11 @@
 // /js/api/pyrusAuth.js
-import { config } from "../config.js";
+import { getConfigValue } from "../config.js";
 
-const N8N_GRAPH_URL =
-  config?.graphHookUrl ||
-  "https://jolikcisout.beget.app/webhook/pyrus/graph";
+const N8N_GRAPH_URL = getConfigValue("graphHookUrl", {
+  defaultValue: "https://jolikcisout.beget.app/webhook/pyrus/graph",
+  required: true,
+});
+
 
 /**
  * Универсальный вызов Pyrus через n8n-хук /graph с type="pyrus-api".
