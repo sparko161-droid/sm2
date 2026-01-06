@@ -168,6 +168,8 @@ const scheduleCacheByLine = {
   L2: Object.create(null),
 };
 
+const membersByEmail = new Map();
+
 const STORAGE_KEYS = config.storage.keys;
 
 const CALENDAR_THEME_VAR_MAP = {
@@ -924,11 +926,42 @@ const emailAuthState = {
   targetEmail: "",
   resendRemaining: 0,
   timerId: null,
-  membersByEmail: new Map(),
-  membersLoaded: false,
-  membersLoading: false,
-  membersLoadError: "",
+  currentCode: "",
+  member: null,
+
 };
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function setMembersByEmail(members) {
+  membersByEmail.clear();
+  if (!Array.isArray(members)) return;
+  members.forEach((member) => {
+    const email = normalizeEmail(member?.email);
+    if (!email) return;
+    const firstName = member.first_name ?? member.firstName ?? "";
+    const lastName = member.last_name ?? member.lastName ?? "";
+    membersByEmail.set(email, {
+      ...member,
+      first_name: firstName,
+      last_name: lastName,
+      email: member.email || "",
+    });
+  });
+}
+
+function generateEmailAuthCode(length) {
+  const size = Math.max(1, Number(length) || 6);
+  const values = new Uint32Array(size);
+  crypto.getRandomValues(values);
+  return Array.from(values, (value) => String(value % 10)).join("");
+}
+
+async function sendEmailAuthCode(payload) {
+  return callGraphApi("email", payload);
+}
 
 function clearAuthErrors() {
   if (loginErrorEl) loginErrorEl.textContent = "";
@@ -971,6 +1004,8 @@ function resetEmailAuthState(keepEmail = true) {
   clearResendTimer();
   emailAuthState.step = "request";
   emailAuthState.resendRemaining = 0;
+  emailAuthState.currentCode = "";
+  emailAuthState.member = null;
   if (!keepEmail && emailInputEl) emailInputEl.value = "";
   if (emailTargetLabelEl) emailTargetLabelEl.textContent = "—";
   otpInputs.forEach((input) => {
@@ -1137,7 +1172,7 @@ function bindEmailAuth() {
   });
   otpGroupEl?.addEventListener("paste", handleOtpPaste);
 
-  emailSendButtonEl?.addEventListener("click", () => {
+  emailSendButtonEl?.addEventListener("click", async () => {
     clearAuthErrors();
     const email = emailInputEl.value.trim();
     const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -1146,27 +1181,53 @@ function bindEmailAuth() {
       emailInputEl.focus();
       return;
     }
-    if (!emailAuthState.membersLoaded) {
-      if (emailRequestErrorEl) {
-        emailRequestErrorEl.textContent =
-          emailAuthState.membersLoadError || "Не удалось проверить email, попробуйте позже";
-      }
-      return;
-    }
-    const normalizedEmail = email.toLowerCase();
-    if (!emailAuthState.membersByEmail.has(normalizedEmail)) {
-      if (emailRequestErrorEl) {
-        emailRequestErrorEl.textContent =
-          "Email не найден — укажите почту которую используете для работы в Pyrus";
+if (!emailAuthState.membersLoaded) {
+  if (emailRequestErrorEl) {
+    emailRequestErrorEl.textContent =
+      emailAuthState.membersLoadError || "Не удалось проверить email, попробуйте позже";
+  }
+  return;
+}
+
+const normalizedEmail = normalizeEmail ? normalizeEmail(email) : String(email).trim().toLowerCase();
+
+if (!emailAuthState.membersByEmail.has(normalizedEmail)) {
+  if (emailRequestErrorEl) {
+    emailRequestErrorEl.textContent =
+      "Email не найден — укажите почту которую используете для работы в Pyrus";
+  }
+  return;
+}
+
+const member = emailAuthState.membersByEmail.get(normalizedEmail);
+
       }
       emailInputEl.focus();
       return;
     }
+    const code = generateEmailAuthCode(config.auth.codeLength);
+    emailAuthState.currentCode = code;
+    emailAuthState.member = member;
+
     emailAuthState.targetEmail = email;
     if (emailTargetLabelEl) emailTargetLabelEl.textContent = email;
     otpInputs.forEach((input) => {
       input.value = "";
     });
+    try {
+      await sendEmailAuthCode({
+        type: "email",
+        email,
+        code,
+        first_name: member.first_name || "",
+        last_name: member.last_name || "",
+      });
+    } catch (err) {
+      if (emailRequestErrorEl) {
+        emailRequestErrorEl.textContent = err?.message || "Не удалось отправить код";
+      }
+      return;
+    }
     setEmailAuthStep("code");
     startResendTimer();
   });
@@ -1182,16 +1243,42 @@ function bindEmailAuth() {
       setOtpError("Введите 6-значный код");
       return;
     }
-    if (code !== "123456") {
+    if (code !== emailAuthState.currentCode) {
       setOtpError("Неверный код. Попробуйте ещё раз");
       return;
     }
     setOtpError("Код подтвержден, но вход через email ещё не подключен.");
   });
 
-  emailResendButtonEl?.addEventListener("click", () => {
+  emailResendButtonEl?.addEventListener("click", async () => {
     if (emailAuthState.resendRemaining > 0) return;
     clearAuthErrors();
+    const email = emailAuthState.targetEmail;
+    const normalizedEmail = normalizeEmail(email);
+    const member = emailAuthState.member || membersByEmail.get(normalizedEmail);
+    if (!member || !email) {
+      if (emailCodeErrorEl) {
+        emailCodeErrorEl.textContent = "Сначала запросите код по email";
+      }
+      return;
+    }
+    const code = generateEmailAuthCode(config.auth.codeLength);
+    emailAuthState.currentCode = code;
+    emailAuthState.member = member;
+    try {
+      await sendEmailAuthCode({
+        type: "email",
+        email,
+        code,
+        first_name: member.first_name || "",
+        last_name: member.last_name || "",
+      });
+    } catch (err) {
+      if (emailCodeErrorEl) {
+        emailCodeErrorEl.textContent = err?.message || "Не удалось отправить код";
+      }
+      return;
+    }
     startResendTimer();
   });
 }
@@ -2433,11 +2520,14 @@ async function loadEmployees() {
   if (data.employeesByLine) {
     state.employeesByLine.L1 = data.employeesByLine.L1 || [];
     state.employeesByLine.L2 = data.employeesByLine.L2 || [];
+    const membersSource = Object.values(data.employeesByLine || {}).flat();
+    setMembersByEmail(membersSource);
     return;
   }
 
   const members = data.members || [];
   const employeesByLine = { ALL: [], OP: [], OV: [], L1: [], L2: [], AI: [], OU: [] };
+  setMembersByEmail(members);
 
 // Жёсткая маршрутизация по department_id (и отдельный TOP для вкладки "ВСЕ")
 for (const m of members) {
