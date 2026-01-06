@@ -1251,9 +1251,28 @@ function bindEmailAuth() {
       setOtpError("Неверный код. Попробуйте ещё раз");
       return;
     }
-    state.auth.user = { name: "<Фамилия> <Имя>", login: "" };
+    const member = emailAuthState.member;
+    state.auth.user = {
+      name: `${member?.last_name || ""} ${member?.first_name || ""}`.trim(),
+      login: "",
+    };
+    state.auth.permissions = {
+      ALL: "view",
+      OP: "view",
+      OV: "view",
+      OU: "view",
+      AI: "view",
+      L1: "view",
+      L2: "view",
+    };
     updateCurrentUserLabel("");
-    setOtpError("Код подтвержден, но вход через email ещё не подключен.");
+    saveAuthCache("");
+    loginScreenEl.classList.add("hidden");
+    mainScreenEl.classList.remove("hidden");
+    renderLineTabs();
+    updateLineToggleUI();
+    persistCurrentLinePreference();
+    loadInitialData();
   });
 
   emailResendButtonEl?.addEventListener("click", async () => {
