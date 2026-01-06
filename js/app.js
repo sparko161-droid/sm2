@@ -105,6 +105,7 @@ const state = {
     theme: "dark",
     isScheduleCached: false,
     authMethod: "password",
+    quickPanelBound: false,
   },
   quickMode: {
     enabled: false,
@@ -1718,6 +1719,8 @@ function initQuickAssignPanel() {
   syncQuickPanelInputs();
   updateQuickModeToggleUI();
 
+  if (state.ui.quickPanelBound) return;
+
   quickTemplateSelectEl?.addEventListener("change", () => {
     const val = quickTemplateSelectEl.value;
     state.quickMode.templateId = val ? Number(val) : null;
@@ -1764,6 +1767,8 @@ function initQuickAssignPanel() {
     state.quickMode.enabled = !state.quickMode.enabled;
     updateQuickModeToggleUI();
   });
+
+  state.ui.quickPanelBound = true;
 }
 
 function renderQuickTemplateOptions() {
