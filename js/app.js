@@ -241,6 +241,7 @@ const AUTH_STORAGE_KEY = config.storage.auth.key;
 const AUTH_TTL_MS =
   Number(config.storage.auth.sessionTtlMs ?? config.storage.auth.ttlMs) || 0; // 7 дней
 const AUTH_COOKIE_DAYS = config.storage.auth.cookieDays;
+const AUTH_EMAIL_CHECK_KEY = "sm_auth_email_last_check";
 
 let loginCooldownTimerId = null;
 let loginCooldownEndsAt = null;
@@ -382,6 +383,30 @@ function clearAuthCache() {
     localStorage.removeItem(AUTH_STORAGE_KEY);
   } catch (_) {}
   clearCookie(AUTH_STORAGE_KEY);
+}
+
+function getTodayDateString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function shouldCheckEmailToday() {
+  let lastCheck = null;
+  try {
+    lastCheck = localStorage.getItem(AUTH_EMAIL_CHECK_KEY);
+  } catch (_) {
+    return true;
+  }
+  return !lastCheck || lastCheck !== getTodayDateString();
+}
+
+function markEmailCheckedToday() {
+  try {
+    localStorage.setItem(AUTH_EMAIL_CHECK_KEY, getTodayDateString());
+  } catch (_) {}
 }
 
 function applyAuthCache(data) {
@@ -846,6 +871,38 @@ async function init() {
   if (cachedAuth && applyAuthCache(cachedAuth)) {
     loginScreenEl?.classList.add("hidden");
     mainScreenEl?.classList.remove("hidden");
+    if (shouldCheckEmailToday()) {
+      const userEmail = normalizeEmail(state.auth.user?.login);
+      if (userEmail) {
+        try {
+          const raw = await pyrusApi("/v4/members", "GET");
+          const data = unwrapPyrusData(raw);
+          const members = extractMembersFromPyrusData(data);
+          const isKnownEmail = members.some(
+            (member) => normalizeEmail(member?.email) === userEmail
+          );
+          if (!isKnownEmail) {
+            clearAuthCache();
+            state.auth.user = null;
+            state.auth.permissions = {
+              ALL: "view",
+              OP: "view",
+              OV: "view",
+              OU: "view",
+              AI: "view",
+              L1: "view",
+              L2: "view",
+            };
+            mainScreenEl?.classList.add("hidden");
+            loginScreenEl?.classList.remove("hidden");
+          } else {
+            markEmailCheckedToday();
+          }
+        } catch (err) {
+          console.error("Email check failed:", err);
+        }
+      }
+    }
   }
 
   bindTopBarButtons();
@@ -1253,9 +1310,10 @@ function bindEmailAuth() {
       return;
     }
     const member = emailAuthState.member;
+    const email = emailAuthState.targetEmail || "";
     state.auth.user = {
       name: `${member?.last_name || ""} ${member?.first_name || ""}`.trim(),
-      login: "",
+      login: email,
     };
     state.auth.permissions = {
       ALL: "view",
@@ -1266,8 +1324,8 @@ function bindEmailAuth() {
       L1: "view",
       L2: "view",
     };
-    updateCurrentUserLabel("");
-    saveAuthCache("");
+    updateCurrentUserLabel(email);
+    saveAuthCache(email);
     loginScreenEl.classList.add("hidden");
     mainScreenEl.classList.remove("hidden");
     renderLineTabs();
