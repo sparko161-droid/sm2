@@ -204,6 +204,17 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+function updateCurrentUserLabel(login) {
+  if (!currentUserLabelEl) return;
+  const name = state.auth.user?.name || "";
+  if (state.ui.authMethod === "email") {
+    currentUserLabelEl.textContent = name;
+    return;
+  }
+  const resolvedLogin = (login || state.auth.user?.login || "").trim();
+  currentUserLabelEl.textContent = `${name}${resolvedLogin ? " (" + resolvedLogin + ")" : ""}`;
+}
+
 // -----------------------------
 // Проверка прав доступа
 // -----------------------------
@@ -382,9 +393,7 @@ function applyAuthCache(data) {
     }
   }
   const login = (data.login || state.auth.user?.login || "").trim();
-  if (currentUserLabelEl) {
-    currentUserLabelEl.textContent = `${state.auth.user?.name || ""}${login ? " (" + login + ")" : ""}`;
-  }
+  updateCurrentUserLabel(login);
   // сохраняем сессию независимо от наличия UI-элементов
   if (login || state.auth.user?.login) saveAuthCache(login);
 
@@ -1117,6 +1126,8 @@ function bindEmailAuth() {
       setOtpError("Неверный код. Попробуйте ещё раз");
       return;
     }
+    state.auth.user = { name: "<Фамилия> <Имя>", login: "" };
+    updateCurrentUserLabel("");
     setOtpError("Код подтвержден, но вход через email ещё не подключен.");
   });
 
@@ -1574,9 +1585,7 @@ function bindLoginForm() {
     try {
       const authResult = await auth(login, password);
       clearLoginCooldown();
-      currentUserLabelEl.textContent = `${
-        authResult.user?.name || ""
-      } (${login})`;
+      updateCurrentUserLabel(login);
 
       // кэшируем авторизацию, чтобы не логиниться после обновления страницы
       saveAuthCache(login);
