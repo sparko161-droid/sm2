@@ -928,6 +928,7 @@ const emailAuthState = {
   timerId: null,
   currentCode: "",
   member: null,
+
 };
 
 function normalizeEmail(value) {
@@ -984,6 +985,8 @@ function setAuthTab(method) {
   clearAuthErrors();
   if (method !== "email") {
     resetEmailAuthState(false);
+  } else {
+    loadEmailAuthMembers();
   }
 }
 
@@ -1114,6 +1117,53 @@ function startResendTimer() {
   }, 1000);
 }
 
+function extractMembersFromPyrusData(data) {
+  if (!data || typeof data !== "object") return [];
+  if (Array.isArray(data.members)) return data.members;
+  if (data.employeesByLine && typeof data.employeesByLine === "object") {
+    const aggregated = [];
+    for (const value of Object.values(data.employeesByLine)) {
+      if (Array.isArray(value)) aggregated.push(...value);
+    }
+    return aggregated;
+  }
+  return [];
+}
+
+async function loadEmailAuthMembers() {
+  if (emailAuthState.membersLoaded || emailAuthState.membersLoading) return;
+  emailAuthState.membersLoading = true;
+  emailAuthState.membersLoadError = "";
+  try {
+    const raw = await pyrusApi("/v4/members", "GET");
+    const data = unwrapPyrusData(raw);
+    const members = extractMembersFromPyrusData(data);
+    const membersByEmail = new Map();
+    for (const member of members) {
+      const email = String(member?.email || "").trim();
+      if (!email) continue;
+      const normalizedEmail = email.toLowerCase();
+      membersByEmail.set(normalizedEmail, {
+        first_name: member.first_name || "",
+        last_name: member.last_name || "",
+        email,
+      });
+    }
+    emailAuthState.membersByEmail = membersByEmail;
+    emailAuthState.membersLoaded = true;
+  } catch (err) {
+    console.error("Не удалось загрузить сотрудников для email-авторизации:", err);
+    emailAuthState.membersByEmail = new Map();
+    emailAuthState.membersLoaded = false;
+    emailAuthState.membersLoadError = "Не удалось проверить email, попробуйте позже";
+    if (emailRequestErrorEl) {
+      emailRequestErrorEl.textContent = emailAuthState.membersLoadError;
+    }
+  } finally {
+    emailAuthState.membersLoading = false;
+  }
+}
+
 function bindEmailAuth() {
   if (!emailInputEl) return;
   otpInputs.forEach((input) => {
@@ -1131,11 +1181,26 @@ function bindEmailAuth() {
       emailInputEl.focus();
       return;
     }
-    const normalizedEmail = normalizeEmail(email);
-    const member = membersByEmail.get(normalizedEmail);
-    if (!member) {
-      if (emailRequestErrorEl) {
-        emailRequestErrorEl.textContent = "Сотрудник с таким email не найден";
+if (!emailAuthState.membersLoaded) {
+  if (emailRequestErrorEl) {
+    emailRequestErrorEl.textContent =
+      emailAuthState.membersLoadError || "Не удалось проверить email, попробуйте позже";
+  }
+  return;
+}
+
+const normalizedEmail = normalizeEmail ? normalizeEmail(email) : String(email).trim().toLowerCase();
+
+if (!emailAuthState.membersByEmail.has(normalizedEmail)) {
+  if (emailRequestErrorEl) {
+    emailRequestErrorEl.textContent =
+      "Email не найден — укажите почту которую используете для работы в Pyrus";
+  }
+  return;
+}
+
+const member = emailAuthState.membersByEmail.get(normalizedEmail);
+
       }
       emailInputEl.focus();
       return;
@@ -1143,6 +1208,7 @@ function bindEmailAuth() {
     const code = generateEmailAuthCode(config.auth.codeLength);
     emailAuthState.currentCode = code;
     emailAuthState.member = member;
+
     emailAuthState.targetEmail = email;
     if (emailTargetLabelEl) emailTargetLabelEl.textContent = email;
     otpInputs.forEach((input) => {
