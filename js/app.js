@@ -1190,30 +1190,25 @@ function bindEmailAuth() {
       emailInputEl.focus();
       return;
     }
-if (!emailAuthState.membersLoaded) {
-  if (emailRequestErrorEl) {
-    emailRequestErrorEl.textContent =
-      emailAuthState.membersLoadError || "Не удалось проверить email, попробуйте позже";
-  }
-  return;
-}
-
-const normalizedEmail = normalizeEmail ? normalizeEmail(email) : String(email).trim().toLowerCase();
-
-if (!emailAuthState.membersByEmail.has(normalizedEmail)) {
-  if (emailRequestErrorEl) {
-    emailRequestErrorEl.textContent =
-      "Email не найден — укажите почту которую используете для работы в Pyrus";
-  }
-  return;
-}
-
-const member = emailAuthState.membersByEmail.get(normalizedEmail);
-
+    if (!emailAuthState.membersLoaded) {
+      if (emailRequestErrorEl) {
+        emailRequestErrorEl.textContent =
+          emailAuthState.membersLoadError || "Не удалось проверить email, попробуйте позже";
       }
-      emailInputEl.focus();
       return;
     }
+
+    const normalizedEmail = normalizeEmail ? normalizeEmail(email) : String(email).trim().toLowerCase();
+
+    if (!emailAuthState.membersByEmail.has(normalizedEmail)) {
+      if (emailRequestErrorEl) {
+        emailRequestErrorEl.textContent =
+          "Email не найден — укажите почту которую используете для работы в Pyrus";
+      }
+      return;
+    }
+
+    const member = emailAuthState.membersByEmail.get(normalizedEmail);
     const code = generateEmailAuthCode(config.auth.codeLength);
     emailAuthState.currentCode = code;
     emailAuthState.member = member;
