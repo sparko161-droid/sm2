@@ -579,6 +579,7 @@ async function callGraphApi(type, payload) {
     "auth_email_init",
     "auth_email_verify",
     "auth_telegram_init",
+    "email",
     "pyrus_api",
     "pyrus_save",
   ]);
