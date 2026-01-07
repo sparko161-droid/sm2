@@ -144,8 +144,6 @@ const state = {
       L2: "view",
     },
   },
-};
-
   ui: {
     currentLine: "ALL",
     theme: "dark",
