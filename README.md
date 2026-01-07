@@ -71,10 +71,29 @@
 - `storage` — ключи локального хранения и настройки сессии:
   - `storage.keys.*`
   - `storage.auth.{key,ttlMs,cookieDays}`
+- `auth.rolePermissions` — список role id, которым разрешены линии (`ALL`, `L1`, `L2`, `OP`, `OV`, `OU`, `AI`).
 - `calendar` — прод‑календарь и UI‑цвета:
   - `calendar.prodCal.{ttlMs,urlTemplate,cacheKeyPrefix}`
   - `calendar.ui.{light,dark}`
   - `calendar.indicators`
+
+Пример секции с правами ролей:
+
+```json
+{
+  "auth": {
+    "rolePermissions": {
+      "ALL": [101, 102],
+      "L1": [201],
+      "L2": [202, 203],
+      "OP": [],
+      "OV": [],
+      "OU": [],
+      "AI": []
+    }
+  }
+}
+```
 
 ## Что можно менять без правки кода
 
@@ -88,6 +107,7 @@
 - `management.topManagementIds`
 - `pyrusLineItemIdByLine.*`
 - `storage.keys.*` и `storage.auth.*`
+- `auth.rolePermissions.*`
 - `calendar.*`
 
 ## Откат / совместимость
