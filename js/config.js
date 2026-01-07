@@ -40,6 +40,15 @@ const DEFAULT_CONFIG = {
       emailVerify: "",
       telegramInit: "",
     },
+    rolePermissions: {
+      ALL: [],
+      L1: [],
+      L2: [],
+      OP: [],
+      OV: [],
+      OU: [],
+      AI: [],
+    },
   },
   timezone: {
     localOffsetMin: 4 * 60, // GMT+4
@@ -220,6 +229,7 @@ function normalizeConfig(config) {
   const authMethodTelegram = authMethods.telegram ?? {};
   const authUiTexts = auth.uiTexts ?? {};
   const authWebhooks = auth.webhooks ?? {};
+  const authRolePermissions = auth.rolePermissions ?? {};
 
   const storage = root.storage ?? {};
   const storageKeys = storage.keys ?? {};
@@ -291,6 +301,10 @@ const calendarUiDarkMicro = calendarUiDark.microIndicators ?? {};
       webhooks: {
         ...DEFAULT_CONFIG.auth.webhooks,
         ...authWebhooks,
+      },
+      rolePermissions: {
+        ...DEFAULT_CONFIG.auth.rolePermissions,
+        ...authRolePermissions,
       },
     },
 
