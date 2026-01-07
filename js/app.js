@@ -133,6 +133,7 @@ const state = {
   auth: {
     user: null,
     roles: null,
+    memberId: null,
     permissions: {
       ALL: "view",
       OP: "view",
@@ -143,6 +144,8 @@ const state = {
       L2: "view",
     },
   },
+};
+
   ui: {
     currentLine: "ALL",
     theme: "dark",
@@ -395,6 +398,8 @@ function saveAuthCache(login) {
     login: login || "",
     user: state.auth.user || null,
     roles: state.auth.roles || null,
+    memberId: state.auth.memberId || null,
+
     permissions: state.auth.permissions || null,
   };
   try {
@@ -456,11 +461,27 @@ function markEmailCheckedToday() {
 function applyAuthCache(data) {
   if (!data) return false;
   state.auth.user = data.user || null;
-  state.auth.roles = data.roles || null;
-  if (state.auth.roles) {
-    state.auth.permissions = resolvePermissionsFromRoles(state.auth.roles, ROLE_MATRIX_BY_LINE);
-  } else {
-    state.auth.permissions = normalizePermissions(data.permissions || state.auth.permissions);
+state.auth.roles = data.roles || state.auth.roles || null;
+state.auth.memberId = data.memberId || state.auth.memberId || null;
+
+if (state.auth.roles) {
+  state.auth.permissions = resolvePermissionsFromRoles(
+    state.auth.roles,
+    ROLE_MATRIX_BY_LINE
+  );
+} else {
+  state.auth.permissions = normalizePermissions(
+    data.permissions || state.auth.permissions
+  );
+}
+
+// гарантируем ключи вкладок
+for (const k of ["ALL", "OP", "OV", "OU", "AI", "L1", "L2"]) {
+  if (!Object.prototype.hasOwnProperty.call(state.auth.permissions, k)) {
+    state.auth.permissions[k] = state.auth.permissions.ALL || "view";
+  }
+}
+
   }
   const login = (data.login || state.auth.user?.login || "").trim();
   updateCurrentUserLabel(login);
@@ -1250,6 +1271,7 @@ async function loadEmailAuthMembers() {
       if (!email) continue;
       const normalizedEmail = email.toLowerCase();
       membersByEmail.set(normalizedEmail, {
+        id: member.id,
         first_name: member.first_name || "",
         last_name: member.last_name || "",
         email,
@@ -1337,7 +1359,7 @@ function bindEmailAuth() {
     setEmailAuthStep("request");
   });
 
-  emailVerifyButtonEl?.addEventListener("click", () => {
+  emailVerifyButtonEl?.addEventListener("click", async () => {
     clearAuthErrors();
     const code = getOtpValue();
     if (code.length < otpInputs.length) {
@@ -1350,12 +1372,35 @@ function bindEmailAuth() {
     }
     const member = emailAuthState.member;
     const email = emailAuthState.targetEmail || "";
+    if (!member?.id) {
+      setOtpError("Не удалось определить пользователя. Повторите вход.");
+      return;
+    }
+    let roles = null;
+    try {
+      const raw = await pyrusApi(`/v4/members/${member.id}`, "GET");
+      const data = unwrapPyrusData(raw);
+      roles = data?.roles || null;
+    } catch (err) {
+      setOtpError(err?.message || "Не удалось загрузить роли пользователя");
+      return;
+    }
     state.auth.user = {
       name: `${member?.last_name || ""} ${member?.first_name || ""}`.trim(),
       login: email,
     };
-    state.auth.roles = null;
-    state.auth.permissions = buildDefaultPermissions();
+state.auth.roles = roles || null;
+state.auth.memberId = member?.id ?? null;
+
+if (state.auth.roles) {
+  state.auth.permissions = resolvePermissionsFromRoles(
+    state.auth.roles,
+    ROLE_MATRIX_BY_LINE
+  );
+} else {
+  state.auth.permissions = buildDefaultPermissions();
+}
+
     updateCurrentUserLabel(email);
     saveAuthCache(email);
     loginScreenEl.classList.add("hidden");
@@ -1924,6 +1969,7 @@ function bindTopBarButtons() {
     clearAuthCache();
     state.auth.user = null;
     state.auth.roles = null;
+    state.auth.memberId = null;
     state.auth.permissions = buildDefaultPermissions();
     mainScreenEl?.classList.add("hidden");
     loginScreenEl?.classList.remove("hidden");
