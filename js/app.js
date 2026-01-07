@@ -68,6 +68,48 @@ const PYRUS_FORM_IDS = config.pyrus.forms;
 
 const PYRUS_FIELD_IDS = config.pyrus.fields;
 
+const LINE_PERMISSION_KEYS = ["ALL", "OP", "OV", "OU", "AI", "L1", "L2"];
+
+const ROLE_MATRIX_BY_LINE = config.auth?.rolesByLine || null;
+
+function buildDefaultPermissions() {
+  const permissions = {};
+  for (const key of LINE_PERMISSION_KEYS) {
+    permissions[key] = "view";
+  }
+  return permissions;
+}
+
+function normalizePermissions(rawPermissions) {
+  const permissions = buildDefaultPermissions();
+  if (!rawPermissions || typeof rawPermissions !== "object") return permissions;
+
+  for (const key of LINE_PERMISSION_KEYS) {
+    const fallback = rawPermissions.ALL || "view";
+    const value = rawPermissions[key] || fallback;
+    permissions[key] = value === "edit" ? "edit" : "view";
+  }
+
+  return permissions;
+}
+
+function resolvePermissionsFromRoles(roles, configMatrix) {
+  const permissions = buildDefaultPermissions();
+  const matrix = configMatrix && typeof configMatrix === "object" ? configMatrix : null;
+  const normalizedRoles = Array.isArray(roles)
+    ? roles.map((role) => String(role).trim()).filter(Boolean)
+    : [];
+
+  if (!matrix || normalizedRoles.length === 0) return permissions;
+
+  for (const key of LINE_PERMISSION_KEYS) {
+    const allowedRoles = Array.isArray(matrix[key]) ? matrix[key] : [];
+    const hasRole = allowedRoles.some((role) => normalizedRoles.includes(String(role)));
+    if (hasRole) permissions[key] = "edit";
+  }
+
+  return permissions;
+}
 
 
 // Универсальный helper для n8n-обёртки Pyrus { success, data }
@@ -102,6 +144,8 @@ const state = {
       L2: "view",
     },
   },
+};
+
   ui: {
     currentLine: "ALL",
     theme: "dark",
@@ -355,6 +399,7 @@ function saveAuthCache(login) {
     user: state.auth.user || null,
     roles: state.auth.roles || null,
     memberId: state.auth.memberId || null,
+
     permissions: state.auth.permissions || null,
   };
   try {
@@ -416,14 +461,27 @@ function markEmailCheckedToday() {
 function applyAuthCache(data) {
   if (!data) return false;
   state.auth.user = data.user || null;
-  state.auth.roles = data.roles || state.auth.roles || null;
-  state.auth.memberId = data.memberId || state.auth.memberId || null;
-  state.auth.permissions = data.permissions || state.auth.permissions;
-  // гарантируем ключи вкладок
-  for (const k of ["ALL","OP","OV","OU","AI","L1","L2"]) {
-    if (!Object.prototype.hasOwnProperty.call(state.auth.permissions, k)) {
-      state.auth.permissions[k] = state.auth.permissions.ALL || "view";
-    }
+state.auth.roles = data.roles || state.auth.roles || null;
+state.auth.memberId = data.memberId || state.auth.memberId || null;
+
+if (state.auth.roles) {
+  state.auth.permissions = resolvePermissionsFromRoles(
+    state.auth.roles,
+    ROLE_MATRIX_BY_LINE
+  );
+} else {
+  state.auth.permissions = normalizePermissions(
+    data.permissions || state.auth.permissions
+  );
+}
+
+// гарантируем ключи вкладок
+for (const k of ["ALL", "OP", "OV", "OU", "AI", "L1", "L2"]) {
+  if (!Object.prototype.hasOwnProperty.call(state.auth.permissions, k)) {
+    state.auth.permissions[k] = state.auth.permissions.ALL || "view";
+  }
+}
+
   }
   const login = (data.login || state.auth.user?.login || "").trim();
   updateCurrentUserLabel(login);
@@ -684,12 +742,15 @@ throw error;
   }
 
   state.auth.user = result.user || null;
-  state.auth.permissions = result.permissions || { ALL: "view", OP: "view", OV: "view", OU: "view", AI: "view", L1: "view", L2: "view" };
-  // гарантируем ключи вкладок
-  for (const k of ["ALL","OP","OV","OU","AI","L1","L2"]) {
-    if (!Object.prototype.hasOwnProperty.call(state.auth.permissions, k)) {
-      state.auth.permissions[k] = state.auth.permissions.ALL || "view";
-    }
+  state.auth.roles = Array.isArray(result.roles)
+    ? result.roles
+    : result.roles
+      ? [result.roles]
+      : null;
+  if (state.auth.roles) {
+    state.auth.permissions = resolvePermissionsFromRoles(state.auth.roles, ROLE_MATRIX_BY_LINE);
+  } else {
+    state.auth.permissions = normalizePermissions(result.permissions || state.auth.permissions);
   }
   return result;
 }
@@ -890,15 +951,8 @@ async function init() {
           if (!isKnownEmail) {
             clearAuthCache();
             state.auth.user = null;
-            state.auth.permissions = {
-              ALL: "view",
-              OP: "view",
-              OV: "view",
-              OU: "view",
-              AI: "view",
-              L1: "view",
-              L2: "view",
-            };
+            state.auth.roles = null;
+            state.auth.permissions = buildDefaultPermissions();
             mainScreenEl?.classList.add("hidden");
             loginScreenEl?.classList.remove("hidden");
           } else {
@@ -1335,17 +1389,18 @@ function bindEmailAuth() {
       name: `${member?.last_name || ""} ${member?.first_name || ""}`.trim(),
       login: email,
     };
-    state.auth.roles = roles;
-    state.auth.memberId = member.id;
-    state.auth.permissions = {
-      ALL: "view",
-      OP: "view",
-      OV: "view",
-      OU: "view",
-      AI: "view",
-      L1: "view",
-      L2: "view",
-    };
+state.auth.roles = roles || null;
+state.auth.memberId = member?.id ?? null;
+
+if (state.auth.roles) {
+  state.auth.permissions = resolvePermissionsFromRoles(
+    state.auth.roles,
+    ROLE_MATRIX_BY_LINE
+  );
+} else {
+  state.auth.permissions = buildDefaultPermissions();
+}
+
     updateCurrentUserLabel(email);
     saveAuthCache(email);
     loginScreenEl.classList.add("hidden");
@@ -1915,7 +1970,7 @@ function bindTopBarButtons() {
     state.auth.user = null;
     state.auth.roles = null;
     state.auth.memberId = null;
-    state.auth.permissions = { ALL: "view", OP: "view", OV: "view", OU: "view", AI: "view", L1: "view", L2: "view" };
+    state.auth.permissions = buildDefaultPermissions();
     mainScreenEl?.classList.add("hidden");
     loginScreenEl?.classList.remove("hidden");
     clearLoginCooldown();
