@@ -70,7 +70,7 @@ const PYRUS_FIELD_IDS = config.pyrus.fields;
 
 const LINE_PERMISSION_KEYS = ["ALL", "OP", "OV", "OU", "AI", "L1", "L2"];
 
-const ROLE_MATRIX_BY_LINE = config.auth?.rolesByLine || null;
+const ROLE_MATRIX_BY_LINE = config.auth?.rolePermissions || null;
 
 function buildDefaultPermissions() {
   const permissions = {};
