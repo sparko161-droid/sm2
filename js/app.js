@@ -168,6 +168,18 @@ const scheduleCacheByLine = {
   L2: Object.create(null),
 };
 
+const DEFAULT_AUTH_PERMISSIONS = {
+  ALL: "view",
+  OP: "view",
+  OV: "view",
+  OU: "view",
+  AI: "view",
+  L1: "view",
+  L2: "view",
+};
+
+const AUTH_PERMISSION_KEYS = Object.keys(DEFAULT_AUTH_PERMISSIONS);
+
 const membersByEmail = new Map();
 
 const STORAGE_KEYS = config.storage.keys;
@@ -215,6 +227,57 @@ function updateCurrentUserLabel(login) {
   }
   const resolvedLogin = (login || state.auth.user?.login || "").trim();
   currentUserLabelEl.textContent = `${name}${resolvedLogin ? " (" + resolvedLogin + ")" : ""}`;
+}
+
+function normalizeAuthUser(rawUser, overrides = {}) {
+  if (!rawUser && !overrides.login && !overrides.name && overrides.id == null && !overrides.roles) {
+    return null;
+  }
+  const source = rawUser || {};
+  const id = source.id ?? overrides.id ?? null;
+  const login = String(source.login ?? overrides.login ?? "").trim();
+  let name = String(source.name ?? overrides.name ?? "").trim();
+  if (!name) {
+    const firstName = source.first_name ?? source.firstName ?? overrides.first_name ?? overrides.firstName ?? "";
+    const lastName = source.last_name ?? source.lastName ?? overrides.last_name ?? overrides.lastName ?? "";
+    name = `${lastName} ${firstName}`.trim();
+  }
+  let rolesRaw = source.roles ?? overrides.roles ?? [];
+  if (!Array.isArray(rolesRaw)) rolesRaw = [];
+  const roles = rolesRaw.map((role) => String(role)).filter(Boolean);
+  return {
+    id,
+    login,
+    name,
+    roles,
+  };
+}
+
+function normalizeAuthPermissions(permissions) {
+  const normalized = { ...DEFAULT_AUTH_PERMISSIONS };
+  if (permissions && typeof permissions === "object") {
+    for (const [key, value] of Object.entries(permissions)) {
+      if (value) normalized[key] = value;
+    }
+  }
+  const fallback = normalized.ALL || DEFAULT_AUTH_PERMISSIONS.ALL;
+  for (const key of AUTH_PERMISSION_KEYS) {
+    if (!permissions || !Object.prototype.hasOwnProperty.call(permissions, key)) {
+      normalized[key] = fallback;
+    }
+  }
+  return normalized;
+}
+
+function applyAuthState({ user, permissions, login, name, id, roles } = {}) {
+  state.auth.user = normalizeAuthUser(user, {
+    login,
+    name,
+    id,
+    roles,
+  });
+  state.auth.permissions = normalizeAuthPermissions(permissions);
+  return state.auth.user;
 }
 
 // -----------------------------
@@ -411,14 +474,11 @@ function markEmailCheckedToday() {
 
 function applyAuthCache(data) {
   if (!data) return false;
-  state.auth.user = data.user || null;
-  state.auth.permissions = data.permissions || state.auth.permissions;
-  // гарантируем ключи вкладок
-  for (const k of ["ALL","OP","OV","OU","AI","L1","L2"]) {
-    if (!Object.prototype.hasOwnProperty.call(state.auth.permissions, k)) {
-      state.auth.permissions[k] = state.auth.permissions.ALL || "view";
-    }
-  }
+  applyAuthState({
+    user: data.user || null,
+    permissions: data.permissions || state.auth.permissions,
+    login: data.login,
+  });
   const login = (data.login || state.auth.user?.login || "").trim();
   updateCurrentUserLabel(login);
   // сохраняем сессию независимо от наличия UI-элементов
@@ -677,14 +737,11 @@ throw error;
 
   }
 
-  state.auth.user = result.user || null;
-  state.auth.permissions = result.permissions || { ALL: "view", OP: "view", OV: "view", OU: "view", AI: "view", L1: "view", L2: "view" };
-  // гарантируем ключи вкладок
-  for (const k of ["ALL","OP","OV","OU","AI","L1","L2"]) {
-    if (!Object.prototype.hasOwnProperty.call(state.auth.permissions, k)) {
-      state.auth.permissions[k] = state.auth.permissions.ALL || "view";
-    }
-  }
+  applyAuthState({
+    user: result.user || null,
+    permissions: result.permissions,
+    login,
+  });
   return result;
 }
 
@@ -883,16 +940,7 @@ async function init() {
           );
           if (!isKnownEmail) {
             clearAuthCache();
-            state.auth.user = null;
-            state.auth.permissions = {
-              ALL: "view",
-              OP: "view",
-              OV: "view",
-              OU: "view",
-              AI: "view",
-              L1: "view",
-              L2: "view",
-            };
+            applyAuthState({ user: null, permissions: null });
             mainScreenEl?.classList.add("hidden");
             loginScreenEl?.classList.remove("hidden");
           } else {
@@ -1311,19 +1359,15 @@ function bindEmailAuth() {
     }
     const member = emailAuthState.member;
     const email = emailAuthState.targetEmail || "";
-    state.auth.user = {
-      name: `${member?.last_name || ""} ${member?.first_name || ""}`.trim(),
-      login: email,
-    };
-    state.auth.permissions = {
-      ALL: "view",
-      OP: "view",
-      OV: "view",
-      OU: "view",
-      AI: "view",
-      L1: "view",
-      L2: "view",
-    };
+    applyAuthState({
+      user: {
+        id: member?.id ?? null,
+        login: email,
+        name: `${member?.last_name || ""} ${member?.first_name || ""}`.trim(),
+        roles: member?.roles ?? [],
+      },
+      permissions: null,
+    });
     updateCurrentUserLabel(email);
     saveAuthCache(email);
     loginScreenEl.classList.add("hidden");
@@ -1890,8 +1934,7 @@ function bindTopBarButtons() {
 
   btnLogoutEl?.addEventListener("click", () => {
     clearAuthCache();
-    state.auth.user = null;
-    state.auth.permissions = { ALL: "view", OP: "view", OV: "view", OU: "view", AI: "view", L1: "view", L2: "view" };
+    applyAuthState({ user: null, permissions: null });
     mainScreenEl?.classList.add("hidden");
     loginScreenEl?.classList.remove("hidden");
     clearLoginCooldown();
