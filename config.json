@@ -32,6 +32,23 @@
       "emailInit": "https://example.com/webhook/auth/email/init",
       "emailVerify": "https://example.com/webhook/auth/email/verify",
       "telegramInit": "https://example.com/webhook/auth/telegram/init"
+    },
+    "rolePermissions": {
+      "ALL": [
+        101,
+        102
+      ],
+      "L1": [
+        201
+      ],
+      "L2": [
+        202,
+        203
+      ],
+      "OP": [],
+      "OV": [],
+      "OU": [],
+      "AI": []
     }
   },
   "pyrus": {
