@@ -412,32 +412,6 @@ body {
   margin-top: 16px;
 }
 
-.telegram-auth-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  margin-top: 14px;
-  border-radius: 12px;
-  background: var(--bg-alt);
-  border: 1px solid var(--border);
-}
-
-.telegram-auth-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: var(--accent-soft);
-  font-size: 18px;
-}
-
-.telegram-auth-text {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
 /* ===== Основной экран ===== */
 
 #main-screen {
