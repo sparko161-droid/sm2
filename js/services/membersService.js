@@ -38,7 +38,7 @@ export function createMembersService({ pyrusClient, ttlMs = DEFAULT_MEMBERS_TTL_
 
   async function getMembers({ force } = {}) {
     return cached(
-      "members",
+      "pyrus:members",
       { ttlMs, force },
       async () => {
         const raw = await pyrusClient.pyrusRequest("/v4/members", { method: "GET" });
@@ -49,7 +49,7 @@ export function createMembersService({ pyrusClient, ttlMs = DEFAULT_MEMBERS_TTL_
 
   async function getMembersIndex({ force } = {}) {
     return cached(
-      "members:index",
+      "pyrus:members:index",
       { ttlMs, force },
       async () => {
         const data = await getMembers({ force });
@@ -64,7 +64,7 @@ export function createMembersService({ pyrusClient, ttlMs = DEFAULT_MEMBERS_TTL_
       throw new Error("id is required for getMemberDetails");
     }
     return cached(
-      `members:detail:${id}`,
+      `pyrus:members:detail:${id}`,
       { ttlMs: DEFAULT_MEMBER_DETAIL_TTL_MS, force },
       async () => {
         const raw = await pyrusClient.pyrusRequest(`/v4/members/${id}`, { method: "GET" });

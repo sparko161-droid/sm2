@@ -28,7 +28,7 @@ export function createVacationsService({
     const { year, monthIndex } = parseMonthKey(monthKey);
 
     return cached(
-      `vacations:${monthKey}`,
+      `pyrus:vacations:${monthKey}`,
       { ttlMs, force },
       async () => {
         const raw = await pyrusClient.pyrusRequest(`/v4/forms/${formId}/register`, {

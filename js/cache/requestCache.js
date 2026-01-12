@@ -11,8 +11,9 @@ export async function cached(key, options, fetcher) {
   const opts = options || {};
   const ttlMs = Number.isFinite(opts.ttlMs) ? opts.ttlMs : 0;
   const force = Boolean(opts.force);
+  const shouldCacheValue = ttlMs > 0;
 
-  if (!force) {
+  if (!force && shouldCacheValue) {
     const cachedEntry = cache.get(key);
     if (isCacheValid(cachedEntry, ttlMs)) {
       return cachedEntry.value;
@@ -25,7 +26,9 @@ export async function cached(key, options, fetcher) {
 
   const promise = (async () => {
     const value = await fetcher();
-    cache.set(key, { value, fetchedAt: Date.now() });
+    if (shouldCacheValue) {
+      cache.set(key, { value, fetchedAt: Date.now() });
+    }
     return value;
   })();
 

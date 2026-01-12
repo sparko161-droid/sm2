@@ -11,7 +11,7 @@ export function createScheduleService({ pyrusClient, formId } = {}) {
   async function loadMonthSchedule(monthKey, { force } = {}) {
     const token = ++latestToken;
     const data = await cached(
-      `schedule:${monthKey}`,
+      `pyrus:schedule:${monthKey}`,
       { ttlMs: 0, force },
       async () => {
         const raw = await pyrusClient.pyrusRequest(`/v4/forms/${formId}/register`, {

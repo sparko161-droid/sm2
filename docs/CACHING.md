@@ -20,6 +20,11 @@ cached(key, { ttlMs, force }, fetcher)
 - **schedule**: без TTL, только in-flight dedupe + latest-only.
 - **prod calendar**: TTL берется из `config.calendar.prodCal.ttlMs`, хранится в `localStorage`.
 
+## ttlMs = 0: inflight-only dedupe
+
+Если `ttlMs <= 0`, `requestCache` не сохраняет значение в memory cache (value-cache),
+но продолжает дедуплицировать запросы, пока Promise в полёте.
+
 ## Дополнительные кеши
 
 В `app.js` сохраняются UI-данные в `localStorage`:

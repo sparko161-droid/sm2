@@ -13,6 +13,7 @@ export function createGraphClient({ graphHookUrl, fetchFn = fetch, logger } = {}
     }
 
     const allowedTypes = new Set([
+      "auth",
       "auth_email_init",
       "auth_email_verify",
       "email",

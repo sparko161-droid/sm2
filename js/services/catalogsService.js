@@ -13,7 +13,7 @@ export function createCatalogsService({ pyrusClient, ttlMs = DEFAULT_CATALOG_TTL
       throw new Error("catalogId is required for getShiftsCatalog");
     }
     return cached(
-      `catalogs:shifts:${catalogId}`,
+      `pyrus:catalogs:shifts:${catalogId}`,
       { ttlMs, force },
       async () => {
         const raw = await pyrusClient.pyrusRequest(`/v4/catalogs/${catalogId}`, {
