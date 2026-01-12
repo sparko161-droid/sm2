@@ -72,7 +72,7 @@
 
   --shadow-strong: 0 6px 20px rgba(0, 0, 0, 0.06);
   --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.04);
-  --header-height: 64px;
+  --header-height: 0px;
   --cell-size: 48px;
   --table-header-row-height: 24px;
   --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -573,7 +573,7 @@ body {
 .schedule-table td.sticky-col {
   position: sticky;
   left: 0;
-  z-index: 2;
+  z-index: 4;
   background: var(--sticky-bg);
   min-width: 180px;
   max-width: 220px;
@@ -581,7 +581,7 @@ body {
 }
 
 .schedule-table thead th.sticky-col {
-  z-index: 3;
+  z-index: 7;
 }
 
 .schedule-table thead {
@@ -590,8 +590,8 @@ body {
 
 .schedule-table thead th {
   position: sticky;
-  top: 0;
-  z-index: 2;
+  top: calc(var(--header-height) + env(safe-area-inset-top));
+  z-index: 6;
   border-color: var(--table-border-strong);
   color: var(--text);
   height: var(--table-header-row-height);
@@ -640,7 +640,7 @@ body {
 }
 
 .schedule-table thead tr:nth-child(2) th {
-  top: var(--table-header-row-height);
+  top: calc(var(--header-height) + env(safe-area-inset-top) + var(--table-header-row-height));
 }
 
 .schedule-table .weekday-header {
@@ -1574,8 +1574,19 @@ body {
 /* Mobile layout improvements */
 .mobile-only{display:none;}
 @media (max-width: 768px){
+  :root{--header-height:56px;}
   .mobile-only{display:inline-flex;}
-  .top-bar{flex-direction:column;align-items:stretch;gap:10px;}
+  .top-bar{
+    position:sticky;
+    top:0;
+    z-index:30;
+    background: var(--card-bg);
+    padding-top: env(safe-area-inset-top);
+    min-height: calc(var(--header-height) + env(safe-area-inset-top));
+    flex-direction:column;
+    align-items:stretch;
+    gap:10px;
+  }
   .top-bar-right{flex-wrap:wrap;justify-content:flex-start;}
   #line-tabs.line-tabs{
     width:100%;
