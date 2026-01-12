@@ -501,6 +501,87 @@ body.legend-open {
   color: var(--text-muted);
 }
 
+.month-label-button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.month-label-button:hover,
+.month-label-button:focus-visible {
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
+.month-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+}
+
+.month-picker {
+  width: min(320px, 90vw);
+  background: var(--bg-alt);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.month-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.month-picker-year {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.month-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.month-picker-month {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.month-picker-month:hover,
+.month-picker-month:focus-visible {
+  border-color: var(--accent);
+  background: var(--bg-alt);
+  outline: none;
+}
+
+.month-picker-month.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
 /* ===== Контейнер с таблицей ===== */
 
 .schedule-container {

@@ -927,6 +927,11 @@ let lineTabsPopoverBackdropEl = null;
 let lineTabsPopoverEl = null;
 let lineTabsPopoverListEl = null;
 let lineTabsPopoverKeydownHandler = null;
+let monthPickerBackdropEl = null;
+let monthPickerEl = null;
+let monthPickerYearLabelEl = null;
+let monthPickerGridEl = null;
+let monthPickerKeydownHandler = null;
 
 // -----------------------------
 // Инициализация
@@ -988,6 +993,7 @@ async function init() {
   bindHistoryControls();
   createShiftPopover();
   createEmployeeFilterPopover();
+  createMonthPickerPopover();
   renderChangeLog();
 
   // Если восстановили сессию — загружаем данные как после логина
@@ -1031,6 +1037,120 @@ function updateMonthLabel() {
     "Декабрь",
   ];
   currentMonthLabelEl.textContent = `${monthNames[monthIndex]} ${year}`;
+}
+
+function createMonthPickerPopover() {
+  if (monthPickerBackdropEl) return;
+  monthPickerBackdropEl = document.createElement("div");
+  monthPickerBackdropEl.className = "month-picker-backdrop hidden";
+
+  monthPickerEl = document.createElement("div");
+  monthPickerEl.className = "month-picker hidden";
+
+  const header = document.createElement("div");
+  header.className = "month-picker-header";
+
+  const prevYearBtn = document.createElement("button");
+  prevYearBtn.type = "button";
+  prevYearBtn.className = "btn toggle";
+  prevYearBtn.textContent = "‹";
+  prevYearBtn.setAttribute("aria-label", "Предыдущий год");
+
+  monthPickerYearLabelEl = document.createElement("div");
+  monthPickerYearLabelEl.className = "month-picker-year";
+
+  const nextYearBtn = document.createElement("button");
+  nextYearBtn.type = "button";
+  nextYearBtn.className = "btn toggle";
+  nextYearBtn.textContent = "›";
+  nextYearBtn.setAttribute("aria-label", "Следующий год");
+
+  header.appendChild(prevYearBtn);
+  header.appendChild(monthPickerYearLabelEl);
+  header.appendChild(nextYearBtn);
+
+  monthPickerGridEl = document.createElement("div");
+  monthPickerGridEl.className = "month-picker-grid";
+
+  monthPickerEl.appendChild(header);
+  monthPickerEl.appendChild(monthPickerGridEl);
+  monthPickerBackdropEl.appendChild(monthPickerEl);
+  document.body.appendChild(monthPickerBackdropEl);
+
+  const closeHandler = () => closeMonthPickerPopover();
+  monthPickerBackdropEl.addEventListener("click", (event) => {
+    if (event.target === monthPickerBackdropEl) closeHandler();
+  });
+
+  prevYearBtn.addEventListener("click", () => {
+    state.monthMeta.year -= 1;
+    renderMonthPicker();
+  });
+  nextYearBtn.addEventListener("click", () => {
+    state.monthMeta.year += 1;
+    renderMonthPicker();
+  });
+}
+
+function renderMonthPicker() {
+  if (!monthPickerGridEl || !monthPickerYearLabelEl) return;
+  const { year, monthIndex } = state.monthMeta;
+  monthPickerYearLabelEl.textContent = String(year);
+  monthPickerGridEl.innerHTML = "";
+
+  const monthLabels = [
+    "Янв",
+    "Фев",
+    "Мар",
+    "Апр",
+    "Май",
+    "Июн",
+    "Июл",
+    "Авг",
+    "Сен",
+    "Окт",
+    "Ноя",
+    "Дек",
+  ];
+
+  monthLabels.forEach((label, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "month-picker-month";
+    btn.textContent = label;
+    btn.setAttribute("aria-label", `${label} ${year}`);
+    if (index === monthIndex) btn.classList.add("active");
+    btn.addEventListener("click", () => {
+      state.monthMeta.monthIndex = index;
+      updateMonthLabel();
+      closeMonthPickerPopover();
+      reloadScheduleForCurrentMonth();
+    });
+    monthPickerGridEl.appendChild(btn);
+  });
+}
+
+function openMonthPickerPopover() {
+  if (!monthPickerBackdropEl || !monthPickerEl) return;
+  renderMonthPicker();
+  monthPickerBackdropEl.classList.remove("hidden");
+  monthPickerEl.classList.remove("hidden");
+  if (!monthPickerKeydownHandler) {
+    monthPickerKeydownHandler = (event) => {
+      if (event.key === "Escape") closeMonthPickerPopover();
+    };
+  }
+  document.addEventListener("keydown", monthPickerKeydownHandler);
+}
+
+function closeMonthPickerPopover() {
+  if (!monthPickerBackdropEl || !monthPickerEl) return;
+  monthPickerBackdropEl.classList.add("hidden");
+  monthPickerEl.classList.add("hidden");
+  if (monthPickerKeydownHandler) {
+    document.removeEventListener("keydown", monthPickerKeydownHandler);
+    monthPickerKeydownHandler = null;
+  }
 }
 
 function resetLocalEditingState() {
@@ -2022,6 +2142,9 @@ function bindTopBarButtons() {
   });
   shiftLegendBackdropEl?.addEventListener("click", () => {
     setLegendOpen(false);
+  });
+  currentMonthLabelEl?.addEventListener("click", () => {
+    openMonthPickerPopover();
   });
   window.addEventListener("resize", () => {
     if (window.innerWidth > 768) {
