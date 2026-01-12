@@ -3,6 +3,13 @@
 // Чистый vanilla JS.
 
 import { config, getConfigValue } from "./config.js";
+import { createGraphClient } from "./api/graphClient.js";
+import { createPyrusClient } from "./api/pyrusClient.js";
+import { createMembersService } from "./services/membersService.js";
+import { createCatalogsService } from "./services/catalogsService.js";
+import { createVacationsService } from "./services/vacationsService.js";
+import { createScheduleService } from "./services/scheduleService.js";
+import { createProdCalendarService } from "./services/prodCalendarService.js";
 
 
 /**
@@ -70,6 +77,22 @@ const PYRUS_FIELD_IDS = config.pyrus.fields;
 
 const LINE_PERMISSION_KEYS = ["ALL", "OP", "OV", "OU", "AI", "L1", "L2"];
 
+const graphClient = createGraphClient({ graphHookUrl: GRAPH_HOOK_URL });
+const pyrusClient = createPyrusClient({ graphClient });
+const membersService = createMembersService({ pyrusClient });
+const catalogsService = createCatalogsService({ pyrusClient });
+const vacationsService = createVacationsService({
+  pyrusClient,
+  formId: PYRUS_FORM_IDS.otpusk,
+  fieldIds: PYRUS_FIELD_IDS.otpusk,
+  timezoneOffsetMin: TIMEZONE_OFFSET_MIN,
+});
+const scheduleService = createScheduleService({
+  pyrusClient,
+  formId: PYRUS_FORM_IDS.smeni,
+});
+const prodCalendarService = createProdCalendarService({ config });
+
 const ROLE_MATRIX_BY_LINE = config.auth?.rolePermissions || null;
 
 function buildDefaultPermissions() {
@@ -111,19 +134,6 @@ function resolvePermissionsFromRoles(roles, configMatrix) {
   return permissions;
 }
 
-
-// Универсальный helper для n8n-обёртки Pyrus { success, data }
-function unwrapPyrusData(raw) {
-  if (
-    raw &&
-    typeof raw === "object" &&
-    Object.prototype.hasOwnProperty.call(raw, "data") &&
-    Object.prototype.hasOwnProperty.call(raw, "success")
-  ) {
-    return raw.data;
-  }
-  return raw;
-}
 
 // -----------------------------
 // Глобальное состояние
@@ -673,179 +683,6 @@ function convertLocalRangeToUtc(day, startLocal, endLocal) {
 }
 
 // -----------------------------
-// API-слой
-// -----------------------------
-
-async function callGraphApi(type, payload) {
-  if (!type) {
-    throw new Error("callGraphApi: не указан тип хука");
-  }
-
-  const allowedTypes = new Set([
-    "auth_email_init",
-    "auth_email_verify",
-    "email",
-    "pyrus_api",
-    "pyrus_save",
-  ]);
-  if (!allowedTypes.has(type)) {
-    console.warn(`callGraphApi: неизвестный тип хука "${type}"`);
-  }
-
-  // Единый формат ответа n8n: { status, user, permissions, error?, retryAfterSec? }
-  const res = await fetch(GRAPH_HOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, ...payload }),
-  });
-
-  const contentType = res.headers.get("content-type") || "";
-
-  if (!res.ok) {
-    let body = null;
-    let text = "";
-
-    if (contentType.includes("application/json")) {
-      try {
-        body = await res.json();
-      } catch (_) {
-        body = null;
-      }
-    } else {
-      text = await res.text().catch(() => "");
-    }
-
-    const retryAfterHeader = res.headers.get("retry-after");
-    const retryAfterSec = Number(retryAfterHeader) || 0;
-    const errorPayload = body?.error ?? body ?? {};
-    const message =
-      (typeof errorPayload === "string" && errorPayload) ||
-      errorPayload.message ||
-      body?.message ||
-      text ||
-      `Ошибка HTTP ${res.status}: ${res.statusText || ""}`;
-
-    const error = new Error(message);
-    error.status = res.status;
-    error.code = errorPayload.code || body?.code;
-    error.retryAfterSec =
-      Number(errorPayload.retryAfterSec || body?.retryAfterSec) || retryAfterSec || 0;
-
-    throw error;
-  }
-
-  if (!contentType.includes("application/json")) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Некорректный ответ сервера (ожидался JSON): ${text || "пустой ответ"}`
-    );
-  }
-
-  return res.json();
-}
-
-async function pyrusApi(path, method = "GET", body = null) {
-  const payload = { path, method };
-  if (body) payload.body = body;
-  return callGraphApi("pyrus_api", payload);
-}
-
-// -----------------------------
-// Производственный календарь РФ (isdayoff.ru) — помесячно, с кэшем и фолбеком на СБ/ВС
-// -----------------------------
-const PROD_CAL_CONFIG = config.calendar.prodCal;
-
-function prodCalCacheKey(prodCalConfig, year, monthIndex) {
-  const mm = String(monthIndex + 1).padStart(2, "0");
-  const prefix = prodCalConfig.cacheKeyPrefix || "";
-  return `${prefix}${year}-${mm}_pre1`;
-}
-
-function formatYmdForKey(year, monthIndex, day) {
-  const mm = String(monthIndex + 1).padStart(2, "0");
-  const dd = String(day).padStart(2, "0");
-  return `${year}-${mm}-${dd}`;
-}
-
-function formatYmdCompact(year, monthIndex, day) {
-  const mm = String(monthIndex + 1).padStart(2, "0");
-  const dd = String(day).padStart(2, "0");
-  return `${year}${mm}${dd}`;
-}
-
-async function loadProdCalendarForMonth(year, monthIndex) {
-  const prodCalConfig = PROD_CAL_CONFIG;
-  const cacheKey = prodCalCacheKey(prodCalConfig, year, monthIndex);
-  const ttlMs = Number(prodCalConfig.ttlMs) || 0;
-  try {
-    const cachedRaw = localStorage.getItem(cacheKey);
-    if (cachedRaw) {
-      const cached = JSON.parse(cachedRaw);
-      if (cached && cached.fetchedAt && ttlMs > 0 && (Date.now() - cached.fetchedAt) < ttlMs && cached.dayTypeByDay) {
-        return cached;
-      }
-    }
-  } catch (_) {
-    // ignore cache errors
-  }
-
-  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
-  const urlTemplate = prodCalConfig.urlTemplate;
-  if (!urlTemplate) {
-    throw new Error("ProdCal urlTemplate is missing in config");
-  }
-  const month = String(monthIndex + 1).padStart(2, "0");
-  const date1 = formatYmdCompact(year, monthIndex, 1);
-  const date2 = formatYmdCompact(year, monthIndex, lastDay);
-  const url = String(urlTemplate)
-    .replace(/{year}/g, String(year))
-    .replace(/{month}/g, month)
-    .replace(/{lastDay}/g, String(lastDay))
-    .replace(/{date1}/g, date1)
-    .replace(/{date2}/g, date2);
-
-  const resp = await fetch(url, { method: "GET" });
-  const text = (await resp.text()).trim();
-
-  // Возможные ошибки: 100/101/199
-  if (!resp.ok || /^(100|101|199)$/.test(text) || text.length < lastDay) {
-    throw new Error(`ProdCal error: ${resp.status} ${text}`);
-  }
-
-  const dayTypeByDay = Object.create(null);
-  for (let d = 1; d <= lastDay; d++) {
-    const ch = text[d - 1];
-    // Поддерживаемые коды isdayoff.ru: 0, 1, 2, 4, 8.
-    const code = ch === "0"
-      ? 0
-      : ch === "1"
-        ? 1
-        : ch === "2"
-          ? 2
-          : ch === "4"
-            ? 4
-            : ch === "8"
-              ? 8
-              : null;
-    if (code !== null) dayTypeByDay[d] = code;
-  }
-
-  const payload = {
-    monthKey: `${year}-${String(monthIndex + 1).padStart(2, "0")}`,
-    fetchedAt: Date.now(),
-    dayTypeByDay,
-  };
-
-  try {
-    localStorage.setItem(cacheKey, JSON.stringify(payload));
-  } catch (_) {
-    // ignore storage quota / privacy mode
-  }
-
-  return payload;
-}
-
-// -----------------------------
 // DOM-ссылки
 // -----------------------------
 
@@ -964,9 +801,8 @@ async function init() {
         const userEmail = normalizeEmail(state.auth.user?.login);
         if (userEmail) {
           try {
-            const raw = await pyrusApi("/v4/members", "GET");
-            const data = unwrapPyrusData(raw);
-            const members = extractMembersFromPyrusData(data);
+            const data = await membersService.getMembers();
+            const members = membersService.extractMembersFromPyrusData(data);
             const isKnownEmail = members.some(
               (member) => normalizeEmail(member?.email) === userEmail
             );
@@ -1227,7 +1063,7 @@ function generateEmailAuthCode(length) {
 }
 
 async function sendEmailAuthCode(payload) {
-  return callGraphApi("email", payload);
+  return graphClient.callGraphApi("email", payload);
 }
 
 function clearAuthErrors() {
@@ -1353,40 +1189,22 @@ function startResendTimer() {
   }, 1000);
 }
 
-function extractMembersFromPyrusData(data) {
-  if (!data || typeof data !== "object") return [];
-  if (Array.isArray(data.members)) return data.members;
-  if (data.employeesByLine && typeof data.employeesByLine === "object") {
-    const aggregated = [];
-    for (const value of Object.values(data.employeesByLine)) {
-      if (Array.isArray(value)) aggregated.push(...value);
-    }
-    return aggregated;
-  }
-  return [];
-}
-
 async function loadEmailAuthMembers() {
   if (emailAuthState.membersLoaded || emailAuthState.membersLoading) return;
   emailAuthState.membersLoading = true;
   emailAuthState.membersLoadError = "";
   try {
-    const raw = await pyrusApi("/v4/members", "GET");
-    const data = unwrapPyrusData(raw);
-    const members = extractMembersFromPyrusData(data);
-    const membersByEmail = new Map();
-    for (const member of members) {
-      const email = String(member?.email || "").trim();
-      if (!email) continue;
-      const normalizedEmail = email.toLowerCase();
-      membersByEmail.set(normalizedEmail, {
+    const { membersByEmail } = await membersService.getMembersIndex();
+    const normalizedMap = new Map();
+    for (const [email, member] of membersByEmail.entries()) {
+      normalizedMap.set(email, {
         id: member.id,
         first_name: member.first_name || "",
         last_name: member.last_name || "",
-        email,
+        email: member.email || "",
       });
     }
-    emailAuthState.membersByEmail = membersByEmail;
+    emailAuthState.membersByEmail = normalizedMap;
     emailAuthState.membersLoaded = true;
   } catch (err) {
     console.error("Не удалось загрузить сотрудников для email-авторизации:", err);
@@ -1488,8 +1306,7 @@ if (!member?.id) {
 
 let roles = null;
 try {
-  const raw = await pyrusApi(`/v4/members/${member.id}`, "GET");
-  const data = unwrapPyrusData(raw);
+  const data = await membersService.getMemberDetails({ id: member.id });
   roles = data?.roles || null;
 } catch (err) {
   setOtpError(err?.message || "Не удалось загрузить роли пользователя");
@@ -2649,7 +2466,7 @@ async function handleSaveToPyrus() {
       year: state.monthMeta.year,
     };
     
-    await callGraphApi("pyrus_save", { changes: payload, meta });
+    await graphClient.callGraphApi("pyrus_save", { changes: payload, meta });
     
     alert(`Изменения для линии ${currentLine} успешно отправлены в Pyrus.\n` +
           `Создано: ${payload.create.task.length}\n` +
@@ -2668,6 +2485,10 @@ async function handleSaveToPyrus() {
     persistLocalChanges();
     
     updateSaveButtonState();
+
+    const monthKey = getMonthKey(state.monthMeta.year, state.monthMeta.monthIndex);
+    scheduleService.invalidateMonthSchedule(monthKey);
+    await reloadScheduleForCurrentMonth();
     
   } catch (err) {
     console.error("handleSaveToPyrus error", err);
@@ -2864,13 +2685,11 @@ async function loadInitialData() {
     }
   } catch (err) {
     console.error("loadInitialData error:", err);
-    alert(`Ошибка загрузки данных: ${err.message || err}`);
   }
 }
 
 async function loadEmployees() {
-  const raw = await pyrusApi("/v4/members", "GET");
-  const data = unwrapPyrusData(raw);
+  const data = await membersService.getMembers();
 
   if (data.employeesByLine) {
     state.employeesByLine.L1 = data.employeesByLine.L1 || [];
@@ -2987,8 +2806,7 @@ persistCachedEmployees();
 }
 
 async function loadShiftsCatalog() {
-  const raw = await pyrusApi(`/v4/catalogs/${PYRUS_CATALOG_IDS.shifts}`, "GET");
-  const data = unwrapPyrusData(raw);
+  const data = await catalogsService.getShiftsCatalog({ catalogId: PYRUS_CATALOG_IDS.shifts });
 
   const catalog = Array.isArray(data) ? data[0] : data;
   if (!catalog) return;
@@ -3090,110 +2908,15 @@ async function loadShiftsCatalog() {
 
 
 
-async function loadVacationsForMonth(year, monthIndex) {
-  const raw = await pyrusApi(`/v4/forms/${PYRUS_FORM_IDS.otpusk}/register`, "GET");
-  const data = unwrapPyrusData(raw);
-  const wrapper = Array.isArray(data) ? data[0] : data;
-  const tasks = (wrapper && wrapper.tasks) || [];
-
-  const vacationsByEmployee = Object.create(null);
-  const offsetMs = TIMEZONE_OFFSET_MIN * 60 * 1000;
-
-
-  const monthStartShiftedMs = Date.UTC(year, monthIndex, 1, 0, 0, 0, 0);
-  const monthEndShiftedMs = Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0);
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-
-  const fmt = (shiftedMs) => {
-    const d = new Date(shiftedMs);
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const yy = d.getUTCFullYear();
-    return dd + "." + mm + "." + yy;
-  };
-
-  const isMidnight = (shiftedMs) => {
-    const d = new Date(shiftedMs);
-    return (
-      d.getUTCHours() === 0 &&
-      d.getUTCMinutes() === 0 &&
-      d.getUTCSeconds() === 0 &&
-      d.getUTCMilliseconds() === 0
-    );
-  };
-
-  for (const task of tasks) {
-    const fields = task.fields || [];
-    const personField = fields.find(
-      (f) => f && f.id === PYRUS_FIELD_IDS.otpusk?.person && f.type === "person"
-    );
-    const periodField = fields.find(
-      (f) => f && f.id === PYRUS_FIELD_IDS.otpusk?.period && f.type === "due_date_time"
-    );
-    if (!personField || !periodField) continue;
-
-    const empId = personField.value && personField.value.id;
-    if (!empId) continue;
-
-    const startIso = periodField.value;
-    const durationMin = Number(periodField.duration || 0);
-    if (!startIso || !durationMin) continue;
-
-    const startUtcMs = new Date(startIso).getTime();
-    if (Number.isNaN(startUtcMs)) continue;
-    const endUtcMs = startUtcMs + durationMin * 60 * 1000;
-
-    // Работаем в "смещённом" пространстве (utcMs + offset)
-    const startShiftedMs = startUtcMs + offsetMs;
-    const endShiftedMs = endUtcMs + offsetMs;
-
-    // Клип по текущему месяцу
-    const segStart = Math.max(startShiftedMs, monthStartShiftedMs);
-    const segEnd = Math.min(endShiftedMs, monthEndShiftedMs);
-    if (segStart >= segEnd) continue;
-
-    const startDay = new Date(segStart).getUTCDate();
-
-    // Диапазон [start, end)
-    const endDate = new Date(segEnd);
-    let endDayExclusive;
-    if (endDate.getUTCMonth() !== monthIndex) {
-      endDayExclusive = daysInMonth + 1;
-    } else {
-      endDayExclusive = endDate.getUTCDate();
-      if (!isMidnight(segEnd)) endDayExclusive += 1;
-    }
-
-    endDayExclusive = Math.max(1, Math.min(daysInMonth + 1, endDayExclusive));
-
-    // Для отображения: конец включительно
-    let endLabelShiftedMs = endShiftedMs;
-    if (isMidnight(endShiftedMs)) endLabelShiftedMs = endShiftedMs - 1;
-
-    (vacationsByEmployee[empId] = vacationsByEmployee[empId] || []).push({
-      startDay,
-      endDayExclusive,
-      startLabel: fmt(startShiftedMs),
-      endLabel: fmt(endLabelShiftedMs),
-    });
-  }
-
-  // Сортируем отпуска каждого сотрудника по началу
-  for (const empId of Object.keys(vacationsByEmployee)) {
-    vacationsByEmployee[empId].sort((a, b) => (a.startDay || 0) - (b.startDay || 0));
-  }
-
-  return vacationsByEmployee;
-}
 async function reloadScheduleForCurrentMonth() {
   const { year, monthIndex } = state.monthMeta;
-
-  const raw = await pyrusApi(`/v4/forms/${PYRUS_FORM_IDS.smeni}/register`, "GET");
-  const data = unwrapPyrusData(raw);
+  const monthKey = getMonthKey(year, monthIndex);
+  const scheduleResult = await scheduleService.loadMonthSchedule(monthKey);
+  if (!scheduleResult.isLatest) return;
 
   // Отпуска: внешняя система, только отображение
   try {
-    state.vacationsByEmployee = await loadVacationsForMonth(year, monthIndex);
+    state.vacationsByEmployee = await vacationsService.getVacationsForMonth(monthKey);
   } catch (e) {
     console.warn('Не удалось загрузить отпуска', e);
     state.vacationsByEmployee = {};
@@ -3201,12 +2924,17 @@ async function reloadScheduleForCurrentMonth() {
 
   // Производственный календарь РФ: помесячно (isdayoff.ru), с кэшем и фолбеком на СБ/ВС
   try {
-    state.prodCalendar = await loadProdCalendarForMonth(year, monthIndex);
+    state.prodCalendar = await prodCalendarService.getProdCalendarForMonth(year, monthIndex);
   } catch (e) {
     console.warn('Не удалось загрузить производственный календарь РФ, используем фолбек СБ/ВС', e);
     state.prodCalendar = null;
   }
 
+  if (monthKey !== getMonthKey(state.monthMeta.year, state.monthMeta.monthIndex)) {
+    return;
+  }
+
+  const data = scheduleResult.data;
   const wrapper = Array.isArray(data) ? data[0] : data;
   const tasks = (wrapper && wrapper.tasks) || [];
 
@@ -3219,8 +2947,6 @@ async function reloadScheduleForCurrentMonth() {
     AI: { days: [], rows: [], monthKey: null },
     OU: { days: [], rows: [], monthKey: null },
   };
-  const monthKey = getMonthKey(year, monthIndex);
-
   const shiftMapByLine = { ALL: Object.create(null), OP: Object.create(null), OV: Object.create(null), L1: Object.create(null), L2: Object.create(null), AI: Object.create(null), OU: Object.create(null) };
 
   // "Отдел" в значении смены из справочника может быть списком токенов
