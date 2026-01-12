@@ -1636,7 +1636,11 @@ body.legend-open .shift-legend-backdrop {
 /* Mobile layout improvements */
 .mobile-only{display:none;}
 @media (max-width: 768px){
-  :root{--header-height:56px;}
+  :root{
+    --header-height:56px;
+    --cell-size:34px;
+    --table-header-row-height:20px;
+  }
   .mobile-only{display:inline-flex;}
   .top-bar{
     position:sticky;
@@ -1700,5 +1704,40 @@ body.legend-open .shift-legend-backdrop {
   /* Ensure schedule grid not covered by toolbar */
   .schedule-scroll{
     padding-bottom: 90px;
+  }
+  .schedule-table{
+    min-width: 0;
+    font-size: 11px;
+  }
+  .schedule-table th,
+  .schedule-table td{
+    padding: 1px 2px;
+    font-size: 10px;
+  }
+  .schedule-table th.sticky-col,
+  .schedule-table td.sticky-col{
+    min-width: 140px;
+    max-width: 160px;
+  }
+  .schedule-table .employee-header-cell{
+    min-width: 160px;
+  }
+  .shift-pill{
+    padding: 3px 4px;
+    border-radius: 8px;
+    font-size: 9px;
+    line-height: 1.1;
+  }
+  .shift-pill.special{
+    padding: 4px 4px;
+    font-size: 9px;
+  }
+  .vacation-pill{
+    height: calc(var(--cell-size) - 4px);
+    border-radius: 8px;
+    font-size: 9px;
+  }
+  .shift-special-label{
+    font-size: 9px;
   }
 }
