@@ -966,6 +966,9 @@ const btnLogoutEl = $("#btn-logout");
 const btnSavePyrusEl = $("#btn-save-pyrus");
 const btnMobileToolbarEl = $("#btn-mobile-toolbar");
 const btnMobileToolbarCloseEl = $("#btn-mobile-toolbar-close");
+const btnLegendToggleEl = $("#btn-legend-toggle");
+const shiftLegendEl = $("#shift-legend");
+const shiftLegendBackdropEl = $("#shift-legend-backdrop");
 
 const scheduleRootEl = $("#schedule-root");
 const quickTemplateSelectEl = $("#quick-template-select");
@@ -987,6 +990,7 @@ let employeeFilterPopoverTitleEl = null;
 let employeeFilterPopoverMetaEl = null;
 let employeeFilterPopoverListEl = null;
 let employeeFilterPopoverControlsEl = null;
+let legendKeydownHandler = null;
 
 // -----------------------------
 // Инициализация
@@ -2016,6 +2020,28 @@ function renderLineTabs() {
   updateLineToggleUI();
 }
 
+function setLegendOpen(isOpen) {
+  if (!shiftLegendEl) return;
+  shiftLegendEl.classList.toggle("shift-legend-hidden", !isOpen);
+  shiftLegendEl.classList.toggle("shift-legend-modal", isOpen);
+  document.body.classList.toggle("legend-open", isOpen);
+  btnLegendToggleEl?.setAttribute("aria-expanded", String(isOpen));
+  shiftLegendBackdropEl?.setAttribute("aria-hidden", String(!isOpen));
+
+  if (isOpen) {
+    if (!legendKeydownHandler) {
+      legendKeydownHandler = (event) => {
+        if (event.key === "Escape") {
+          setLegendOpen(false);
+        }
+      };
+    }
+    document.addEventListener("keydown", legendKeydownHandler);
+  } else if (legendKeydownHandler) {
+    document.removeEventListener("keydown", legendKeydownHandler);
+  }
+}
+
 function bindTopBarButtons() {
   renderLineTabs();
 
@@ -2025,6 +2051,13 @@ function bindTopBarButtons() {
   });
   btnMobileToolbarCloseEl?.addEventListener("click", () => {
     document.body.classList.remove("mobile-toolbar-open");
+  });
+  btnLegendToggleEl?.addEventListener("click", () => {
+    const isOpen = !document.body.classList.contains("legend-open");
+    setLegendOpen(isOpen);
+  });
+  shiftLegendBackdropEl?.addEventListener("click", () => {
+    setLegendOpen(false);
   });
 
   btnLogoutEl?.addEventListener("click", () => {

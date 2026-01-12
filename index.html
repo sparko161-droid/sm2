@@ -122,7 +122,18 @@
       </div>
 
       <div class="schedule-container">
-        <button type="button" class="btn toggle mobile-only" id="btn-mobile-toolbar">⚙️ Панель смены</button>
+        <div class="schedule-actions">
+          <button type="button" class="btn toggle mobile-only" id="btn-mobile-toolbar">⚙️ Панель смены</button>
+          <button
+            type="button"
+            class="btn toggle"
+            id="btn-legend-toggle"
+            aria-controls="shift-legend"
+            aria-expanded="false"
+          >
+            🎨 Легенда
+          </button>
+        </div>
         <div class="schedule-toolbar">
           <div class="toolbar-group">
             <label for="quick-template-select">Шаблон смены</label>
@@ -159,7 +170,8 @@
         </div>
 
         <!-- Легенда цветов смен (динамически генерируется) -->
-        <div class="shift-legend" id="shift-legend">
+        <div class="shift-legend-backdrop" id="shift-legend-backdrop" aria-hidden="true"></div>
+        <div class="shift-legend shift-legend-hidden" id="shift-legend">
           <div class="shift-legend-title">Легенда цветов смен</div>
           <div class="shift-legend-groups" id="shift-legend-content">
             <!-- Будет заполнено динамически из JavaScript -->
