@@ -199,12 +199,12 @@
           "dash": "transparent"
         },
         "weekend": {
-          "background": "#e3f0ff",
+          "background": "#fadddd",
           "border": "var(--table-border-strong)",
           "dash": "transparent"
         },
         "holiday": {
-          "background": "#fadddd",
+          "background": "#e3f0ff",
           "border": "var(--table-border-strong)",
           "dash": "transparent"
         },
@@ -226,12 +226,12 @@
           "dash": "transparent"
         },
         "weekend": {
-          "background": "#1e3a5f",
+          "background": "#4a2323",
           "border": "var(--table-border-strong)",
           "dash": "transparent"
         },
         "holiday": {
-          "background": "#4a2323",
+          "background": "#1e3a5f",
           "border": "var(--table-border-strong)",
           "dash": "transparent"
         },
@@ -241,8 +241,8 @@
           "dash": "#d1b84d"
         },
         "microIndicators": {
-          "weekend": "#4fa3ff",
-          "holiday": "#c45a5a",
+          "weekend": "#c45a5a",
+          "holiday": "#4fa3ff",
           "preholiday": "#d1b84d"
         }
       }
