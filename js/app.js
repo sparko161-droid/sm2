@@ -2485,6 +2485,10 @@ async function handleSaveToPyrus() {
     persistLocalChanges();
     
     updateSaveButtonState();
+
+    const monthKey = getMonthKey(state.monthMeta.year, state.monthMeta.monthIndex);
+    scheduleService.invalidateMonthSchedule(monthKey);
+    await reloadScheduleForCurrentMonth();
     
   } catch (err) {
     console.error("handleSaveToPyrus error", err);

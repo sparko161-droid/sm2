@@ -50,6 +50,20 @@ export function clearCache(key) {
   inflight.clear();
 }
 
+export function invalidateKey(key) {
+  if (!key) return;
+  cache.delete(key);
+}
+
+export function invalidateByPrefix(prefix) {
+  if (!prefix) return;
+  for (const key of cache.keys()) {
+    if (String(key).startsWith(prefix)) {
+      cache.delete(key);
+    }
+  }
+}
+
 export function peekCache(key) {
   return cache.get(key) || null;
 }

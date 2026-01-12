@@ -20,7 +20,7 @@ js/
     membersService.js     # сотрудники и индексы
     catalogsService.js    # справочники (смены)
     vacationsService.js   # отпуска по месяцам
-    scheduleService.js    # расписание, latest-only
+    scheduleService.js    # расписание, short TTL + latest-only
     prodCalendarService.js# производственный календарь РФ
 
   utils/
@@ -41,4 +41,4 @@ js/
 
 - `app.js` не делает `fetch` и не содержит API-логики.
 - Сервис `membersService` обеспечивает единый запрос `/v4/members` за сессию.
-- `scheduleService` защищает от гонок при быстром переключении месяцев.
+- `scheduleService` защищает от гонок при быстром переключении месяцев и использует короткий TTL.

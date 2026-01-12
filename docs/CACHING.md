@@ -25,6 +25,13 @@ cached(key, { ttlMs, force }, fetcher)
 Если `ttlMs <= 0`, `requestCache` не сохраняет значение в memory cache (value-cache),
 но продолжает дедуплицировать запросы, пока Promise в полёте.
 
+## Schedule short TTL cache
+
+- **Ключи**: `pyrus:schedule:{YYYY-MM}`.
+- **TTL**: 90 секунд, чтобы уменьшить повторные запросы при переключениях месяцев.
+- **Инвалидация**: после сохранения смен вызывается `invalidateMonthSchedule(monthKey)`.
+- **latest-only**: ответы со старым токеном не применяются к UI.
+
 ## Дополнительные кеши
 
 В `app.js` сохраняются UI-данные в `localStorage`:
