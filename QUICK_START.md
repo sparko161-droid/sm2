@@ -23,6 +23,7 @@ git add js/app.js && git commit -m "feat: Complete integration of dynamic shift 
 - ✅ ВЫХ/ОТП/ДР желтые
 - ✅ Легенда внизу экрана
 - ✅ Нет ошибок в консоли
+- ✅ Роуты открываются без перезагрузки: `#work`, `#meet`, `#kp`
 
 ---
 
@@ -35,3 +36,8 @@ git add js/app.js && git commit -m "feat: Complete integration of dynamic shift 
 Чек-лист после патча: см. раздел "Чек-лист проверки после патча" в README.
 
 Runtime entrypoints: `js/app.js` и `js/shift-colors.js` (остальное — только через imports).
+
+Маршруты приложения:
+- `#work` — график смен
+- `#meet` — график встреч (заготовка)
+- `#kp` — коммерческое предложение (заготовка)

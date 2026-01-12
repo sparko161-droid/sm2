@@ -6,8 +6,20 @@
 
 ```
 js/
-  app.js                  # orchestration + UI state, без прямых fetch
+  app.js                  # bootstrap + routing + layout
   config.js               # чтение и нормализация конфигурации
+
+  router/
+    hashRouter.js         # hash-роутинг (#work/#meet/#kp)
+
+  layout/
+    header.js             # навигационная шапка
+    mount.js              # переключение view
+
+  views/
+    workView.js           # график смен (основной UI)
+    meetView.js           # заглушка встреч
+    kpView.js             # заглушка КП
 
   api/
     graphClient.js        # единая точка общения с n8n (/graph)
@@ -44,6 +56,18 @@ js/
 - Дальше всё — только через import-цепочку из `app.js`.
 
 Правило: код считается частью приложения только если он достижим из import-цепочки `app.js`.
+
+## Routes
+
+- `#work` → `workView`
+- `#meet` → `meetView`
+- `#kp` → `kpView`
+
+Если hash отсутствует или неизвестен — роутер перенаправляет на `#work`.
+
+## Сервисы
+
+`app.js` создаёт клиентов и сервисы один раз и передаёт их во все view. Это гарантирует, что `membersService` и остальные кеши разделяются между страницами.
 
 ## Гарантии
 
