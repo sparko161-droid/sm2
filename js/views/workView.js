@@ -105,6 +105,11 @@ function setupContext(ctx) {
 
   ROLE_MATRIX_BY_LINE = config?.auth?.rolePermissions || null;
   STORAGE_KEYS = config?.storage?.keys || {};
+
+  const authConfig = config?.storage?.auth || {};
+  AUTH_STORAGE_KEY = authConfig.key || "sm_graph_auth_v1";
+  AUTH_TTL_MS = Number(authConfig.sessionTtlMs ?? authConfig.ttlMs) || 0;
+  AUTH_COOKIE_DAYS = Number(authConfig.cookieDays) || 0;
 }
 
 function buildDefaultPermissions() {
@@ -360,10 +365,9 @@ function canViewLine(line) {
 // Персистентная авторизация (localStorage + cookie)
 // -----------------------------
 
-const AUTH_STORAGE_KEY = config.storage.auth.key;
-const AUTH_TTL_MS =
-  Number(config.storage.auth.sessionTtlMs ?? config.storage.auth.ttlMs) || 0; // 7 дней
-const AUTH_COOKIE_DAYS = config.storage.auth.cookieDays;
+let AUTH_STORAGE_KEY = "";
+let AUTH_TTL_MS = 0; // 7 дней
+let AUTH_COOKIE_DAYS = 0;
 const AUTH_EMAIL_CHECK_KEY = "sm_auth_email_last_check";
 
 const AUTH_METHOD_EMAIL = "email";
