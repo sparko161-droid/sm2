@@ -14,16 +14,16 @@
       <p class="muted">Выберите способ входа.</p>
 
       <div class="auth-tabs" role="tablist" aria-label="Способы входа">
-        <button type="button" class="auth-tab active" data-auth-tab="password" role="tab" aria-selected="true">
+        <button type="button" class="auth-tab" data-auth-tab="password" role="tab" aria-selected="false">
           Логин/пароль
         </button>
-        <button type="button" class="auth-tab" data-auth-tab="email" role="tab" aria-selected="false">
+        <button type="button" class="auth-tab active" data-auth-tab="email" role="tab" aria-selected="true">
           Email + код
         </button>
       </div>
 
       <div class="auth-panels">
-        <section class="auth-panel" data-auth-panel="password" role="tabpanel">
+        <section class="auth-panel hidden" data-auth-panel="password" role="tabpanel">
           <p class="muted auth-panel-hint">Вход по логину и паролю (через n8n <code>/graph</code>).</p>
           <form id="login-form">
             <div class="field">
@@ -47,7 +47,7 @@
           </form>
         </section>
 
-        <section class="auth-panel hidden" data-auth-panel="email" role="tabpanel">
+        <section class="auth-panel" data-auth-panel="email" role="tabpanel">
           <p class="muted auth-panel-hint">Отправим код на ваш email для подтверждения.</p>
 
           <div class="email-auth-step" id="email-step-request">
