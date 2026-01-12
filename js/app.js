@@ -3403,6 +3403,19 @@ th1.appendChild(th1Label);
     headRow2.appendChild(th2);
   }
 
+  const thCount1 = document.createElement("th");
+  const thCount1Label = document.createElement("span");
+  thCount1Label.className = "header-text";
+  thCount1Label.textContent = "кол-во";
+  thCount1.appendChild(thCount1Label);
+  thCount1.className = "summary-cell";
+  headRow1.appendChild(thCount1);
+
+  const thCount2 = document.createElement("th");
+  thCount2.textContent = "";
+  thCount2.className = "summary-cell";
+  headRow2.appendChild(thCount2);
+
   const thSum1 = document.createElement("th");
   const thSum1Label = document.createElement("span");
   thSum1Label.className = "header-text";
@@ -3432,6 +3445,7 @@ th1.appendChild(th1Label);
     tr.appendChild(tdName);
 
     let totalAmount = 0;
+    let totalShifts = 0;
 
     const vacations = state.vacationsByEmployee[row.employeeId] || [];
     const vacationStarts = Object.create(null);
@@ -3580,6 +3594,7 @@ th1.appendChild(th1Label);
         td.appendChild(pill);
 
         totalAmount += shift.amount || 0;
+        totalShifts += 1;
       } else {
         td.classList.add("empty-shift");
       }
@@ -3609,6 +3624,11 @@ th1.appendChild(th1Label);
     }
 
 
+    const tdCount = document.createElement("td");
+    tdCount.className = "summary-cell";
+    tdCount.textContent = totalShifts > 0 ? String(totalShifts) : "";
+    tr.appendChild(tdCount);
+
     const tdSum = document.createElement("td");
     tdSum.className = "summary-cell";
     tdSum.textContent =
@@ -3621,7 +3641,7 @@ th1.appendChild(th1Label);
   emptyRow = document.createElement("tr");
   emptyRow.className = "employee-filter-empty hidden";
   const emptyCell = document.createElement("td");
-  emptyCell.colSpan = days.length + 2;
+  emptyCell.colSpan = days.length + 3;
   emptyCell.textContent = "Нет сотрудников для отображения по фильтру.";
   emptyRow.appendChild(emptyCell);
   tbody.appendChild(emptyRow);
