@@ -148,7 +148,7 @@ const state = {
     currentLine: "ALL",
     theme: "dark",
     isScheduleCached: false,
-    authMethod: "password",
+    authMethod: "email",
     quickPanelBound: false,
   },
   quickMode: {
