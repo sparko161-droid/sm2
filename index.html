@@ -107,6 +107,19 @@
           <button type="button" class="btn toggle" id="btn-logout" title="Сбросить авторизацию">
             🚪 Выйти
           </button>
+          <div class="schedule-actions">
+            <button type="button" class="btn toggle mobile-only" id="btn-mobile-toolbar">⚙️ Панель смены</button>
+            <button type="button" class="btn toggle mobile-only" id="btn-line-tabs">🏢 Отделы</button>
+            <button
+              type="button"
+              class="btn toggle"
+              id="btn-legend-toggle"
+              aria-controls="shift-legend"
+              aria-expanded="false"
+            >
+              🎨 Легенда
+            </button>
+          </div>
           <div id="line-tabs" class="line-tabs"></div>
 
           <div class="month-switcher">
@@ -122,19 +135,6 @@
       </div>
 
       <div class="schedule-container">
-        <div class="schedule-actions">
-          <button type="button" class="btn toggle mobile-only" id="btn-mobile-toolbar">⚙️ Панель смены</button>
-          <button type="button" class="btn toggle mobile-only" id="btn-line-tabs">🏢 Отделы</button>
-          <button
-            type="button"
-            class="btn toggle"
-            id="btn-legend-toggle"
-            aria-controls="shift-legend"
-            aria-expanded="false"
-          >
-            🎨 Легенда
-          </button>
-        </div>
         <div class="schedule-toolbar">
           <div class="toolbar-group">
             <label for="quick-template-select">Шаблон смены</label>
