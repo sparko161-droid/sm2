@@ -11,42 +11,9 @@
     <!-- Экран логина -->
     <div id="login-screen" class="card">
       <h1>График смен</h1>
-      <p class="muted">Выберите способ входа.</p>
-
-      <div class="auth-tabs" role="tablist" aria-label="Способы входа">
-        <button type="button" class="auth-tab" data-auth-tab="password" role="tab" aria-selected="false">
-          Логин/пароль
-        </button>
-        <button type="button" class="auth-tab active" data-auth-tab="email" role="tab" aria-selected="true">
-          Email + код
-        </button>
-      </div>
+      <p class="muted">Вход по email с подтверждением кода.</p>
 
       <div class="auth-panels">
-        <section class="auth-panel hidden" data-auth-panel="password" role="tabpanel">
-          <p class="muted auth-panel-hint">Вход по логину и паролю (через n8n <code>/graph</code>).</p>
-          <form id="login-form">
-            <div class="field">
-              <span>Логин</span>
-              <input id="login-input" autocomplete="username" />
-            </div>
-
-            <div class="field">
-              <span>Пароль</span>
-              <input
-                id="password-input"
-                type="password"
-                autocomplete="current-password"
-              />
-            </div>
-
-            <button type="submit" class="btn primary full-width" id="login-button">
-              Войти
-            </button>
-            <div id="login-error" class="error"></div>
-          </form>
-        </section>
-
         <section class="auth-panel" data-auth-panel="email" role="tabpanel">
           <p class="muted auth-panel-hint">Отправим код на ваш email для подтверждения.</p>
 
