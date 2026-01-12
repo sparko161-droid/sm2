@@ -73,8 +73,11 @@
   --shadow-strong: 0 6px 20px rgba(0, 0, 0, 0.06);
   --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.04);
   --header-height: 0px;
+  --mobile-toolbar-height: 0px;
   --cell-size: 48px;
   --table-header-row-height: 24px;
+  --schedule-sticky-top: calc(var(--header-height) + env(safe-area-inset-top) + var(--mobile-toolbar-height));
+  --schedule-sticky-secondary-top: calc(var(--schedule-sticky-top) + var(--table-header-row-height));
   --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -607,11 +610,12 @@ body.legend-open {
   background: var(--sticky-bg);
   min-width: 180px;
   max-width: 220px;
+  width: max-content;
   text-align: left;
 }
 
 .schedule-table thead th.sticky-col {
-  z-index: 7;
+  z-index: 9;
 }
 
 .schedule-table thead {
@@ -620,8 +624,8 @@ body.legend-open {
 
 .schedule-table thead th {
   position: sticky;
-  top: calc(var(--header-height) + env(safe-area-inset-top));
-  z-index: 6;
+  top: var(--schedule-sticky-top);
+  z-index: 8;
   border-color: var(--table-border-strong);
   color: var(--text);
   height: var(--table-header-row-height);
@@ -670,7 +674,7 @@ body.legend-open {
 }
 
 .schedule-table thead tr:nth-child(2) th {
-  top: calc(var(--header-height) + env(safe-area-inset-top) + var(--table-header-row-height));
+  top: var(--schedule-sticky-secondary-top);
 }
 
 .schedule-table .weekday-header {
@@ -771,6 +775,9 @@ body.legend-open {
 
 .schedule-table .employee-name {
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .schedule-table .employee-header-cell {
@@ -784,7 +791,16 @@ body.legend-open {
   gap: 8px;
 }
 
+.employee-header .header-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .employee-filter-btn {
+  flex: 0 0 auto;
   width: 26px;
   height: 26px;
   border-radius: 8px;
@@ -1640,6 +1656,7 @@ body.legend-open .shift-legend-backdrop {
     --header-height:56px;
     --cell-size:34px;
     --table-header-row-height:20px;
+
   }
   .mobile-only{display:inline-flex;}
   .top-bar{
@@ -1693,10 +1710,14 @@ body.legend-open .shift-legend-backdrop {
   }
   .schedule-actions{
     position: sticky;
-    top: 0;
-    z-index: 21;
+    top: calc(var(--header-height) + env(safe-area-inset-top));
+    z-index: 26;
     background: var(--bg-alt);
-    padding-bottom: 8px;
+    padding: 6px 12px 8px;
+    min-height: var(--mobile-toolbar-height);
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .shift-legend-modal{
     width: calc(100vw - 24px);
