@@ -148,7 +148,6 @@ const state = {
     currentLine: "ALL",
     theme: "dark",
     isScheduleCached: false,
-    authMethod: "email",
     quickPanelBound: false,
   },
   quickMode: {
@@ -265,12 +264,7 @@ function deepClone(obj) {
 function updateCurrentUserLabel(login) {
   if (!currentUserLabelEl) return;
   const name = state.auth.user?.name || "";
-  if (state.ui.authMethod === "email") {
-    currentUserLabelEl.textContent = name;
-    return;
-  }
-  const resolvedLogin = (login || state.auth.user?.login || "").trim();
-  currentUserLabelEl.textContent = `${name}${resolvedLogin ? " (" + resolvedLogin + ")" : ""}`;
+  currentUserLabelEl.textContent = name || (login || state.auth.user?.login || "").trim();
 }
 
 function normalizeAuthUser(rawUser, overrides = {}) {
@@ -350,84 +344,7 @@ const AUTH_TTL_MS =
 const AUTH_COOKIE_DAYS = config.storage.auth.cookieDays;
 const AUTH_EMAIL_CHECK_KEY = "sm_auth_email_last_check";
 
-let loginCooldownTimerId = null;
-let loginCooldownEndsAt = null;
-
-function setLoginErrorMessage(message) {
-  if (loginErrorEl) loginErrorEl.textContent = message || "";
-}
-
-function formatRetryAfter(seconds) {
-  const total = Math.max(1, Math.ceil(Number(seconds) || 0));
-  if (total < 60) return `${total} сек.`;
-  const mins = Math.floor(total / 60);
-  const secs = total % 60;
-  if (!secs) return `${mins} мин.`;
-  return `${mins} мин. ${secs} сек.`;
-}
-
-function startLoginCooldown(retryAfterSec) {
-  const seconds = Math.max(1, Math.ceil(Number(retryAfterSec) || 0));
-  if (!seconds || !loginButtonEl) return;
-  loginCooldownEndsAt = Date.now() + seconds * 1000;
-
-  if (loginCooldownTimerId) {
-    clearInterval(loginCooldownTimerId);
-    loginCooldownTimerId = null;
-  }
-
-  const updateCooldown = () => {
-    const remaining = Math.max(
-      0,
-      Math.ceil((loginCooldownEndsAt - Date.now()) / 1000)
-    );
-    if (remaining <= 0) {
-      clearInterval(loginCooldownTimerId);
-      loginCooldownTimerId = null;
-      loginCooldownEndsAt = null;
-      loginButtonEl.disabled = false;
-      return;
-    }
-    loginButtonEl.disabled = true;
-    setLoginErrorMessage(
-      `Слишком много попыток. Попробуйте через ${formatRetryAfter(remaining)}`
-    );
-  };
-
-  updateCooldown();
-  loginCooldownTimerId = setInterval(updateCooldown, 1000);
-}
-
-function clearLoginCooldown() {
-  if (loginCooldownTimerId) {
-    clearInterval(loginCooldownTimerId);
-    loginCooldownTimerId = null;
-  }
-  loginCooldownEndsAt = null;
-  if (loginButtonEl) loginButtonEl.disabled = false;
-}
-
-function getFriendlyAuthErrorMessage(err) {
-  if (!err) return "Ошибка авторизации";
-
-  if (err.retryAfterSec) {
-    return `Слишком много попыток. Попробуйте через ${formatRetryAfter(err.retryAfterSec)}`;
-  }
-
-  if (err.status === 401 || err.status === 403) {
-    return "Неверный логин или пароль.";
-  }
-
-  const message = err.message || "";
-  if (message.includes("ACCESS_GRANTED")) {
-    return "Неверный логин или пароль.";
-  }
-  if (message.toLowerCase().includes("failed to fetch")) {
-    return "Не удалось подключиться к серверу. Проверьте соединение и попробуйте снова.";
-  }
-
-  return message || "Ошибка авторизации";
-}
+const AUTH_METHOD_EMAIL = "email";
 
 
 function setCookie(name, value, days) {
@@ -452,10 +369,35 @@ function clearCookie(name) {
   } catch (_) {}
 }
 
+function clearAllCookies() {
+  try {
+    const cookies = document.cookie.split(";").map((cookie) => cookie.trim()).filter(Boolean);
+    cookies.forEach((cookie) => {
+      const name = cookie.split("=")[0];
+      if (name) clearCookie(name);
+    });
+  } catch (_) {}
+}
+
+function clearAllAppStorage() {
+  try {
+    localStorage.clear();
+  } catch (_) {}
+  try {
+    sessionStorage.clear();
+  } catch (_) {}
+}
+
+function clearAllCacheAndCookies() {
+  clearAllAppStorage();
+  clearAllCookies();
+}
+
 function saveAuthCache(login) {
   // пароль не сохраняем
   const payload = {
     savedAt: Date.now(),
+    authMethod: AUTH_METHOD_EMAIL,
     login: login || "",
     user: state.auth.user || null,
     roles: state.auth.roles || null,
@@ -483,6 +425,21 @@ function loadAuthCache() {
     if (!data || !data.savedAt) return null;
     if (Date.now() - data.savedAt > AUTH_TTL_MS) return null;
     return data;
+  } catch (_) {
+    return null;
+  }
+}
+
+function readRawAuthCache() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(AUTH_STORAGE_KEY);
+  } catch (_) {}
+  if (!raw) raw = getCookie(AUTH_STORAGE_KEY);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
   } catch (_) {
     return null;
   }
@@ -725,7 +682,6 @@ async function callGraphApi(type, payload) {
   }
 
   const allowedTypes = new Set([
-    "auth",
     "auth_email_init",
     "auth_email_verify",
     "email",
@@ -786,44 +742,6 @@ async function callGraphApi(type, payload) {
   }
 
   return res.json();
-}
-
-async function auth(login, password) {
-  const result = await callGraphApi("auth", { login, password });
-
-  if (!result || result.status !== "ACCESS_GRANTED") {
-const error = new Error(
-  result?.message || "Доступ запрещён (status != ACCESS_GRANTED)"
-);
-if (result?.retryAfterSec) error.retryAfterSec = result.retryAfterSec;
-if (result?.code) error.code = result.code;
-throw error;
-
-  }
-
-state.auth.user = result.user || null;
-state.auth.login = login || state.auth.login || null;
-
-state.auth.roles = Array.isArray(result.roles)
-  ? result.roles
-  : result.roles
-    ? [result.roles]
-    : null;
-
-state.auth.memberId = result.memberId || state.auth.memberId || null;
-
-if (state.auth.roles) {
-  state.auth.permissions = resolvePermissionsFromRoles(
-    state.auth.roles,
-    ROLE_MATRIX_BY_LINE
-  );
-} else {
-  state.auth.permissions = normalizePermissions(
-    result.permissions || state.auth.permissions
-  );
-}
-
-  return result;
 }
 
 async function pyrusApi(path, method = "GET", body = null) {
@@ -936,13 +854,6 @@ const $ = (sel) => document.querySelector(sel);
 const loginScreenEl = $("#login-screen");
 const mainScreenEl = $("#main-screen");
 
-const loginFormEl = $("#login-form");
-const loginInputEl = $("#login-input");
-const passwordInputEl = $("#password-input");
-const loginErrorEl = $("#login-error");
-const loginButtonEl = $("#login-button");
-const authTabButtons = document.querySelectorAll("[data-auth-tab]");
-const authPanels = document.querySelectorAll("[data-auth-panel]");
 const emailInputEl = $("#email-input");
 const emailSendButtonEl = $("#email-send-button");
 const emailStepRequestEl = $("#email-step-request");
@@ -1016,6 +927,11 @@ let lineTabsPopoverBackdropEl = null;
 let lineTabsPopoverEl = null;
 let lineTabsPopoverListEl = null;
 let lineTabsPopoverKeydownHandler = null;
+let monthPickerBackdropEl = null;
+let monthPickerEl = null;
+let monthPickerYearLabelEl = null;
+let monthPickerGridEl = null;
+let monthPickerKeydownHandler = null;
 
 // -----------------------------
 // Инициализация
@@ -1027,35 +943,46 @@ async function init() {
   loadCurrentLinePreference();
   loadEmployeeFilters();
   initMonthMetaToToday();
-  initAuthTabs();
-  bindLoginForm();
+  bindEmailAuth();
+  loadEmailAuthMembers();
 
   // Автовосстановление сессии (без повторного ввода пароля)
-  const cachedAuth = loadAuthCache();
-  if (cachedAuth && applyAuthCache(cachedAuth)) {
-    showMainScreen();
-    if (shouldCheckEmailToday()) {
-      const userEmail = normalizeEmail(state.auth.user?.login);
-      if (userEmail) {
-        try {
-          const raw = await pyrusApi("/v4/members", "GET");
-          const data = unwrapPyrusData(raw);
-          const members = extractMembersFromPyrusData(data);
-          const isKnownEmail = members.some(
-            (member) => normalizeEmail(member?.email) === userEmail
-          );
-          if (!isKnownEmail) {
-            clearAuthCache();
-            state.auth.user = null;
-            state.auth.roles = null;
-            state.auth.memberId = null;
-            state.auth.permissions = buildDefaultPermissions();
-            showLoginScreen();
-          } else {
-            markEmailCheckedToday();
+  const rawAuth = readRawAuthCache();
+  if (rawAuth && rawAuth.authMethod !== AUTH_METHOD_EMAIL) {
+    clearAllCacheAndCookies();
+    clearAuthCache();
+    state.auth.user = null;
+    state.auth.roles = null;
+    state.auth.memberId = null;
+    state.auth.permissions = buildDefaultPermissions();
+    showLoginScreen();
+  } else {
+    const cachedAuth = loadAuthCache();
+    if (cachedAuth && applyAuthCache(cachedAuth)) {
+      showMainScreen();
+      if (shouldCheckEmailToday()) {
+        const userEmail = normalizeEmail(state.auth.user?.login);
+        if (userEmail) {
+          try {
+            const raw = await pyrusApi("/v4/members", "GET");
+            const data = unwrapPyrusData(raw);
+            const members = extractMembersFromPyrusData(data);
+            const isKnownEmail = members.some(
+              (member) => normalizeEmail(member?.email) === userEmail
+            );
+            if (!isKnownEmail) {
+              clearAuthCache();
+              state.auth.user = null;
+              state.auth.roles = null;
+              state.auth.memberId = null;
+              state.auth.permissions = buildDefaultPermissions();
+              showLoginScreen();
+            } else {
+              markEmailCheckedToday();
+            }
+          } catch (err) {
+            console.error("Email check failed:", err);
           }
-        } catch (err) {
-          console.error("Email check failed:", err);
         }
       }
     }
@@ -1066,6 +993,7 @@ async function init() {
   bindHistoryControls();
   createShiftPopover();
   createEmployeeFilterPopover();
+  createMonthPickerPopover();
   renderChangeLog();
 
   // Если восстановили сессию — загружаем данные как после логина
@@ -1074,7 +1002,9 @@ async function init() {
       console.error("Auto-login loadInitialData error:", err);
       clearAuthCache();
       showLoginScreen();
-      setLoginErrorMessage("Сессия истекла — войдите снова");
+      if (emailRequestErrorEl) {
+        emailRequestErrorEl.textContent = "Сессия истекла — войдите снова";
+      }
     });
   }
 }
@@ -1107,6 +1037,120 @@ function updateMonthLabel() {
     "Декабрь",
   ];
   currentMonthLabelEl.textContent = `${monthNames[monthIndex]} ${year}`;
+}
+
+function createMonthPickerPopover() {
+  if (monthPickerBackdropEl) return;
+  monthPickerBackdropEl = document.createElement("div");
+  monthPickerBackdropEl.className = "month-picker-backdrop hidden";
+
+  monthPickerEl = document.createElement("div");
+  monthPickerEl.className = "month-picker hidden";
+
+  const header = document.createElement("div");
+  header.className = "month-picker-header";
+
+  const prevYearBtn = document.createElement("button");
+  prevYearBtn.type = "button";
+  prevYearBtn.className = "btn toggle";
+  prevYearBtn.textContent = "‹";
+  prevYearBtn.setAttribute("aria-label", "Предыдущий год");
+
+  monthPickerYearLabelEl = document.createElement("div");
+  monthPickerYearLabelEl.className = "month-picker-year";
+
+  const nextYearBtn = document.createElement("button");
+  nextYearBtn.type = "button";
+  nextYearBtn.className = "btn toggle";
+  nextYearBtn.textContent = "›";
+  nextYearBtn.setAttribute("aria-label", "Следующий год");
+
+  header.appendChild(prevYearBtn);
+  header.appendChild(monthPickerYearLabelEl);
+  header.appendChild(nextYearBtn);
+
+  monthPickerGridEl = document.createElement("div");
+  monthPickerGridEl.className = "month-picker-grid";
+
+  monthPickerEl.appendChild(header);
+  monthPickerEl.appendChild(monthPickerGridEl);
+  monthPickerBackdropEl.appendChild(monthPickerEl);
+  document.body.appendChild(monthPickerBackdropEl);
+
+  const closeHandler = () => closeMonthPickerPopover();
+  monthPickerBackdropEl.addEventListener("click", (event) => {
+    if (event.target === monthPickerBackdropEl) closeHandler();
+  });
+
+  prevYearBtn.addEventListener("click", () => {
+    state.monthMeta.year -= 1;
+    renderMonthPicker();
+  });
+  nextYearBtn.addEventListener("click", () => {
+    state.monthMeta.year += 1;
+    renderMonthPicker();
+  });
+}
+
+function renderMonthPicker() {
+  if (!monthPickerGridEl || !monthPickerYearLabelEl) return;
+  const { year, monthIndex } = state.monthMeta;
+  monthPickerYearLabelEl.textContent = String(year);
+  monthPickerGridEl.innerHTML = "";
+
+  const monthLabels = [
+    "Янв",
+    "Фев",
+    "Мар",
+    "Апр",
+    "Май",
+    "Июн",
+    "Июл",
+    "Авг",
+    "Сен",
+    "Окт",
+    "Ноя",
+    "Дек",
+  ];
+
+  monthLabels.forEach((label, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "month-picker-month";
+    btn.textContent = label;
+    btn.setAttribute("aria-label", `${label} ${year}`);
+    if (index === monthIndex) btn.classList.add("active");
+    btn.addEventListener("click", () => {
+      state.monthMeta.monthIndex = index;
+      updateMonthLabel();
+      closeMonthPickerPopover();
+      reloadScheduleForCurrentMonth();
+    });
+    monthPickerGridEl.appendChild(btn);
+  });
+}
+
+function openMonthPickerPopover() {
+  if (!monthPickerBackdropEl || !monthPickerEl) return;
+  renderMonthPicker();
+  monthPickerBackdropEl.classList.remove("hidden");
+  monthPickerEl.classList.remove("hidden");
+  if (!monthPickerKeydownHandler) {
+    monthPickerKeydownHandler = (event) => {
+      if (event.key === "Escape") closeMonthPickerPopover();
+    };
+  }
+  document.addEventListener("keydown", monthPickerKeydownHandler);
+}
+
+function closeMonthPickerPopover() {
+  if (!monthPickerBackdropEl || !monthPickerEl) return;
+  monthPickerBackdropEl.classList.add("hidden");
+  monthPickerEl.classList.add("hidden");
+  if (monthPickerKeydownHandler) {
+    document.removeEventListener("keydown", monthPickerKeydownHandler);
+    monthPickerKeydownHandler = null;
+  }
 }
 
 function resetLocalEditingState() {
@@ -1187,38 +1231,9 @@ async function sendEmailAuthCode(payload) {
 }
 
 function clearAuthErrors() {
-  if (loginErrorEl) loginErrorEl.textContent = "";
   if (emailRequestErrorEl) emailRequestErrorEl.textContent = "";
   if (emailCodeErrorEl) emailCodeErrorEl.textContent = "";
   otpGroupEl?.classList.remove("error");
-}
-
-function setAuthTab(method) {
-  state.ui.authMethod = method;
-  authTabButtons.forEach((btn) => {
-    const isActive = btn.dataset.authTab === method;
-    btn.classList.toggle("active", isActive);
-    btn.setAttribute("aria-selected", isActive ? "true" : "false");
-  });
-  authPanels.forEach((panel) => {
-    const isActive = panel.dataset.authPanel === method;
-    panel.classList.toggle("hidden", !isActive);
-  });
-  clearAuthErrors();
-  if (method !== "email") {
-    resetEmailAuthState(false);
-  } else {
-    loadEmailAuthMembers();
-  }
-}
-
-function initAuthTabs() {
-  if (!authTabButtons.length) return;
-  authTabButtons.forEach((btn) => {
-    btn.addEventListener("click", () => setAuthTab(btn.dataset.authTab));
-  });
-  setAuthTab(state.ui.authMethod || "password");
-  bindEmailAuth();
 }
 
 function resetEmailAuthState(keepEmail = true) {
@@ -2024,60 +2039,6 @@ function openEmployeeFilterPopover({
 // События
 // -----------------------------
 
-function bindLoginForm() {
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoginErrorMessage("");
-    clearLoginCooldown();
-
-    if (!loginFormEl) return;
-    const btn = loginFormEl.querySelector("button[type=submit]") || loginButtonEl;
-    if (btn) btn.disabled = true;
-
-    const login = loginInputEl.value.trim();
-    const password = passwordInputEl.value;
-
-    if (!login || !password) {
-      setLoginErrorMessage("Введите логин и пароль.");
-      if (btn) btn.disabled = false;
-      return;
-    }
-
-    try {
-      const authResult = await auth(login, password);
-      clearLoginCooldown();
-      updateCurrentUserLabel(login);
-
-      // кэшируем авторизацию, чтобы не логиниться после обновления страницы
-      saveAuthCache(login);
-
-
-      renderLineTabs();
-      updateLineToggleUI();
-      // если текущая вкладка недоступна — переключимся на первую доступную
-      if (!canViewLine(state.ui.currentLine)) {
-        const first = LINE_KEYS_IN_UI_ORDER.find((k) => canViewLine(k));
-        if (first) state.ui.currentLine = first;
-      }
-      persistCurrentLinePreference();
-      showMainScreen();
-
-      await loadInitialData();
-    } catch (err) {
-      console.error("Auth error:", err);
-      if (err.retryAfterSec) {
-        startLoginCooldown(err.retryAfterSec);
-      }
-      setLoginErrorMessage(getFriendlyAuthErrorMessage(err));
-    } finally {
-      if (btn && !loginCooldownEndsAt) btn.disabled = false;
-    }
-  };
-
-  loginFormEl?.addEventListener("submit", handleLogin);
-  loginButtonEl?.addEventListener("click", handleLogin);
-}
-
 function setCurrentLine(lineKey) {
   if (!canViewLine(lineKey)) return;
   state.ui.currentLine = lineKey;
@@ -2182,6 +2143,9 @@ function bindTopBarButtons() {
   shiftLegendBackdropEl?.addEventListener("click", () => {
     setLegendOpen(false);
   });
+  currentMonthLabelEl?.addEventListener("click", () => {
+    openMonthPickerPopover();
+  });
   window.addEventListener("resize", () => {
     if (window.innerWidth > 768) {
       closeLineTabsPopover();
@@ -2193,14 +2157,13 @@ function bindTopBarButtons() {
 
   btnLogoutEl?.addEventListener("click", () => {
     clearAuthCache();
-state.auth.user = null;
-state.auth.roles = null;
-state.auth.memberId = null;
-state.auth.permissions = buildDefaultPermissions();
+    state.auth.user = null;
+    state.auth.roles = null;
+    state.auth.memberId = null;
+    state.auth.permissions = buildDefaultPermissions();
 
     showLoginScreen();
-    clearLoginCooldown();
-    setLoginErrorMessage("");
+    clearAuthErrors();
     updateLineToggleUI();
   });
 btnPrevMonthEl.addEventListener("click", () => {
