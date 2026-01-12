@@ -979,6 +979,26 @@ const quickModeToggleEl = $("#quick-mode-toggle");
 const changeLogListEl = $("#change-log-list");
 const btnClearHistoryEl = $("#btn-clear-history");
 
+function syncLoginBodyState() {
+  if (!loginScreenEl) return;
+  document.body.classList.toggle(
+    "login-active",
+    !loginScreenEl.classList.contains("hidden")
+  );
+}
+
+function showLoginScreen() {
+  mainScreenEl?.classList.add("hidden");
+  loginScreenEl?.classList.remove("hidden");
+  syncLoginBodyState();
+}
+
+function showMainScreen() {
+  loginScreenEl?.classList.add("hidden");
+  mainScreenEl?.classList.remove("hidden");
+  syncLoginBodyState();
+}
+
 // поповер смены
 let shiftPopoverEl = null;
 let shiftPopoverBackdropEl = null;
@@ -1008,8 +1028,7 @@ async function init() {
   // Автовосстановление сессии (без повторного ввода пароля)
   const cachedAuth = loadAuthCache();
   if (cachedAuth && applyAuthCache(cachedAuth)) {
-    loginScreenEl?.classList.add("hidden");
-    mainScreenEl?.classList.remove("hidden");
+    showMainScreen();
     if (shouldCheckEmailToday()) {
       const userEmail = normalizeEmail(state.auth.user?.login);
       if (userEmail) {
@@ -1026,8 +1045,7 @@ async function init() {
             state.auth.roles = null;
             state.auth.memberId = null;
             state.auth.permissions = buildDefaultPermissions();
-            mainScreenEl?.classList.add("hidden");
-            loginScreenEl?.classList.remove("hidden");
+            showLoginScreen();
           } else {
             markEmailCheckedToday();
           }
@@ -1038,6 +1056,7 @@ async function init() {
     }
   }
 
+  syncLoginBodyState();
   bindTopBarButtons();
   bindHistoryControls();
   createShiftPopover();
@@ -1049,8 +1068,7 @@ async function init() {
     loadInitialData().catch((err) => {
       console.error("Auto-login loadInitialData error:", err);
       clearAuthCache();
-      mainScreenEl.classList.add("hidden");
-      loginScreenEl?.classList.remove("hidden");
+      showLoginScreen();
       setLoginErrorMessage("Сессия истекла — войдите снова");
     });
   }
@@ -1477,8 +1495,7 @@ if (state.auth.roles) {
 
     updateCurrentUserLabel(email);
     saveAuthCache(email);
-    loginScreenEl.classList.add("hidden");
-    mainScreenEl.classList.remove("hidden");
+    showMainScreen();
     renderLineTabs();
     updateLineToggleUI();
     persistCurrentLinePreference();
@@ -1971,8 +1988,7 @@ function bindLoginForm() {
         if (first) state.ui.currentLine = first;
       }
       persistCurrentLinePreference();
-      loginScreenEl.classList.add("hidden");
-      mainScreenEl.classList.remove("hidden");
+      showMainScreen();
 
       await loadInitialData();
     } catch (err) {
@@ -2067,8 +2083,7 @@ state.auth.roles = null;
 state.auth.memberId = null;
 state.auth.permissions = buildDefaultPermissions();
 
-    mainScreenEl?.classList.add("hidden");
-    loginScreenEl?.classList.remove("hidden");
+    showLoginScreen();
     clearLoginCooldown();
     setLoginErrorMessage("");
     updateLineToggleUI();
