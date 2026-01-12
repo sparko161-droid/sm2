@@ -37,6 +37,14 @@ js/
 3. Сервисы используют `requestCache.cached` для дедупликации и TTL.
 4. `graphClient` — единственная точка сетевого обмена с n8n `/graph`.
 
+## Runtime entrypoints
+
+- `index.html` → `js/shift-colors.js` (script)
+- `index.html` → `js/app.js` (module)
+- Дальше всё — только через import-цепочку из `app.js`.
+
+Правило: код считается частью приложения только если он достижим из import-цепочки `app.js`.
+
 ## Гарантии
 
 - `app.js` не делает `fetch` и не содержит API-логики.

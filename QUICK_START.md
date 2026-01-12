@@ -33,3 +33,5 @@ git add js/app.js && git commit -m "feat: Complete integration of dynamic shift 
 Архитектура и кеширование: `docs/ARCHITECTURE.md`, `docs/CACHING.md`, `docs/NETWORK_MAP.md`.
 
 Чек-лист после патча: см. раздел "Чек-лист проверки после патча" в README.
+
+Runtime entrypoints: `js/app.js` и `js/shift-colors.js` (остальное — только через imports).
