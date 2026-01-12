@@ -214,7 +214,9 @@ body {
 }
 
 .auth-tabs {
-  display: flex;
+  display: inline-flex;
+  width: fit-content;
+  align-self: flex-start;
   gap: 8px;
   padding: 6px;
   margin-top: 16px;
