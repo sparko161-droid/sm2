@@ -29,3 +29,5 @@ git add js/app.js && git commit -m "feat: Complete integration of dynamic shift 
 **Готово!** 🎉
 
 Подробная документация: [README_INTEGRATION.md](./README_INTEGRATION.md)
+
+Архитектура и кеширование: `docs/ARCHITECTURE.md`, `docs/CACHING.md`, `docs/NETWORK_MAP.md`.
