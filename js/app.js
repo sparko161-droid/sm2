@@ -966,6 +966,7 @@ const btnLogoutEl = $("#btn-logout");
 const btnSavePyrusEl = $("#btn-save-pyrus");
 const btnMobileToolbarEl = $("#btn-mobile-toolbar");
 const btnMobileToolbarCloseEl = $("#btn-mobile-toolbar-close");
+const btnLineTabsEl = $("#btn-line-tabs");
 const btnLegendToggleEl = $("#btn-legend-toggle");
 const shiftLegendEl = $("#shift-legend");
 const shiftLegendBackdropEl = $("#shift-legend-backdrop");
@@ -1011,6 +1012,10 @@ let employeeFilterPopoverMetaEl = null;
 let employeeFilterPopoverListEl = null;
 let employeeFilterPopoverControlsEl = null;
 let legendKeydownHandler = null;
+let lineTabsPopoverBackdropEl = null;
+let lineTabsPopoverEl = null;
+let lineTabsPopoverListEl = null;
+let lineTabsPopoverKeydownHandler = null;
 
 // -----------------------------
 // Инициализация
@@ -1845,6 +1850,73 @@ function closeEmployeeFilterPopover() {
   }
 }
 
+function createLineTabsPopover() {
+  if (lineTabsPopoverEl) return;
+
+  lineTabsPopoverBackdropEl = document.createElement("div");
+  lineTabsPopoverBackdropEl.className = "line-tabs-popover-backdrop hidden";
+
+  lineTabsPopoverEl = document.createElement("div");
+  lineTabsPopoverEl.className = "line-tabs-popover hidden";
+
+  const header = document.createElement("div");
+  header.className = "line-tabs-popover-header";
+
+  const title = document.createElement("div");
+  title.className = "line-tabs-popover-title";
+  title.textContent = "Отделы";
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "line-tabs-popover-close";
+  closeBtn.textContent = "✕";
+  closeBtn.setAttribute("aria-label", "Закрыть список отделов");
+
+  lineTabsPopoverListEl = document.createElement("div");
+  lineTabsPopoverListEl.className = "line-tabs-popover-list";
+
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  lineTabsPopoverEl.appendChild(header);
+  lineTabsPopoverEl.appendChild(lineTabsPopoverListEl);
+  lineTabsPopoverBackdropEl.appendChild(lineTabsPopoverEl);
+  document.body.appendChild(lineTabsPopoverBackdropEl);
+
+  const closeHandler = () => closeLineTabsPopover();
+  closeBtn.addEventListener("click", closeHandler);
+  lineTabsPopoverBackdropEl.addEventListener("click", (event) => {
+    if (event.target === lineTabsPopoverBackdropEl) {
+      closeHandler();
+    }
+  });
+}
+
+function openLineTabsPopover() {
+  if (!lineTabsPopoverBackdropEl || !lineTabsPopoverEl) return;
+  lineTabsPopoverBackdropEl.classList.remove("hidden");
+  lineTabsPopoverEl.classList.remove("hidden");
+  document.body.classList.add("line-tabs-open");
+  if (!lineTabsPopoverKeydownHandler) {
+    lineTabsPopoverKeydownHandler = (event) => {
+      if (event.key === "Escape") {
+        closeLineTabsPopover();
+      }
+    };
+  }
+  document.addEventListener("keydown", lineTabsPopoverKeydownHandler);
+}
+
+function closeLineTabsPopover() {
+  if (!lineTabsPopoverBackdropEl || !lineTabsPopoverEl) return;
+  lineTabsPopoverBackdropEl.classList.add("hidden");
+  lineTabsPopoverEl.classList.add("hidden");
+  document.body.classList.remove("line-tabs-open");
+  if (lineTabsPopoverKeydownHandler) {
+    document.removeEventListener("keydown", lineTabsPopoverKeydownHandler);
+    lineTabsPopoverKeydownHandler = null;
+  }
+}
+
 function openEmployeeFilterPopover({
   line,
   rows,
@@ -2023,6 +2095,8 @@ function setCurrentLine(lineKey) {
 function renderLineTabs() {
   if (!lineTabsEl) return;
   lineTabsEl.innerHTML = "";
+  createLineTabsPopover();
+  if (lineTabsPopoverListEl) lineTabsPopoverListEl.innerHTML = "";
   for (const key of LINE_KEYS_IN_UI_ORDER) {
     if (!canViewLine(key)) continue;
     const btn = document.createElement("button");
@@ -2030,8 +2104,24 @@ function renderLineTabs() {
     btn.className = "btn toggle";
     btn.dataset.line = key;
     btn.textContent = LINE_LABELS[key] || key;
-    btn.addEventListener("click", () => { document.body.classList.remove("mobile-toolbar-open"); setCurrentLine(key); });
+    btn.addEventListener("click", () => {
+      document.body.classList.remove("mobile-toolbar-open");
+      setCurrentLine(key);
+    });
     lineTabsEl.appendChild(btn);
+
+    if (lineTabsPopoverListEl) {
+      const popoverBtn = document.createElement("button");
+      popoverBtn.type = "button";
+      popoverBtn.className = "btn toggle";
+      popoverBtn.dataset.line = key;
+      popoverBtn.textContent = LINE_LABELS[key] || key;
+      popoverBtn.addEventListener("click", () => {
+        setCurrentLine(key);
+        closeLineTabsPopover();
+      });
+      lineTabsPopoverListEl.appendChild(popoverBtn);
+    }
   }
   updateLineToggleUI();
 }
@@ -2068,12 +2158,22 @@ function bindTopBarButtons() {
   btnMobileToolbarCloseEl?.addEventListener("click", () => {
     document.body.classList.remove("mobile-toolbar-open");
   });
+  btnLineTabsEl?.addEventListener("click", () => {
+    const isOpen = !document.body.classList.contains("line-tabs-open");
+    if (isOpen) openLineTabsPopover();
+    else closeLineTabsPopover();
+  });
   btnLegendToggleEl?.addEventListener("click", () => {
     const isOpen = !document.body.classList.contains("legend-open");
     setLegendOpen(isOpen);
   });
   shiftLegendBackdropEl?.addEventListener("click", () => {
     setLegendOpen(false);
+  });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 768) {
+      closeLineTabsPopover();
+    }
   });
 
   btnLogoutEl?.addEventListener("click", () => {
@@ -2122,6 +2222,11 @@ function updateLineToggleUI() {
   if (!lineTabsEl) return;
   const buttons = lineTabsEl.querySelectorAll('button[data-line]');
   buttons.forEach((b) => {
+    if (b.dataset.line === line) b.classList.add("active");
+    else b.classList.remove("active");
+  });
+  const popoverButtons = lineTabsPopoverListEl?.querySelectorAll('button[data-line]') || [];
+  popoverButtons.forEach((b) => {
     if (b.dataset.line === line) b.classList.add("active");
     else b.classList.remove("active");
   });

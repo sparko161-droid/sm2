@@ -1648,6 +1648,60 @@ body.legend-open .shift-legend-backdrop {
 .line-tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 .line-tabs .btn{min-width:44px;}
 
+.line-tabs-popover-backdrop{
+  position:fixed;
+  inset:0;
+  background: rgba(0,0,0,0.35);
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding:16px;
+  z-index: 80;
+}
+
+.line-tabs-popover{
+  width: min(420px, 100%);
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-strong);
+  padding: 12px;
+  display:flex;
+  flex-direction:column;
+  gap: 12px;
+}
+
+.line-tabs-popover-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+}
+
+.line-tabs-popover-title{
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.line-tabs-popover-close{
+  border:none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.line-tabs-popover-list{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+body.line-tabs-open{
+  overflow: hidden;
+}
+
 
 /* Mobile layout improvements */
 .mobile-only{display:none;}
@@ -1668,10 +1722,14 @@ body.legend-open .shift-legend-backdrop {
     min-height: calc(var(--header-height) + env(safe-area-inset-top));
     flex-direction:column;
     align-items:stretch;
-    gap:10px;
+    gap:6px;
+    padding-bottom: 6px;
   }
-  .top-bar-right{flex-wrap:wrap;justify-content:flex-start;}
+  .top-bar h2{font-size:16px;}
+  .top-bar-right{flex-wrap:wrap;justify-content:flex-start;gap:6px;}
+  .btn.toggle{padding-inline:10px;font-size:12px;}
   #line-tabs.line-tabs{
+    display:none;
     width:100%;
     order: 10;
     flex-wrap:nowrap;
@@ -1680,7 +1738,8 @@ body.legend-open .shift-legend-backdrop {
     padding:4px 0;
   }
   #line-tabs.line-tabs .btn{flex:0 0 auto;}
-  .month-switcher{width:100%;justify-content:space-between;}
+  .month-switcher{width:100%;justify-content:space-between;padding:2px 6px;gap:2px;}
+  #current-month-label{font-size:12px;}
   .schedule-container{position:relative;}
   /* Bottom sheet toolbar on mobile */
   .schedule-toolbar{
@@ -1713,11 +1772,9 @@ body.legend-open .shift-legend-backdrop {
     top: calc(var(--header-height) + env(safe-area-inset-top));
     z-index: 26;
     background: var(--bg-alt);
-    padding: 6px 12px 8px;
-    min-height: var(--mobile-toolbar-height);
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    padding-bottom: 6px;
+    gap:6px;
+
   }
   .shift-legend-modal{
     width: calc(100vw - 24px);
