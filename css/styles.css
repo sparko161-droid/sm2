@@ -607,6 +607,7 @@ body.legend-open {
   background: var(--sticky-bg);
   min-width: 180px;
   max-width: 220px;
+  width: max-content;
   text-align: left;
 }
 
@@ -771,6 +772,9 @@ body.legend-open {
 
 .schedule-table .employee-name {
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .schedule-table .employee-header-cell {
@@ -784,7 +788,16 @@ body.legend-open {
   gap: 8px;
 }
 
+.employee-header .header-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .employee-filter-btn {
+  flex: 0 0 auto;
   width: 26px;
   height: 26px;
   border-radius: 8px;
@@ -1700,5 +1713,11 @@ body.legend-open .shift-legend-backdrop {
   /* Ensure schedule grid not covered by toolbar */
   .schedule-scroll{
     padding-bottom: 90px;
+  }
+  .schedule-table th.sticky-col,
+  .schedule-table td.sticky-col {
+    min-width: 150px;
+    max-width: 160px;
+    width: fit-content;
   }
 }
