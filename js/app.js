@@ -728,7 +728,6 @@ async function callGraphApi(type, payload) {
     "auth",
     "auth_email_init",
     "auth_email_verify",
-    "auth_telegram_init",
     "email",
     "pyrus_api",
     "pyrus_save",
@@ -956,9 +955,6 @@ const emailVerifyButtonEl = $("#email-verify-button");
 const emailResendButtonEl = $("#email-resend-button");
 const emailRequestErrorEl = $("#email-request-error");
 const emailCodeErrorEl = $("#email-code-error");
-const telegramAuthButtonEl = $("#telegram-auth-button");
-const telegramErrorEl = $("#telegram-error");
-
 const currentUserLabelEl = $("#current-user-label");
 const currentMonthLabelEl = $("#current-month-label");
 
@@ -1167,7 +1163,6 @@ function clearAuthErrors() {
   if (loginErrorEl) loginErrorEl.textContent = "";
   if (emailRequestErrorEl) emailRequestErrorEl.textContent = "";
   if (emailCodeErrorEl) emailCodeErrorEl.textContent = "";
-  if (telegramErrorEl) telegramErrorEl.textContent = "";
   otpGroupEl?.classList.remove("error");
 }
 
@@ -1197,7 +1192,6 @@ function initAuthTabs() {
   });
   setAuthTab(state.ui.authMethod || "password");
   bindEmailAuth();
-  bindTelegramAuth();
 }
 
 function resetEmailAuthState(keepEmail = true) {
@@ -1517,14 +1511,6 @@ if (state.auth.roles) {
       return;
     }
     startResendTimer();
-  });
-}
-
-function bindTelegramAuth() {
-  telegramAuthButtonEl?.addEventListener("click", () => {
-    if (telegramErrorEl) {
-      telegramErrorEl.textContent = "Метод входа через Telegram ещё не подключен.";
-    }
   });
 }
 

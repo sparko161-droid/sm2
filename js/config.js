@@ -15,9 +15,6 @@ const DEFAULT_CONFIG = {
       emailOtp: {
         enabled: false,
       },
-      telegram: {
-        enabled: false,
-      },
     },
     ttlMs: 10 * 60 * 1000,
     codeLength: 6,
@@ -29,7 +26,6 @@ const DEFAULT_CONFIG = {
       passwordLabel: "Пароль",
       emailLabel: "Email",
       otpLabel: "Код из письма",
-      telegramLabel: "Telegram",
       submitLabel: "Продолжить",
       resendLabel: "Отправить код ещё раз",
       loadingLabel: "Проверяем данные...",
@@ -38,7 +34,6 @@ const DEFAULT_CONFIG = {
     webhooks: {
       emailInit: "",
       emailVerify: "",
-      telegramInit: "",
     },
     rolePermissions: {
       ALL: [],
@@ -226,7 +221,6 @@ function normalizeConfig(config) {
   const authMethods = auth.methods ?? {};
   const authMethodLoginPassword = authMethods.loginPassword ?? {};
   const authMethodEmailOtp = authMethods.emailOtp ?? {};
-  const authMethodTelegram = authMethods.telegram ?? {};
   const authUiTexts = auth.uiTexts ?? {};
   const authWebhooks = auth.webhooks ?? {};
   const authRolePermissions = auth.rolePermissions ?? {};
@@ -288,10 +282,6 @@ const calendarUiDarkMicro = calendarUiDark.microIndicators ?? {};
         emailOtp: {
           ...DEFAULT_CONFIG.auth.methods.emailOtp,
           ...authMethodEmailOtp,
-        },
-        telegram: {
-          ...DEFAULT_CONFIG.auth.methods.telegram,
-          ...authMethodTelegram,
         },
       },
       uiTexts: {
