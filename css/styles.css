@@ -177,6 +177,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+body.legend-open {
+  overflow: hidden;
+}
+
 #app {
   min-height: 100vh;
   display: flex;
@@ -483,6 +487,14 @@ body {
   display: flex;
   flex-direction: column;
   transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.schedule-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 0;
+  flex-wrap: wrap;
 }
 
 .schedule-toolbar {
@@ -1087,6 +1099,38 @@ body {
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
+.shift-legend-hidden {
+  display: none;
+}
+
+.shift-legend-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 120;
+}
+
+body.legend-open .shift-legend-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.shift-legend-modal {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow: auto;
+  z-index: 121;
+  box-shadow: var(--shadow-strong);
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
 .shift-legend-title {
   font-size: 12px;
   font-weight: 600;
@@ -1613,6 +1657,16 @@ body {
     z-index: 20;
     margin: 10px 0;
     width: fit-content;
+  }
+  .schedule-actions{
+    position: sticky;
+    top: 0;
+    z-index: 21;
+    background: var(--bg-alt);
+    padding-bottom: 8px;
+  }
+  .shift-legend-modal{
+    width: calc(100vw - 24px);
   }
   /* Ensure schedule grid not covered by toolbar */
   .schedule-scroll{
