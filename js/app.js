@@ -2128,6 +2128,17 @@ function renderLineTabs() {
 
 function setLegendOpen(isOpen) {
   if (!shiftLegendEl) return;
+  if (window.innerWidth > 768) {
+    shiftLegendEl.classList.remove("shift-legend-hidden", "shift-legend-modal");
+    document.body.classList.remove("legend-open");
+    btnLegendToggleEl?.setAttribute("aria-expanded", "true");
+    shiftLegendBackdropEl?.setAttribute("aria-hidden", "true");
+    if (legendKeydownHandler) {
+      document.removeEventListener("keydown", legendKeydownHandler);
+      legendKeydownHandler = null;
+    }
+    return;
+  }
   shiftLegendEl.classList.toggle("shift-legend-hidden", !isOpen);
   shiftLegendEl.classList.toggle("shift-legend-modal", isOpen);
   document.body.classList.toggle("legend-open", isOpen);
@@ -2150,6 +2161,7 @@ function setLegendOpen(isOpen) {
 
 function bindTopBarButtons() {
   renderLineTabs();
+  setLegendOpen(window.innerWidth <= 768 ? false : true);
 
   // Mobile bottom-sheet controls
   btnMobileToolbarEl?.addEventListener("click", () => {
@@ -2173,6 +2185,9 @@ function bindTopBarButtons() {
   window.addEventListener("resize", () => {
     if (window.innerWidth > 768) {
       closeLineTabsPopover();
+      setLegendOpen(true);
+    } else {
+      setLegendOpen(false);
     }
   });
 
