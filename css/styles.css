@@ -76,8 +76,8 @@
   --mobile-toolbar-height: 0px;
   --cell-size: 48px;
   --table-header-row-height: 24px;
-  --schedule-sticky-top: calc(var(--header-height) + env(safe-area-inset-top) + var(--mobile-toolbar-height));
-  --schedule-sticky-secondary-top: calc(var(--schedule-sticky-top) + var(--table-header-row-height));
+  --schedule-sticky-top: 0px;
+  --schedule-sticky-secondary-top: var(--table-header-row-height);
   --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -479,6 +479,12 @@ body.legend-open {
   gap: 8px;
 }
 
+.schedule-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .month-switcher {
   display: flex;
   align-items: center;
@@ -508,14 +514,6 @@ body.legend-open {
   display: flex;
   flex-direction: column;
   transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.schedule-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px 0;
-  flex-wrap: wrap;
 }
 
 .schedule-toolbar {
@@ -1707,9 +1705,9 @@ body.line-tabs-open{
 .mobile-only{display:none;}
 @media (max-width: 768px){
   :root{
-    --header-height:56px;
-    --cell-size:34px;
-    --table-header-row-height:20px;
+    --header-height:48px;
+    --cell-size:28px;
+    --table-header-row-height:18px;
 
   }
   .mobile-only{display:inline-flex;}
@@ -1719,7 +1717,6 @@ body.line-tabs-open{
     z-index:30;
     background: var(--card-bg);
     padding-top: env(safe-area-inset-top);
-    min-height: calc(var(--header-height) + env(safe-area-inset-top));
     flex-direction:column;
     align-items:stretch;
     gap:6px;
@@ -1727,7 +1724,7 @@ body.line-tabs-open{
   }
   .top-bar h2{font-size:16px;}
   .top-bar-right{flex-wrap:wrap;justify-content:flex-start;gap:6px;}
-  .btn.toggle{padding-inline:10px;font-size:12px;}
+  .btn.toggle{padding-inline:10px;font-size:11px;}
   #line-tabs.line-tabs{
     display:none;
     width:100%;
@@ -1767,15 +1764,7 @@ body.line-tabs-open{
     margin: 10px 0;
     width: fit-content;
   }
-  .schedule-actions{
-    position: sticky;
-    top: calc(var(--header-height) + env(safe-area-inset-top));
-    z-index: 26;
-    background: var(--bg-alt);
-    padding-bottom: 6px;
-    gap:6px;
-
-  }
+  .schedule-actions{gap:6px;}
   .shift-legend-modal{
     width: calc(100vw - 24px);
   }
@@ -1785,37 +1774,37 @@ body.line-tabs-open{
   }
   .schedule-table{
     min-width: 0;
-    font-size: 11px;
+    font-size: 9px;
   }
   .schedule-table th,
   .schedule-table td{
     padding: 1px 2px;
-    font-size: 10px;
+    font-size: 9px;
   }
   .schedule-table th.sticky-col,
   .schedule-table td.sticky-col{
-    min-width: 140px;
-    max-width: 160px;
+    min-width: 120px;
+    max-width: 140px;
   }
   .schedule-table .employee-header-cell{
-    min-width: 160px;
+    min-width: 140px;
   }
   .shift-pill{
     padding: 3px 4px;
     border-radius: 8px;
-    font-size: 9px;
+    font-size: 8px;
     line-height: 1.1;
   }
   .shift-pill.special{
     padding: 4px 4px;
-    font-size: 9px;
+    font-size: 8px;
   }
   .vacation-pill{
     height: calc(var(--cell-size) - 4px);
     border-radius: 8px;
-    font-size: 9px;
+    font-size: 8px;
   }
   .shift-special-label{
-    font-size: 9px;
+    font-size: 8px;
   }
 }
