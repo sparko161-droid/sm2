@@ -72,6 +72,10 @@ const DEFAULT_CONFIG = {
       ttlMs: 7 * 24 * 60 * 60 * 1000,
       cookieDays: 7,
     },
+    profile: {
+      key: "sm_graph_profile_v1",
+      cookieDays: 7,
+    },
   },
   // Оставляем дефолты для Pyrus-структуры, чтобы можно было читать config.pyrus.*
   // даже если config.json пустой/не загрузился.

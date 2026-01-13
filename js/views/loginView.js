@@ -333,29 +333,34 @@ export function createLoginView(ctx) {
           return;
         }
 
-        let roles = null;
+        let profile = null;
         try {
-          const data = await ctx.services.membersService.getMemberDetails({ id: member.id });
-          roles = data?.roles || null;
+          profile = await ctx.services.userProfileService.loadCurrentUserProfile({
+            userId: member.id,
+            force: true,
+          });
         } catch (err) {
-          setOtpError(err?.message || "Не удалось загрузить роли пользователя");
+          setOtpError(err?.message || "Не удалось загрузить профиль пользователя");
           return;
         }
 
         const user = {
           id: member.id,
-          name: `${member?.last_name || ""} ${member?.first_name || ""}`.trim(),
+          name: profile?.fullName || `${member?.last_name || ""} ${member?.first_name || ""}`.trim(),
           login: email,
-          roles: roles || [],
+          roles: profile?.roleIds || profile?.roles || [],
         };
 
         saveAuthCache({
           login: email,
           user,
-          roles,
+          roles: user.roles,
           memberId: member.id,
           permissions: null,
         });
+        if (ctx.actions?.setUserProfile) {
+          ctx.actions.setUserProfile(profile);
+        }
         ctx.router.navigate("work");
       });
 
