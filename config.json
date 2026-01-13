@@ -54,8 +54,8 @@
   "routeAccess": {
     "work": [],
     "meet": [],
-    "kp": [],
-    "gantt": []
+    "kp": [1139296],
+    "gantt": [1139297]
   },
   "pyrus": {
     "catalogs": {
