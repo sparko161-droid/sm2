@@ -10,7 +10,7 @@ import { createVacationsService } from "./services/vacationsService.js";
 import { createScheduleService } from "./services/scheduleService.js";
 import { createProdCalendarService } from "./services/prodCalendarService.js";
 import { subscribe, navigate } from "./router/hashRouter.js";
-import { renderHeader } from "./layout/header.js";
+import { createHeader } from "./layout/header.js";
 import { mount } from "./layout/mount.js";
 import { createWorkView } from "./views/workView.js";
 import { createMeetView } from "./views/meetView.js";
@@ -60,32 +60,39 @@ if (!headerRoot || !pageRoot) {
   throw new Error("App layout containers are missing.");
 }
 
+const viewFactories = {
+  work: () => createWorkView(ctx),
+  meet: () => createMeetView(ctx),
+  kp: () => createKpView(ctx),
+};
+
 const views = {
-  work: createWorkView(ctx),
-  meet: createMeetView(ctx),
-  kp: createKpView(ctx),
+  work: null,
+  meet: null,
+  kp: null,
 };
 
 let currentView = null;
 
-function renderActiveHeader(routeName) {
-  headerRoot.innerHTML = "";
-  headerRoot.appendChild(
-    renderHeader({
-      activeRoute: routeName,
-      onNavigate: navigate,
-    })
-  );
+function getView(name) {
+  if (!views[name]) {
+    views[name] = viewFactories[name]();
+  }
+  return views[name];
 }
 
+const header = createHeader({ onNavigate: navigate });
+headerRoot.appendChild(header.el);
+
 function handleRoute(route) {
-  const nextView = views[route.name] || views.work;
+  const routeName = route?.name || "work";
+  const nextView = getView(routeName) || getView("work");
 
   if (currentView && currentView !== nextView) {
     currentView.unmount?.();
   }
 
-  renderActiveHeader(route.name);
+  header.setActive(routeName);
   mount(pageRoot, nextView.el);
   nextView.mount?.();
   currentView = nextView;

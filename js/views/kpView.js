@@ -23,8 +23,7 @@ export function createKpView(ctx) {
       return;
     }
     try {
-      const data = await membersService.getMembers();
-      const members = membersService.extractMembersFromPyrusData(data);
+      const members = await membersService.getMembersList();
       membersMeta.textContent = `Members loaded: ${members.length}`;
     } catch (error) {
       console.error("Members warmup failed", error);

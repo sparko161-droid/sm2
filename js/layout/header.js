@@ -4,7 +4,7 @@ const NAV_ITEMS = [
   { route: "kp", label: "КП" },
 ];
 
-export function renderHeader({ activeRoute, onNavigate }) {
+export function createHeader({ onNavigate } = {}) {
   const header = document.createElement("header");
   header.className = "app-header";
 
@@ -12,23 +12,30 @@ export function renderHeader({ activeRoute, onNavigate }) {
   nav.className = "app-nav";
   nav.setAttribute("aria-label", "Основная навигация");
 
+  const buttonsByRoute = new Map();
+
   NAV_ITEMS.forEach((item) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "btn toggle";
     button.textContent = item.label;
     button.dataset.route = item.route;
-    if (item.route === activeRoute) {
-      button.classList.add("active");
-    }
     button.addEventListener("click", () => {
       if (typeof onNavigate === "function") {
         onNavigate(item.route);
       }
     });
+    buttonsByRoute.set(item.route, button);
     nav.appendChild(button);
   });
 
   header.appendChild(nav);
-  return header;
+
+  function setActive(routeName) {
+    buttonsByRoute.forEach((button, route) => {
+      button.classList.toggle("active", route === routeName);
+    });
+  }
+
+  return { el: header, setActive };
 }

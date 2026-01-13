@@ -2,32 +2,33 @@ const ROUTES = new Set(["work", "meet", "kp"]);
 const DEFAULT_ROUTE = "work";
 
 function resolveRoute(hash) {
-  const raw = String(hash || "").replace(/^#/, "").trim().toLowerCase();
-  if (!raw) {
-    return { name: DEFAULT_ROUTE, shouldNavigate: true };
-  }
-  if (ROUTES.has(raw)) {
-    return { name: raw, shouldNavigate: false };
-  }
-  return { name: DEFAULT_ROUTE, shouldNavigate: true };
+  const raw = String(hash || "");
+  const current = raw.startsWith("#") ? raw : raw ? `#${raw}` : "";
+  const name = current.replace(/^#/, "").trim().toLowerCase();
+  const target = ROUTES.has(name) ? name : DEFAULT_ROUTE;
+  const normalizedHash = `#${target}`;
+  const shouldNavigate = current !== normalizedHash;
+  return { name: target, normalizedHash, shouldNavigate };
 }
 
 export function parseRoute(hash) {
-  const { name } = resolveRoute(hash);
-  return { name };
+  return resolveRoute(hash);
 }
 
 export function getCurrentRoute() {
-  const resolved = resolveRoute(window.location.hash);
-  if (resolved.shouldNavigate) {
-    window.location.hash = `#${resolved.name}`;
-  }
-  return { name: resolved.name };
+  return resolveRoute(window.location.hash);
 }
 
 export function subscribe(callback) {
   const handler = () => {
-    callback(getCurrentRoute());
+    const resolved = getCurrentRoute();
+    if (resolved.shouldNavigate) {
+      window.location.hash = resolved.normalizedHash;
+      return;
+    }
+    if (typeof callback === "function") {
+      callback(resolved);
+    }
   };
   window.addEventListener("hashchange", handler);
   handler();
@@ -35,10 +36,8 @@ export function subscribe(callback) {
 }
 
 export function navigate(routeName) {
-  const raw = String(routeName || "").trim().toLowerCase();
-  const target = ROUTES.has(raw) ? raw : DEFAULT_ROUTE;
-  const nextHash = `#${target}`;
-  if (window.location.hash !== nextHash) {
-    window.location.hash = nextHash;
+  const resolved = resolveRoute(`#${routeName}`);
+  if (window.location.hash !== resolved.normalizedHash) {
+    window.location.hash = resolved.normalizedHash;
   }
 }

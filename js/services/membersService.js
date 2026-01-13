@@ -59,6 +59,11 @@ export function createMembersService({ pyrusClient, ttlMs = DEFAULT_MEMBERS_TTL_
     );
   }
 
+  async function getMembersList({ force } = {}) {
+    const data = await getMembers({ force });
+    return extractMembersFromPyrusData(data);
+  }
+
   async function getMemberDetails({ id, force } = {}) {
     if (!id) {
       throw new Error("id is required for getMemberDetails");
@@ -73,5 +78,5 @@ export function createMembersService({ pyrusClient, ttlMs = DEFAULT_MEMBERS_TTL_
     );
   }
 
-  return { getMembers, getMembersIndex, getMemberDetails, extractMembersFromPyrusData };
+  return { getMembers, getMembersIndex, getMembersList, getMemberDetails, extractMembersFromPyrusData };
 }
