@@ -26,6 +26,22 @@ function extractInitials(firstName, lastName) {
   return `${firstLetter}${secondLetter}`.toUpperCase();
 }
 
+function normalizeAvatarPayload(payload) {
+  if (!payload) return "";
+  if (typeof payload === "string") return payload;
+  if (typeof payload !== "object") return "";
+
+  if (payload.url) {
+    return String(payload.url);
+  }
+
+  const base64 = payload.base64 || payload.data || payload.content || "";
+  if (!base64) return "";
+  if (String(base64).startsWith("data:")) return String(base64);
+  const contentType = payload.contentType || payload.mimeType || "image/png";
+  return `data:${contentType};base64,${base64}`;
+}
+
 function normalizeProfileData(data) {
   if (!data || typeof data !== "object") return null;
   const profile = { ...data };
@@ -148,21 +164,23 @@ export function createUserProfileService({ pyrusClient, cache, config } = {}) {
       return avatarCache.get(key);
     }
     const url = `https://files.pyrus.com/services/avatar/${avatarId}/${size}`;
-    const response = await fetch(url, { method: "GET" });
-    if (!response.ok) {
-      throw new Error("Avatar request failed");
+    const raw = await pyrusClient.pyrusRequest(url, { method: "GET" });
+    const data = unwrapPyrusData(raw);
+    const normalized = normalizeAvatarPayload(data);
+    if (!normalized) {
+      throw new Error("Avatar payload is invalid");
     }
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    avatarCache.set(key, objectUrl);
-    return objectUrl;
+    avatarCache.set(key, normalized);
+    return normalized;
   }
 
   function clear() {
     profile = null;
     setCookie(storageKey, "", -1);
     for (const url of avatarCache.values()) {
-      URL.revokeObjectURL(url);
+      if (typeof url === "string" && url.startsWith("blob:")) {
+        URL.revokeObjectURL(url);
+      }
     }
     avatarCache.clear();
   }
