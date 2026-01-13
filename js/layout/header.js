@@ -99,8 +99,17 @@ export function createHeader({
   avatarImage.className = "app-header__avatar-image";
   avatarImage.alt = "";
   avatarImage.loading = "lazy";
-  avatarImage.hidden = true;
+  avatarImage.hidden = false;
   avatarButton.appendChild(avatarImage);
+
+  avatarImage.addEventListener("load", () => {
+    avatarButton.classList.add("has-avatar");
+  });
+
+  avatarImage.addEventListener("error", () => {
+    avatarButton.classList.remove("has-avatar");
+    avatarImage.removeAttribute("src");
+  });
 
   const avatarInitials = document.createElement("span");
   avatarInitials.className = "app-header__avatar-initials";
@@ -141,15 +150,14 @@ export function createHeader({
     userName.textContent = fullName;
     userRole.textContent = position;
     avatarInitials.textContent = initials;
+
     if (avatarUrl) {
       avatarImage.src = avatarUrl;
-      avatarImage.hidden = false;
-      avatarInitials.hidden = true;
-      avatarButton.setAttribute("aria-label", "Открыть профиль");
+      // Hide avatar layer until it actually loads to avoid layered flicker.
+      avatarButton.classList.remove("has-avatar");
     } else {
+      avatarButton.classList.remove("has-avatar");
       avatarImage.removeAttribute("src");
-      avatarImage.hidden = true;
-      avatarInitials.hidden = false;
     }
   }
 
