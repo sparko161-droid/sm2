@@ -60,6 +60,11 @@ if (!headerRoot || !pageRoot) {
   throw new Error("App layout containers are missing.");
 }
 
+const workViewEl = document.getElementById("work-view");
+if (workViewEl) {
+  ctx.dom = { ...(ctx.dom || {}), workViewEl };
+}
+
 const viewFactories = {
   work: () => createWorkView(ctx),
   meet: () => createMeetView(ctx),

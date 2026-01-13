@@ -4073,7 +4073,7 @@ let hasStarted = false;
 export function createWorkView(ctx) {
   setupContext(ctx);
 
-  const el = document.getElementById("work-view");
+  const el = ctx?.dom?.workViewEl || document.getElementById("work-view");
   if (!el) {
     throw new Error("Work view root element #work-view not found.");
   }
