@@ -2238,14 +2238,11 @@ async function loadEmployees() {
   if (data.employeesByLine) {
     state.employeesByLine.L1 = data.employeesByLine.L1 || [];
     state.employeesByLine.L2 = data.employeesByLine.L2 || [];
-    const membersSource = Object.values(data.employeesByLine || {}).flat();
-    setMembersByEmail(membersSource);
     return;
   }
 
   const members = data.members || [];
   const employeesByLine = { ALL: [], OP: [], OV: [], L1: [], L2: [], AI: [], OU: [] };
-  setMembersByEmail(members);
 
 // Жёсткая маршрутизация по department_id (и отдельный TOP для вкладки "ВСЕ")
 for (const m of members) {
