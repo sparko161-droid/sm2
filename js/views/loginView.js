@@ -13,6 +13,7 @@ function setCookie(name, value, days) {
 
 export function createLoginView(ctx) {
   const el = document.createElement("section");
+  el.className = "login-view";
   let cleanup = [];
   let resendTimerId = null;
 

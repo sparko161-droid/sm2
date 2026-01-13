@@ -307,6 +307,25 @@ body.login-active #app {
   display: none !important;
 }
 
+.login-view {
+  min-height: calc(100vh - 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-view .card {
+  text-align: center;
+}
+
+.login-view .field {
+  align-items: center;
+}
+
+.login-view .field input {
+  text-align: center;
+}
+
 /* ===== Карточка логина ===== */
 
 .card {
