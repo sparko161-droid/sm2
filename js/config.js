@@ -45,6 +45,12 @@ const DEFAULT_CONFIG = {
       AI: [],
     },
   },
+  routeAccess: {
+    work: [],
+    meet: [],
+    kp: [],
+    gantt: [],
+  },
   timezone: {
     localOffsetMin: 4 * 60, // GMT+4
   },
