@@ -1,13 +1,22 @@
 const NAV_ITEMS = [
-  { route: "work", label: "График раб." },
+  { route: "work", label: "График работы" },
   { route: "meet", label: "Встречи" },
   { route: "kp", label: "КП" },
   { route: "gantt", label: "Диаграмма Ганта" },
 ];
 
-export function createHeader({ onNavigate, canAccessRoute } = {}) {
+export function createHeader({
+  onNavigate,
+  onToggleTheme,
+  onLogout,
+  onOpenUserPopover,
+  canAccessRoute,
+} = {}) {
   const header = document.createElement("header");
   header.className = "app-header";
+
+  const headerContent = document.createElement("div");
+  headerContent.className = "app-header__content";
 
   const nav = document.createElement("nav");
   nav.className = "app-nav";
@@ -34,7 +43,76 @@ export function createHeader({ onNavigate, canAccessRoute } = {}) {
     nav.appendChild(button);
   });
 
-  header.appendChild(nav);
+  const rightGroup = document.createElement("div");
+  rightGroup.className = "app-header__actions";
+
+  const themeButton = document.createElement("button");
+  themeButton.type = "button";
+  themeButton.className = "btn toggle";
+  themeButton.textContent = "🌙 Тема";
+  themeButton.addEventListener("click", () => {
+    if (typeof onToggleTheme === "function") {
+      onToggleTheme();
+    }
+    updateThemeLabel();
+  });
+
+  const logoutButton = document.createElement("button");
+  logoutButton.type = "button";
+  logoutButton.className = "btn toggle";
+  logoutButton.textContent = "🚪 Выйти";
+  logoutButton.title = "Сбросить авторизацию";
+  logoutButton.addEventListener("click", () => {
+    if (typeof onLogout === "function") {
+      onLogout();
+    }
+  });
+
+  const userBlock = document.createElement("div");
+  userBlock.className = "app-header__user";
+
+  const userText = document.createElement("div");
+  userText.className = "app-header__user-text";
+
+  const userName = document.createElement("div");
+  userName.className = "app-header__user-name";
+  userName.textContent = "—";
+
+  const userRole = document.createElement("div");
+  userRole.className = "app-header__user-role";
+  userRole.textContent = "—";
+
+  userText.appendChild(userName);
+  userText.appendChild(userRole);
+
+  const avatarButton = document.createElement("button");
+  avatarButton.type = "button";
+  avatarButton.className = "app-header__avatar";
+  avatarButton.setAttribute("aria-label", "Открыть профиль");
+  avatarButton.textContent = "—";
+  avatarButton.addEventListener("click", () => {
+    if (typeof onOpenUserPopover === "function") {
+      onOpenUserPopover(avatarButton);
+    }
+  });
+
+  const avatarImage = document.createElement("img");
+  avatarImage.className = "app-header__avatar-image";
+  avatarImage.alt = "";
+  avatarImage.loading = "lazy";
+  avatarImage.hidden = true;
+  avatarButton.appendChild(avatarImage);
+
+  userBlock.appendChild(userText);
+  userBlock.appendChild(avatarButton);
+
+  rightGroup.appendChild(themeButton);
+  rightGroup.appendChild(logoutButton);
+  rightGroup.appendChild(userBlock);
+
+  headerContent.appendChild(nav);
+  headerContent.appendChild(rightGroup);
+  header.appendChild(headerContent);
 
   function setActive(routeName) {
     buttonsByRoute.forEach((button, route) => {
@@ -51,5 +129,34 @@ export function createHeader({ onNavigate, canAccessRoute } = {}) {
     });
   }
 
-  return { el: header, setActive };
+  function setUserSummary(summary) {
+    const fullName = summary?.fullName || summary?.name || "—";
+    const position = summary?.position || "—";
+    const initials = summary?.initials || "—";
+    userName.textContent = fullName;
+    userRole.textContent = position;
+    avatarButton.textContent = avatarUrl ? "" : initials;
+    const avatarUrl = summary?.avatarUrl || "";
+    if (avatarUrl) {
+      avatarImage.src = avatarUrl;
+      avatarImage.hidden = false;
+      avatarButton.setAttribute("aria-label", "Открыть профиль");
+    } else {
+      avatarImage.removeAttribute("src");
+      avatarImage.hidden = true;
+    }
+  }
+
+  function updateThemeLabel() {
+    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+    themeButton.textContent = isDark ? "🌙 Тема" : "☀️ Тема";
+    themeButton.setAttribute(
+      "aria-label",
+      isDark ? "Включена тёмная тема" : "Включена светлая тема"
+    );
+  }
+
+  updateThemeLabel();
+
+  return { el: header, setActive, setUserSummary, updateThemeLabel };
 }

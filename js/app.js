@@ -11,9 +11,14 @@ import { createScheduleService } from "./services/scheduleService.js";
 import { createProdCalendarService } from "./services/prodCalendarService.js";
 import { createAccessService } from "./services/accessService.js";
 import { createAuthService } from "./services/authService.js";
+import { createUserProfileService } from "./services/userProfileService.js";
+import * as requestCache from "./cache/requestCache.js";
 import { subscribe, navigate } from "./router/hashRouter.js";
+import { createAppShell } from "./layout/appShell.js";
 import { createHeader } from "./layout/header.js";
 import { mount } from "./layout/mount.js";
+import { createUserPopover } from "./ui/userPopover.js";
+import { createUserBirthdayModal } from "./ui/userBirthdayModal.js";
 import { createWorkView } from "./views/workView.js";
 import { createMeetView } from "./views/meetView.js";
 import { createKpView } from "./views/kpView.js";
@@ -30,6 +35,7 @@ const TIMEZONE_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
 const graphClient = createGraphClient({ graphHookUrl: GRAPH_HOOK_URL });
 const pyrusClient = createPyrusClient({ graphClient });
 const membersService = createMembersService({ pyrusClient });
+const userProfileService = createUserProfileService({ pyrusClient, cache: requestCache, config });
 const catalogsService = createCatalogsService({ pyrusClient });
 const vacationsService = createVacationsService({
   pyrusClient,
@@ -42,12 +48,18 @@ const scheduleService = createScheduleService({
   formId: config.pyrus.forms.smeni,
 });
 const prodCalendarService = createProdCalendarService({ config });
-const accessService = createAccessService({ config });
-const authService = createAuthService({ config });
+const accessService = createAccessService({ config, userProfileService });
+const authService = createAuthService({
+  config,
+  userProfileService,
+  requestCache,
+  navigate,
+});
 
 const services = {
   graphClient,
   membersService,
+  userProfileService,
   catalogsService,
   vacationsService,
   scheduleService,
@@ -63,14 +75,16 @@ const ctx = {
   router: {
     navigate,
   },
+  actions: {},
 };
 
-const headerRoot = document.getElementById("app-header");
-const pageRoot = document.getElementById("app-page");
-
-if (!headerRoot || !pageRoot) {
-  throw new Error("App layout containers are missing.");
+const appRoot = document.getElementById("app");
+if (!appRoot) {
+  throw new Error("App root container is missing.");
 }
+
+const appShell = createAppShell({ rootEl: appRoot });
+const { headerRoot, pageRoot } = appShell;
 
 const workViewEl = document.getElementById("work-view");
 if (workViewEl) {
@@ -100,6 +114,7 @@ const forbiddenView = createForbiddenView({
 const PRIVATE_ROUTES = new Set(["work", "meet", "kp", "gantt"]);
 
 let currentView = null;
+let currentRouteName = "work";
 
 function getView(name) {
   if (!views[name]) {
@@ -108,11 +123,101 @@ function getView(name) {
   return views[name];
 }
 
-const header = createHeader({ onNavigate: navigate, canAccessRoute: accessService.canAccessRoute });
+const workView = getView("work");
+workView.initTheme?.();
+
+const userPopover = createUserPopover({
+  getProfile: () => userProfileService.getCachedProfile(),
+});
+const birthdayModal = createUserBirthdayModal();
+
+const header = createHeader({
+  onNavigate: navigate,
+  onToggleTheme: () => {
+    workView.toggleTheme?.();
+  },
+  onLogout: () => {
+    userPopover.close?.();
+    birthdayModal.close?.();
+    authService.logout?.();
+  },
+  onOpenUserPopover: (anchorEl) => {
+    userPopover.open(anchorEl);
+  },
+  canAccessRoute: accessService.canAccessRoute,
+});
 headerRoot.appendChild(header.el);
 
-function handleRoute(route) {
+ctx.actions.setUserProfile = (profile) => {
+  updateHeaderProfile(profile);
+  header.setActive(currentRouteName);
+};
+
+function getSessionUserId() {
+  const session = authService.getSession?.();
+  return session?.memberId ?? session?.user?.id ?? session?.userId ?? null;
+}
+
+function updateHeaderProfile(profile) {
+  if (!profile) return;
+  updateHeaderSummary(profile);
+  if (isBirthdayToday(profile) && !birthdayModal.isOpen()) {
+    birthdayModal.open();
+  }
+}
+
+function updateHeaderSummary(profile) {
+  if (!profile) return;
+  if (profile.avatar_id && !profile.avatarUrl) {
+    userProfileService
+      .loadAvatar({ avatarId: profile.avatar_id })
+      .then((avatarUrl) => {
+        if (!avatarUrl) return;
+        profile.avatarUrl = avatarUrl;
+        updateHeaderSummary(profile);
+      })
+      .catch(() => {});
+  }
+  header.setUserSummary({
+    fullName: profile.fullName,
+    position: profile.position,
+    initials: profile.initials,
+    avatarUrl: profile.avatarUrl,
+  });
+}
+
+function isBirthdayToday(profile) {
+  const birthDate = profile?.birth_date;
+  if (!birthDate || typeof birthDate !== "object") return false;
+  const day = Number(birthDate.day);
+  const month = Number(birthDate.month);
+  if (!day || !month) return false;
+  const now = new Date();
+  return now.getDate() === day && now.getMonth() + 1 === month;
+}
+
+function routeHasRestrictions(routeName) {
+  const allowed = config?.routeAccess?.[routeName];
+  return Array.isArray(allowed) && allowed.length > 0;
+}
+
+async function ensureProfileIfNeeded(routeName) {
+  const hasSession = authService.hasValidSession();
+  if (!hasSession || !routeHasRestrictions(routeName)) return;
+  if (userProfileService.getCachedProfile()) return;
+  const userId = getSessionUserId();
+  if (!userId) return;
+  try {
+    const profile = await userProfileService.loadCurrentUserProfile({ userId, force: false });
+    updateHeaderProfile(profile);
+  } catch (error) {
+    console.warn("Profile preload failed", error);
+  }
+}
+
+async function handleRoute(route) {
   const routeName = route?.name || "work";
+  currentRouteName = routeName;
   const hasSession = authService.hasValidSession();
 
   if (routeName === "login") {
@@ -120,7 +225,7 @@ function handleRoute(route) {
       navigate("work");
       return;
     }
-    headerRoot.style.display = "none";
+    appShell.setHeaderVisible(false);
     const loginView = getView("login");
     if (currentView && currentView !== loginView) {
       currentView.unmount?.();
@@ -131,11 +236,15 @@ function handleRoute(route) {
     return;
   }
 
-  headerRoot.style.display = "";
+  appShell.setHeaderVisible(true);
 
   if (PRIVATE_ROUTES.has(routeName) && !hasSession) {
     navigate("login");
     return;
+  }
+
+  if (PRIVATE_ROUTES.has(routeName)) {
+    await ensureProfileIfNeeded(routeName);
   }
 
   if (PRIVATE_ROUTES.has(routeName) && !accessService.canAccessRoute(routeName)) {
@@ -161,7 +270,35 @@ function handleRoute(route) {
   currentView = nextView;
 }
 
-subscribe(handleRoute);
+if (!authService.hasValidSession()) {
+  userProfileService.clear();
+}
+
+subscribe((route) => {
+  Promise.resolve(handleRoute(route)).catch((error) => {
+    console.error("Route handling failed", error);
+  });
+});
+
+if (authService.hasValidSession()) {
+  const cachedProfile = userProfileService.getCachedProfile();
+  if (cachedProfile) {
+    updateHeaderProfile(cachedProfile);
+  } else {
+    const userId = getSessionUserId();
+    if (userId) {
+      userProfileService
+        .loadCurrentUserProfile({ userId, force: false })
+        .then((profile) => {
+          updateHeaderProfile(profile);
+          header.setActive(currentRouteName);
+        })
+        .catch((error) => {
+          console.warn("Profile warmup failed", error);
+        });
+    }
+  }
+}
 
 membersService.getMembers().catch((error) => {
   console.warn("Members warmup failed", error);
