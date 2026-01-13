@@ -324,6 +324,7 @@ body.login-active #app {
 
 .login-view .field input {
   text-align: center;
+  width: 100%;
 }
 
 /* ===== Карточка логина ===== */
