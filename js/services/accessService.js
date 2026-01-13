@@ -33,18 +33,30 @@ function normalizeAllowedList(allowed) {
   return allowed.map((item) => String(item)).filter(Boolean);
 }
 
-export function createAccessService({ config } = {}) {
+export function createAccessService({ config, userProfileService } = {}) {
   const storageKey = config?.storage?.auth?.key || "sm_graph_auth_v1";
 
   function getCurrentUserRoleIds() {
+    const profileRoleIds = userProfileService?.getRoleIds?.() || [];
+    const profile = userProfileService?.getCachedProfile?.();
+    const profileRawIds = [
+      ...profileRoleIds,
+      profile?.id,
+    ];
+
     const data = readAuthCache(storageKey);
-    if (!data || typeof data !== "object") return [];
+    if (!data || typeof data !== "object") {
+      return profileRawIds
+        .filter((value) => value !== null && value !== undefined && value !== "")
+        .map((value) => String(value));
+    }
     const roles = Array.isArray(data.roles)
       ? data.roles
       : Array.isArray(data.user?.roles)
         ? data.user.roles
         : [];
     const rawIds = [
+      ...profileRawIds,
       ...roles,
       data.memberId,
       data.user?.id,
