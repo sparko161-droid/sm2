@@ -28,7 +28,17 @@ function extractInitials(firstName, lastName) {
 
 function normalizeAvatarPayload(payload) {
   if (!payload) return "";
-  if (typeof payload === "string") return payload;
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("data:")) return trimmed;
+    if (trimmed.startsWith("http")) return trimmed;
+    const isBase64 = /^[A-Za-z0-9+/=]+$/.test(trimmed);
+    if (isBase64) {
+      return `data:image/jpeg;base64,${trimmed}`;
+    }
+    return trimmed;
+  }
   if (typeof payload !== "object") return "";
 
   if (payload.url) {
