@@ -89,7 +89,6 @@ export function createHeader({
   avatarButton.type = "button";
   avatarButton.className = "app-header__avatar";
   avatarButton.setAttribute("aria-label", "Открыть профиль");
-  avatarButton.textContent = "—";
   avatarButton.addEventListener("click", () => {
     if (typeof onOpenUserPopover === "function") {
       onOpenUserPopover(avatarButton);
@@ -102,6 +101,11 @@ export function createHeader({
   avatarImage.loading = "lazy";
   avatarImage.hidden = true;
   avatarButton.appendChild(avatarImage);
+
+  const avatarInitials = document.createElement("span");
+  avatarInitials.className = "app-header__avatar-initials";
+  avatarInitials.textContent = "—";
+  avatarButton.appendChild(avatarInitials);
 
   userBlock.appendChild(userText);
   userBlock.appendChild(avatarButton);
@@ -132,18 +136,20 @@ export function createHeader({
   function setUserSummary(summary) {
     const fullName = summary?.fullName || summary?.name || "—";
     const position = summary?.position || "—";
+    const avatarUrl = summary?.avatarUrl || "";
     const initials = summary?.initials || "—";
     userName.textContent = fullName;
     userRole.textContent = position;
-    avatarButton.textContent = avatarUrl ? "" : initials;
-    const avatarUrl = summary?.avatarUrl || "";
+    avatarInitials.textContent = initials;
     if (avatarUrl) {
       avatarImage.src = avatarUrl;
       avatarImage.hidden = false;
+      avatarInitials.hidden = true;
       avatarButton.setAttribute("aria-label", "Открыть профиль");
     } else {
       avatarImage.removeAttribute("src");
       avatarImage.hidden = true;
+      avatarInitials.hidden = false;
     }
   }
 
