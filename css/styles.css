@@ -337,6 +337,8 @@ body.login-active #app {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
 
 .app-header__avatar-image {
@@ -344,6 +346,16 @@ body.login-active #app {
   height: 100%;
   border-radius: 999px;
   object-fit: cover;
+  position: absolute;
+  inset: 0;
+}
+
+.app-header__avatar-initials {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .app-header__avatar:hover {
