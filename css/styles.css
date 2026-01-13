@@ -34,6 +34,12 @@
   --sticky-bg: #ffffff;
   --summary-bg: #f9f9f9;
   --toolbar-bg: rgba(247, 247, 248, 0.95);
+  --header-bg: #ffffff;
+  --header-border-color: rgba(0, 0, 0, 0.08);
+  --header-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --nav-tab-bg: rgba(0, 0, 0, 0.04);
+  --nav-tab-active-bg: rgba(0, 0, 0, 0.08);
+  --user-popover-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
   --accent: #c80000;
   --accent-soft: rgba(200, 0, 0, 0.08);
   --accent-strong: rgba(200, 0, 0, 0.25);
@@ -81,6 +87,15 @@
   --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+:root[data-theme="light"] {
+  --header-bg: #ffffff;
+  --header-border-color: rgba(0, 0, 0, 0.08);
+  --header-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --nav-tab-bg: rgba(0, 0, 0, 0.04);
+  --nav-tab-active-bg: rgba(0, 0, 0, 0.08);
+  --user-popover-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
 /* Темная тема - корпоративные цвета */
 :root[data-theme="dark"],
 body.dark-theme {
@@ -118,6 +133,12 @@ body.dark-theme {
   --sticky-bg: #181818;
   --summary-bg: #1a1a1a;
   --toolbar-bg: rgba(17, 17, 17, 0.95);
+  --header-bg: rgba(30, 30, 30, 0.95);
+  --header-border-color: rgba(255, 255, 255, 0.06);
+  --header-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --nav-tab-bg: var(--button-bg);
+  --nav-tab-active-bg: var(--button-bg-hover);
+  --user-popover-shadow: var(--shadow-strong);
   --accent: #ff4b4b;
   --accent-soft: rgba(255, 75, 75, 0.12);
   --accent-strong: rgba(255, 75, 75, 0.3);
@@ -221,10 +242,33 @@ body.login-active #app {
   }
 }
 
+.app-shell-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
 .app-header {
   display: flex;
-  justify-content: center;
-  margin-bottom: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  gap: 16px;
+  box-sizing: border-box;
+  background: var(--header-bg);
+  box-shadow: var(--header-shadow);
+  border-bottom: 1px solid var(--header-border-color);
+}
+
+.app-header__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  flex-wrap: wrap;
 }
 
 .app-nav {
@@ -237,11 +281,157 @@ body.login-active #app {
   box-shadow: var(--shadow-strong);
 }
 
+.app-nav .btn.toggle {
+  background: var(--nav-tab-bg);
+}
+
 .app-nav .btn.toggle.active {
-  background: var(--button-bg-hover);
-  border-color: transparent;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app-header__user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-strong);
+}
+
+.app-header__user-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+}
+
+.app-header__user-name {
+  font-weight: 600;
+  font-size: 14px;
   color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.app-header__user-role {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.app-header__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--button-bg);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.app-header__avatar:hover {
+  background: var(--button-bg-hover);
+}
+
+.user-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1100;
+}
+
+.user-popover-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.user-popover {
+  position: fixed;
+  min-width: 280px;
+  max-width: min(360px, 90vw);
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--user-popover-shadow);
+  padding: 16px;
+  z-index: 1200;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.user-popover.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.user-popover__title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.user-popover__subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.user-popover__rows {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.user-popover__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text);
+}
+
+.user-popover__row span:first-child {
+  color: var(--text-muted);
+}
+
+.user-popover__details {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.user-popover__details summary {
+  cursor: pointer;
+}
+
+.user-popover__details pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 8px 0 0;
+  max-height: 200px;
+  overflow: auto;
+  background: var(--bg-alt);
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.user-popover__empty {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .placeholder-view {
