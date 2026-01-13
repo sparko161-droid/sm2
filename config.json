@@ -51,6 +51,12 @@
       ]
     }
   },
+  "routeAccess": {
+    "work": [],
+    "meet": [],
+    "kp": [],
+    "gantt": []
+  },
   "pyrus": {
     "catalogs": {
       "shifts": 281369
