@@ -1,5 +1,5 @@
 const NAV_ITEMS = [
-  { route: "work", label: "График раб." },
+  { route: "work", label: "График работы" },
   { route: "meet", label: "Встречи" },
   { route: "kp", label: "КП" },
   { route: "gantt", label: "Диаграмма Ганта" },
