@@ -20,6 +20,8 @@ js/
     workView.js           # график смен (основной UI)
     meetView.js           # заглушка встреч
     kpView.js             # заглушка КП
+    ganttView.js          # заглушка диаграммы Ганта
+    forbiddenView.js      # оверлей запрета доступа
 
   api/
     graphClient.js        # единая точка общения с n8n (/graph)
@@ -34,6 +36,7 @@ js/
     vacationsService.js   # отпуска по месяцам
     scheduleService.js    # расписание, short TTL + latest-only
     prodCalendarService.js# производственный календарь РФ
+    accessService.js      # доступ к маршрутам по ролям
 
   utils/
     logger.js             # логгер без alert
@@ -62,12 +65,17 @@ js/
 - `#work` → `workView`
 - `#meet` → `meetView`
 - `#kp` → `kpView`
+- `#gantt` → `ganttView`
 
 Если hash отсутствует или неизвестен — роутер перенаправляет на `#work`.
 
 ## Сервисы
 
 `app.js` создаёт клиентов и сервисы один раз и передаёт их во все view. Это гарантирует, что `membersService` и остальные кеши разделяются между страницами.
+
+## Доступ к маршрутам
+
+`config.json` может содержать секцию `routeAccess`, где для каждого маршрута указан список разрешённых ролей/ID. Пустой массив означает доступ для всех. `accessService` проверяет доступ и скрывает вкладки, а при ручном вводе hash отображает запрещённый оверлей.
 
 ## Гарантии
 

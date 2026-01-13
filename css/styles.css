@@ -269,6 +269,40 @@ body.login-active #app {
   color: var(--text-muted);
 }
 
+.forbidden-view {
+  position: relative;
+  min-height: 60vh;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.forbidden-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 16, 20, 0.5);
+  backdrop-filter: blur(6px);
+  z-index: 1;
+}
+
+.forbidden-card {
+  position: relative;
+  z-index: 2;
+  max-width: 420px;
+  margin: 48px auto 0;
+  padding: 20px 24px;
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-strong);
+  text-align: center;
+}
+
+.forbidden-text {
+  margin: 0 0 16px;
+  color: var(--text);
+  font-size: 15px;
+}
+
 .hidden {
   display: none !important;
 }

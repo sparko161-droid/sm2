@@ -1,4 +1,4 @@
-const ROUTES = new Set(["work", "meet", "kp"]);
+const ROUTES = new Set(["work", "meet", "kp", "gantt"]);
 const DEFAULT_ROUTE = "work";
 
 function resolveRoute(hash) {

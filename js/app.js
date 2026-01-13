@@ -9,12 +9,15 @@ import { createCatalogsService } from "./services/catalogsService.js";
 import { createVacationsService } from "./services/vacationsService.js";
 import { createScheduleService } from "./services/scheduleService.js";
 import { createProdCalendarService } from "./services/prodCalendarService.js";
+import { createAccessService } from "./services/accessService.js";
 import { subscribe, navigate } from "./router/hashRouter.js";
 import { createHeader } from "./layout/header.js";
 import { mount } from "./layout/mount.js";
 import { createWorkView } from "./views/workView.js";
 import { createMeetView } from "./views/meetView.js";
 import { createKpView } from "./views/kpView.js";
+import { createGanttView } from "./views/ganttView.js";
+import { createForbiddenView } from "./views/forbiddenView.js";
 
 const GRAPH_HOOK_URL = getConfigValue("graphHookUrl", { required: true });
 const TIMEZONE_OFFSET_MIN = getConfigValue("timezone.localOffsetMin", {
@@ -37,6 +40,7 @@ const scheduleService = createScheduleService({
   formId: config.pyrus.forms.smeni,
 });
 const prodCalendarService = createProdCalendarService({ config });
+const accessService = createAccessService({ config });
 
 const services = {
   graphClient,
@@ -45,6 +49,7 @@ const services = {
   vacationsService,
   scheduleService,
   prodCalendarService,
+  accessService,
 };
 
 const ctx = {
@@ -69,13 +74,19 @@ const viewFactories = {
   work: () => createWorkView(ctx),
   meet: () => createMeetView(ctx),
   kp: () => createKpView(ctx),
+  gantt: () => createGanttView(ctx),
 };
 
 const views = {
   work: null,
   meet: null,
   kp: null,
+  gantt: null,
 };
+
+const forbiddenView = createForbiddenView({
+  onBack: () => navigate("work"),
+});
 
 let currentView = null;
 
@@ -86,11 +97,22 @@ function getView(name) {
   return views[name];
 }
 
-const header = createHeader({ onNavigate: navigate });
+const header = createHeader({ onNavigate: navigate, canAccessRoute: accessService.canAccessRoute });
 headerRoot.appendChild(header.el);
 
 function handleRoute(route) {
   const routeName = route?.name || "work";
+  if (!accessService.canAccessRoute(routeName)) {
+    if (currentView) {
+      currentView.unmount?.();
+    }
+    forbiddenView.setMessage?.("Доступ запрещён, обратитесь к администратору");
+    mount(pageRoot, forbiddenView.el);
+    forbiddenView.mount?.();
+    currentView = forbiddenView;
+    header.setActive(routeName);
+    return;
+  }
   const nextView = getView(routeName) || getView("work");
 
   if (currentView && currentView !== nextView) {
