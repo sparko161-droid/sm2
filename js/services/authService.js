@@ -39,7 +39,7 @@ function resolveSavedAt(payload) {
   return payload?.savedAt ?? payload?.createdAt ?? payload?.ts ?? payload?.timestamp ?? null;
 }
 
-export function createAuthService({ config } = {}) {
+export function createAuthService({ config, userProfileService, requestCache, navigate } = {}) {
   const storageKey = config?.storage?.auth?.key || "sm_graph_auth_v1";
   const ttlMs = Number(config?.storage?.auth?.sessionTtlMs ?? config?.storage?.auth?.ttlMs) || 0;
   const cookieDays = Number(config?.storage?.auth?.cookieDays) || 0;
@@ -66,5 +66,12 @@ export function createAuthService({ config } = {}) {
     }
   }
 
-  return { hasValidSession, getSession, clearSession };
+  function logout() {
+    clearSession();
+    userProfileService?.clear?.();
+    requestCache?.clear?.();
+    navigate?.("login");
+  }
+
+  return { hasValidSession, getSession, clearSession, logout };
 }

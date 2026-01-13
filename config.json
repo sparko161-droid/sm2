@@ -189,6 +189,10 @@
       "sessionTtlMs": 604800000,
       "ttlMs": 604800000,
       "cookieDays": 7
+    },
+    "profile": {
+      "key": "sm_graph_profile_v1",
+      "cookieDays": 7
     }
   },
   "calendar": {
