@@ -50,6 +50,10 @@ export function clearCache(key) {
   inflight.clear();
 }
 
+export function clear() {
+  clearCache();
+}
+
 export function invalidateKey(key) {
   if (!key) return;
   cache.delete(key);

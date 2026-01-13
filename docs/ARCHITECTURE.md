@@ -13,6 +13,7 @@ js/
     hashRouter.js         # hash-роутинг (#work/#meet/#kp/#gantt/#login)
 
   layout/
+    appShell.js           # фиксированная шапка + контейнер страниц
     header.js             # навигационная шапка
     mount.js              # переключение view
 
@@ -32,11 +33,16 @@ js/
 
   services/
     membersService.js     # сотрудники и индексы
+    userProfileService.js # профиль пользователя (/v4/members/{id})
     catalogsService.js    # справочники (смены)
     vacationsService.js   # отпуска по месяцам
     scheduleService.js    # расписание, short TTL + latest-only
     prodCalendarService.js# производственный календарь РФ
     accessService.js      # доступ к маршрутам по ролям
+    authService.js        # сессия + logout
+
+  ui/
+    userPopover.js        # popover профиля сотрудника
 
   utils/
     logger.js             # логгер без alert
@@ -48,9 +54,10 @@ js/
 ## Поток данных
 
 1. `app.js` инициализирует конфиг и создает клиентов/сервисы.
-2. UI-события вызывают сервисы (members, catalogs, schedule).
-3. Сервисы используют `requestCache.cached` для дедупликации и TTL.
-4. `graphClient` — единственная точка сетевого обмена с n8n `/graph`.
+2. После логина `userProfileService` запрашивает `/v4/members/{id}` и кэширует профиль (cookie + память).
+3. UI-события вызывают сервисы (members, catalogs, schedule).
+4. Сервисы используют `requestCache.cached` для дедупликации и TTL.
+5. `graphClient` — единственная точка сетевого обмена с n8n `/graph`.
 
 ## Runtime entrypoints
 
@@ -80,8 +87,11 @@ js/
 
 `config.json` может содержать секцию `routeAccess`, где для каждого маршрута указан список разрешённых ролей/ID. Пустой массив означает доступ для всех. `accessService` проверяет доступ и скрывает вкладки, а при ручном вводе hash отображает запрещённый оверлей.
 
+При наличии профиля `accessService` использует `userProfileService.getRoleIds()` для проверки ролей.
+
 ## Гарантии
 
 - `app.js` не делает `fetch` и не содержит API-логики.
 - Сервис `membersService` обеспечивает единый запрос `/v4/members` за сессию.
 - `scheduleService` защищает от гонок при быстром переключении месяцев и использует короткий TTL.
+- `authService.logout()` очищает сессию, профиль и in-memory caches, затем переводит на `#login`.

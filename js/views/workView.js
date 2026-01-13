@@ -708,12 +708,11 @@ async function init() {
           (member) => normalizeEmail(member?.email) === userEmail
         );
         if (!isKnownEmail) {
-          authService?.clearSession?.();
+          authService?.logout?.();
           state.auth.user = null;
           state.auth.roles = null;
           state.auth.memberId = null;
           state.auth.permissions = buildDefaultPermissions();
-          router?.navigate("login");
           return;
         }
         markEmailCheckedToday();
@@ -733,8 +732,7 @@ async function init() {
   if (state.auth.user && mainScreenEl && !mainScreenEl.classList.contains("hidden")) {
     loadInitialData().catch((err) => {
       console.error("Auto-login loadInitialData error:", err);
-      authService?.clearSession?.();
-      router?.navigate("login");
+      authService?.logout?.();
     });
   }
 }
@@ -1519,13 +1517,12 @@ function bindTopBarButtons() {
   });
 
   btnLogoutEl?.addEventListener("click", () => {
-    authService?.clearSession?.();
     state.auth.user = null;
     state.auth.roles = null;
     state.auth.memberId = null;
     state.auth.permissions = buildDefaultPermissions();
     updateLineToggleUI();
-    router?.navigate("login");
+    authService?.logout?.();
   });
 btnPrevMonthEl.addEventListener("click", () => {
     const { year, monthIndex } = state.monthMeta;
@@ -3623,6 +3620,13 @@ export function createWorkView(ctx) {
     },
     unmount() {
       el.classList.add("hidden");
+    },
+    initTheme() {
+      initTheme();
+    },
+    toggleTheme() {
+      const next = state.ui.theme === "dark" ? "light" : "dark";
+      applyTheme(next);
     },
   };
 }
