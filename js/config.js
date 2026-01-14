@@ -86,6 +86,7 @@ const DEFAULT_CONFIG = {
     forms: {
       otpusk: 2348174,
       smeni: 2375272,
+      form_meet: 1382379,
     },
     // Важно: в коде выше использовались:
     // - smeni.template (а не smeni.shift)

@@ -9,6 +9,7 @@ import { createCatalogsService } from "./services/catalogsService.js";
 import { createVacationsService } from "./services/vacationsService.js";
 import { createScheduleService } from "./services/scheduleService.js";
 import { createProdCalendarService } from "./services/prodCalendarService.js";
+import { createMeetingsService } from "./services/meetingsService.js";
 import { createAccessService } from "./services/accessService.js";
 import { createAuthService } from "./services/authService.js";
 import { createUserProfileService } from "./services/userProfileService.js";
@@ -47,6 +48,11 @@ const scheduleService = createScheduleService({
   pyrusClient,
   formId: config.pyrus.forms.smeni,
 });
+const meetingsService = createMeetingsService({
+  graphClient,
+  cache: requestCache,
+  config,
+});
 const prodCalendarService = createProdCalendarService({ config });
 const accessService = createAccessService({ config, userProfileService });
 const authService = createAuthService({
@@ -63,6 +69,7 @@ const services = {
   catalogsService,
   vacationsService,
   scheduleService,
+  meetingsService,
   prodCalendarService,
   accessService,
   authService,

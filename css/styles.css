@@ -2263,3 +2263,458 @@ body.line-tabs-open{
     font-size: 8px;
   }
 }
+
+/* ----------------------------- */
+/* Meetings view */
+/* ----------------------------- */
+.meet-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px 32px;
+}
+
+.meet-toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  background: var(--toolbar-bg);
+  padding: 12px 16px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft);
+}
+
+.meet-toolbar__title {
+  text-align: center;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.meet-toolbar__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.meet-toolbar__button,
+.meet-toolbar__icon,
+.meet-toolbar__mode {
+  border: 1px solid var(--border);
+  background: var(--button-bg);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.meet-toolbar__icon {
+  padding: 8px 10px;
+  min-width: 36px;
+}
+
+.meet-toolbar__button:hover,
+.meet-toolbar__icon:hover,
+.meet-toolbar__mode:hover {
+  background: var(--button-bg-hover);
+}
+
+.meet-toolbar__employee {
+  font-weight: 600;
+}
+
+.meet-toolbar__modes {
+  display: flex;
+  gap: 6px;
+}
+
+.meet-toolbar__mode.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-strong);
+}
+
+.meet-toolbar__button.is-primary {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.meet-content {
+  min-height: 240px;
+}
+
+.meet-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meet-skeleton__row {
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(200, 200, 200, 0.1),
+    rgba(200, 200, 200, 0.3),
+    rgba(200, 200, 200, 0.1)
+  );
+  background-size: 200% 100%;
+  animation: meet-skeleton 1.4s ease infinite;
+}
+
+.meet-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+}
+
+.meet-loading__spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  animation: meet-spin 1s linear infinite;
+}
+
+.meet-loading__text {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+@keyframes meet-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes meet-skeleton {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.meet-error {
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.meet-error__title {
+  font-weight: 600;
+}
+
+.meet-error__text {
+  color: var(--text-muted);
+}
+
+.meet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.meet-grid__column {
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 320px;
+}
+
+.meet-grid__day-label {
+  font-weight: 600;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-alt);
+}
+
+.meet-grid__slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.meet-slot {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meet-slot--busy {
+  border-style: solid;
+  cursor: default;
+}
+
+.meet-slot__time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.meet-slot__empty {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.meet-slot__items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meet-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meet-card--busy {
+  background: rgba(200, 200, 200, 0.1);
+}
+
+.meet-card__time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.meet-card__title {
+  font-weight: 600;
+}
+
+.meet-card__residents {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.meet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.meet-list__day {
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meet-list__title {
+  font-weight: 600;
+}
+
+.meet-list__items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meet-list__empty {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.meet-month {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.meet-month__day {
+  background: var(--card-bg);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  min-height: 96px;
+}
+
+.meet-month__number {
+  font-weight: 600;
+}
+
+.meet-month__count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.meet-day--weekend {
+  background: var(--calendar-weekend-bg);
+}
+
+.meet-day--holiday {
+  background: var(--calendar-holiday-bg);
+}
+
+.meet-day--preholiday {
+  background: var(--calendar-preholiday-bg);
+}
+
+.meet-day--workday {
+  background: var(--calendar-workday-bg);
+}
+
+.meet-popover-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.meet-popover {
+  position: absolute;
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-strong);
+  padding: 16px;
+  min-width: 260px;
+  pointer-events: auto;
+}
+
+.meet-popover__search {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.meet-popover__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.meet-popover__item {
+  border: 1px solid transparent;
+  background: var(--button-bg);
+  border-radius: 10px;
+  padding: 6px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.meet-popover__item:hover {
+  background: var(--button-bg-hover);
+}
+
+.meet-popover--form {
+  width: min(320px, 90vw);
+}
+
+.meet-popover--blocked {
+  width: min(280px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meet-blocked__text {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.meet-form__title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.meet-form__row {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.meet-form__input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.meet-form__residents {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meet-form__residents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.meet-form__resident {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.meet-form__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.meet-form__error {
+  color: var(--danger);
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .meet-toolbar {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .meet-toolbar__controls {
+    justify-content: center;
+  }
+}

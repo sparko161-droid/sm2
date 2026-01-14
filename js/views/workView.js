@@ -2,6 +2,12 @@
 // Главный модуль UI для страницы графика смен L1/L2.
 // Чистый vanilla JS.
 
+import {
+  computeDurationMinutes,
+  convertLocalRangeToUtcWithMeta,
+  convertUtcStartToLocalRange,
+} from "../utils/dateTime.js";
+
 
 /**
  * Основные сущности:
@@ -496,116 +502,8 @@ function parseShiftTimeRangeString(raw) {
   return { start: norm(startRaw), end: norm(endRaw) };
 }
 
-function addMinutesLocal(baseMinutes, delta) {
-  let total = baseMinutes + delta;
-  let dayShift = 0;
-  while (total < 0) {
-    total += 24 * 60;
-    dayShift -= 1;
-  }
-  while (total >= 24 * 60) {
-    total -= 24 * 60;
-    dayShift += 1;
-  }
-  const hh = String(Math.floor(total / 60)).padStart(2, "0");
-  const mm = String(total % 60).padStart(2, "0");
-  return { time: `${hh}:${mm}`, dayShift };
-}
-
-function convertUtcStartToLocalRange(utcIsoString, durationMinutes) {
-  if (!utcIsoString || typeof utcIsoString !== "string") return null;
-  const startUtc = new Date(utcIsoString);
-  if (Number.isNaN(startUtc.getTime())) return null;
-
-  const startLocalMs = startUtc.getTime() + TIMEZONE_OFFSET_MIN * 60 * 1000;
-  const startLocalDate = new Date(startLocalMs);
-
-  const startHH = String(startLocalDate.getUTCHours()).padStart(2, "0");
-  const startMM = String(startLocalDate.getUTCMinutes()).padStart(2, "0");
-  const startLocal = `${startHH}:${startMM}`;
-
-  const startMinutes =
-    startLocalDate.getUTCHours() * 60 + startLocalDate.getUTCMinutes();
-  const { time: endLocal } = addMinutesLocal(
-    startMinutes,
-    durationMinutes || 0
-  );
-
-  const y = startLocalDate.getUTCFullYear();
-  const m = String(startLocalDate.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(startLocalDate.getUTCDate()).padStart(2, "0");
-
-  return {
-    localDateKey: `${y}-${m}-${d}`,
-    startLocal,
-    endLocal,
-  };
-}
-
 function formatShiftTimeForCell(startLocal, endLocal) {
   return { start: startLocal, end: endLocal };
-}
-
-function parseTimeToMinutes(hhmm) {
-  if (!hhmm || typeof hhmm !== "string") return null;
-  const [hh, mm] = hhmm.split(":").map((p) => Number(p));
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
-  return hh * 60 + mm;
-}
-
-function computeDurationMinutes(startLocal, endLocal) {
-  const start = parseTimeToMinutes(startLocal);
-  const end = parseTimeToMinutes(endLocal);
-  if (start == null || end == null) return null;
-  let diff = end - start;
-  if (diff <= 0) diff += 24 * 60;
-  return diff;
-}
-
-function convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLocal) {
-  try {
-    const durationMinutes = computeDurationMinutes(startLocal, endLocal);
-    if (durationMinutes == null) return null;
-
-    const y = Number(year);
-    const m = Number(monthIndex);
-    const d = Number(day);
-    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-
-    // Стартовое локальное время (HH:MM)
-    const startMin = parseTimeToMinutes(startLocal);
-    if (startMin == null) return null;
-    const hhNum = Math.floor(startMin / 60);
-    const mmNum = startMin % 60;
-    const offsetMs = TIMEZONE_OFFSET_MIN * 60 * 1000;
-    const baseUtcMs = Date.UTC(y, m, d, hhNum, mmNum);
-    if (!Number.isFinite(baseUtcMs)) return null;
-
-    const startUtcMs = baseUtcMs - offsetMs;
-    const endUtcMs = startUtcMs + durationMinutes * 60 * 1000;
-
-    const startDate = new Date(startUtcMs);
-    const endDate = new Date(endUtcMs);
-    if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime())) {
-      return null;
-    }
-
-    return {
-      durationMinutes,
-      startUtcIso: startDate.toISOString(),
-      endUtcIso: endDate.toISOString(),
-    };
-  } catch (e) {
-    console.warn("convertLocalRangeToUtcWithMeta: invalid time value", {
-      year,
-      monthIndex,
-      day,
-      startLocal,
-      endLocal,
-      error: String(e && e.message ? e.message : e),
-    });
-    return null;
-  }
 }
 
 // Backwards-compatible wrapper.
@@ -616,7 +514,14 @@ function convertLocalRangeToUtc(day, startLocal, endLocal) {
     year = now.getFullYear();
     monthIndex = now.getMonth();
   }
-  return convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLocal);
+  return convertLocalRangeToUtcWithMeta(
+    year,
+    monthIndex,
+    day,
+    startLocal,
+    endLocal,
+    TIMEZONE_OFFSET_MIN
+  );
 }
 
 // -----------------------------
@@ -2141,7 +2046,8 @@ function handleShiftCellClick({ line, row, day, dayIndex, shift, cellEl }) {
       monthIndex,
       day,
       normStartLocal,
-      normEndLocal
+      normEndLocal,
+      TIMEZONE_OFFSET_MIN
     );
 	    if (!conversion) {
 	      alert("Некорректное время смены. Проверьте формат (например 08:00–20:00)." );
@@ -2535,7 +2441,11 @@ async function reloadScheduleForCurrentMonth() {
     const endUtcMs = startUtcMs + rawDuration * 60 * 1000;
     const endUtcIso = new Date(endUtcMs).toISOString();
 
-    const range = convertUtcStartToLocalRange(startUtcIso, rawDuration);
+    const range = convertUtcStartToLocalRange(
+      startUtcIso,
+      rawDuration,
+      TIMEZONE_OFFSET_MIN
+    );
     if (!range) continue;
 
     const { localDateKey, startLocal, endLocal } = range;
@@ -3490,7 +3400,14 @@ function openShiftPopover(context, anchorEl) {
       const specialShortLabel = resolveSpecialShortLabel(line, templateId);
 	      // В поповере всегда есть year/monthIndex выбранного месяца — используем их,
 	      // чтобы не ловить RangeError на невалидном state.monthMeta.
-	      const conversion = convertLocalRangeToUtcWithMeta(year, monthIndex, day, start, end);
+      const conversion = convertLocalRangeToUtcWithMeta(
+        year,
+        monthIndex,
+        day,
+        start,
+        end,
+        TIMEZONE_OFFSET_MIN
+      );
 	      if (!conversion) {
 	        alert("Некорректное время смены. Проверьте формат (например 08:00–20:00)." );
 	        return;
