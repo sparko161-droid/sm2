@@ -158,3 +158,51 @@ export function convertUtcStartToLocalRange(
     startMinutes,
   };
 }
+
+function resolveLocalDate(utcIsoString, timezoneOffsetMin) {
+  if (!utcIsoString || typeof utcIsoString !== "string") return null;
+  const utcDate = new Date(utcIsoString);
+  if (Number.isNaN(utcDate.getTime())) return null;
+  const offset = Number(timezoneOffsetMin);
+  if (!Number.isFinite(offset)) {
+    return { date: utcDate, useUtc: false };
+  }
+  const localDate = new Date(utcDate.getTime() + offset * 60 * 1000);
+  return { date: localDate, useUtc: true };
+}
+
+function formatTimeParts(date, useUtc) {
+  const hours = useUtc ? date.getUTCHours() : date.getHours();
+  const minutes = useUtc ? date.getUTCMinutes() : date.getMinutes();
+  const hh = String(hours).padStart(2, "0");
+  const mm = String(minutes).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function formatDateParts(date, useUtc) {
+  const day = useUtc ? date.getUTCDate() : date.getDate();
+  const month = (useUtc ? date.getUTCMonth() : date.getMonth()) + 1;
+  const year = useUtc ? date.getUTCFullYear() : date.getFullYear();
+  const dd = String(day).padStart(2, "0");
+  const mm = String(month).padStart(2, "0");
+  return `${dd}.${mm}.${year}`;
+}
+
+export function formatTimeRangeLocal(startUtc, endUtc, timezoneOffsetMin) {
+  const startInfo = resolveLocalDate(startUtc, timezoneOffsetMin);
+  if (!startInfo) return "";
+  const endInfo = resolveLocalDate(endUtc, timezoneOffsetMin);
+  const startTime = formatTimeParts(startInfo.date, startInfo.useUtc);
+  const endTime = endInfo ? formatTimeParts(endInfo.date, endInfo.useUtc) : startTime;
+  return `${startTime}–${endTime}`;
+}
+
+export function formatDateTimeRangeLocal(startUtc, endUtc, timezoneOffsetMin) {
+  const startInfo = resolveLocalDate(startUtc, timezoneOffsetMin);
+  if (!startInfo) return "";
+  const endInfo = resolveLocalDate(endUtc, timezoneOffsetMin);
+  const startTime = formatTimeParts(startInfo.date, startInfo.useUtc);
+  const endTime = endInfo ? formatTimeParts(endInfo.date, endInfo.useUtc) : startTime;
+  const dateLabel = formatDateParts(startInfo.date, startInfo.useUtc);
+  return `${dateLabel} ${startTime}–${endTime}`;
+}

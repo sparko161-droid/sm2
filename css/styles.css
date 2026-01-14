@@ -2274,6 +2274,21 @@ body.line-tabs-open{
   padding: 20px 24px 32px;
 }
 
+.meet-sticky {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 10;
+  background: var(--bg);
+  padding-bottom: 12px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.04);
+}
+
+.meet-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .meet-toolbar {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -2344,6 +2359,26 @@ body.line-tabs-open{
 
 .meet-content {
   min-height: 240px;
+}
+
+.meet-daybar {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  grid-template-columns: repeat(var(--meet-days-count, 1), minmax(220px, 1fr));
+}
+
+.meet-daybar.is-hidden {
+  display: none;
+}
+
+.meet-daybar__item {
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  font-size: 13px;
 }
 
 .meet-skeleton {
@@ -2440,6 +2475,10 @@ body.line-tabs-open{
   min-height: 320px;
 }
 
+.meet-grid__column--no-label .meet-grid__body {
+  padding-top: 12px;
+}
+
 .meet-grid__day-label {
   font-weight: 600;
   padding: 12px;
@@ -2518,6 +2557,7 @@ body.line-tabs-open{
   position: absolute;
   inset: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .meet-time-selection {
@@ -2542,6 +2582,8 @@ body.line-tabs-open{
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .meet-card--overlay {
@@ -2556,6 +2598,10 @@ body.line-tabs-open{
   background: rgba(200, 200, 200, 0.1);
 }
 
+.meet-card--interactive {
+  cursor: pointer;
+}
+
 .meet-card__time {
   font-size: 12px;
   color: var(--text-muted);
@@ -2563,6 +2609,10 @@ body.line-tabs-open{
 
 .meet-card__title {
   font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .meet-card__residents {
@@ -2617,6 +2667,8 @@ body.line-tabs-open{
   gap: 6px;
   cursor: pointer;
   min-height: 96px;
+  max-height: 180px;
+  overflow: hidden;
 }
 
 .meet-month__number {
@@ -2626,6 +2678,47 @@ body.line-tabs-open{
 .meet-month__count {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.meet-month__items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.meet-month__meeting {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  overflow: hidden;
+}
+
+.meet-month__meeting--busy {
+  background: rgba(200, 200, 200, 0.1);
+}
+
+.meet-month__meeting-time {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.meet-month__meeting-title {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meet-month__more {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-left: 4px;
 }
 
 .meet-day--weekend {
@@ -2688,6 +2781,49 @@ body.line-tabs-open{
 
 .meet-popover--form {
   width: min(320px, 90vw);
+}
+
+.meet-popover--details {
+  width: min(360px, 92vw);
+  max-height: 60vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meet-details__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meet-details__label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.meet-details__value {
+  font-size: 14px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.meet-details__list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meet-details__link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.meet-details__link:hover {
+  text-decoration: underline;
 }
 
 .meet-popover--blocked {
