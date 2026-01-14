@@ -262,9 +262,10 @@ export function createMeetView(ctx) {
 
   function applyEmployeeFilter(meetings) {
     if (!state.selectedEmployeeId) return meetings;
-    return meetings.filter((meeting) =>
-      meeting.participants?.userIds?.includes(Number(state.selectedEmployeeId))
-    );
+    return meetings.filter((meeting) => {
+      const userIds = meeting.participantsUsers || meeting.participants?.userIds || [];
+      return userIds.includes(Number(state.selectedEmployeeId));
+    });
   }
 
   function buildMeetingCard(item) {

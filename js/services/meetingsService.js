@@ -1,5 +1,4 @@
 import { cached as defaultCached, invalidateKey as defaultInvalidateKey } from "../cache/requestCache.js";
-import { unwrapPyrusData } from "../api/pyrusClient.js";
 
 const MEETINGS_CACHE_KEY = "sm_meet_register_v1";
 const MEETINGS_TTL_MS = 3 * 60 * 1000;
@@ -29,7 +28,7 @@ function addPersonValue(value, userIds, roleIds) {
   }
 }
 
-function collectParticipantIds(task) {
+function collectParticipantIds(task, residentsField, responsibleField) {
   const userIds = new Set();
   const roleIds = new Set();
   if (!task || typeof task !== "object") {
@@ -37,6 +36,20 @@ function collectParticipantIds(task) {
   }
 
   addPersonValue(task.responsible, userIds, roleIds);
+  if (responsibleField?.type === "person") {
+    addPersonValue(responsibleField.value, userIds, roleIds);
+  }
+  if (residentsField?.type === "table") {
+    const rows = safeArray(residentsField.value);
+    for (const row of rows) {
+      const cells = safeArray(row?.cells);
+      for (const cell of cells) {
+        if (cell?.type === "person") {
+          addPersonValue(cell.value, userIds, roleIds);
+        }
+      }
+    }
+  }
 
   const extraKeys = [
     "approvers",
@@ -79,6 +92,22 @@ function collectParticipantIds(task) {
   return { userIds: Array.from(userIds), roleIds: Array.from(roleIds) };
 }
 
+function unwrapRegisterPayload(raw) {
+  const data = raw?.data ?? raw;
+  if (data?.tasks && Array.isArray(data.tasks)) {
+    return { tasks: data.tasks, registerItems: [], rawTasksCount: data.tasks.length };
+  }
+  if (Array.isArray(data)) {
+    const tasksCount = data.reduce((count, item) => count + safeArray(item?.tasks).length, 0);
+    return { tasks: [], registerItems: data, rawTasksCount: tasksCount };
+  }
+  if (Array.isArray(raw)) {
+    const tasksCount = raw.reduce((count, item) => count + safeArray(item?.tasks).length, 0);
+    return { tasks: [], registerItems: raw, rawTasksCount: tasksCount };
+  }
+  return { tasks: [], registerItems: [], rawTasksCount: 0 };
+}
+
 function resolvePersonTitle(value) {
   if (!value || typeof value !== "object") return "";
   if (value.type === "role") {
@@ -117,53 +146,76 @@ function findField(fields, predicate) {
   return safeArray(fields).find((field) => field && predicate(field));
 }
 
-function normalizeRegister(raw) {
-  const data = unwrapPyrusData(raw);
-  const registerItems = safeArray(data);
+function normalizeRegister(raw, { logSummary = false } = {}) {
+  const { tasks, registerItems, rawTasksCount } = unwrapRegisterPayload(raw);
   const meetings = [];
 
-  for (const item of registerItems) {
-    const tasks = safeArray(item?.tasks);
-    for (const task of tasks) {
-      const fields = safeArray(task?.fields);
-      const dueField = findField(
-        fields,
-        (field) => field.type === "due_date_time" || field.id === 4
-      );
-      const startUtc = dueField?.value || null;
-      if (!startUtc || typeof startUtc !== "string") continue;
-      const startDate = new Date(startUtc);
-      if (Number.isNaN(startDate.getTime())) continue;
-      const durationMin = safeNumber(dueField?.duration, 60) || 60;
-      const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000);
+  const taskList = tasks.length
+    ? tasks
+    : registerItems.flatMap((item) => safeArray(item?.tasks));
 
-      const subjectField = findField(
-        fields,
-        (field) => field.code === "Subject" || field.id === 1
-      );
-      const postLinkField = findField(fields, (field) => field.code === "PostLink");
-      const responsibleField = findField(fields, (field) => field.id === 27);
-      const residentsField = findField(fields, (field) => field.id === 14 && field.type === "table");
+  for (const task of taskList) {
+    const fields = safeArray(task?.fields);
+    const dueField = findField(
+      fields,
+      (field) => field.type === "due_date_time" || field.code === "Due" || field.id === 4
+    );
+    const startUtc = dueField?.value || null;
+    if (!startUtc || typeof startUtc !== "string") continue;
+    const startDate = new Date(startUtc);
+    if (Number.isNaN(startDate.getTime())) continue;
+    const durationMin = safeNumber(dueField?.duration, 60) || 60;
+    const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000);
 
-      const participants = collectParticipantIds(task);
-      const residentsNormalized = normalizeResidents(residentsField);
+    const subjectField = findField(
+      fields,
+      (field) => field.code === "Subject" || field.id === 1
+    );
+    const postLinkField = findField(fields, (field) => field.code === "PostLink");
+    const responsibleField = findField(
+      fields,
+      (field) => field.id === 27 && field.type === "person"
+    );
+    const residentsField = findField(
+      fields,
+      (field) => field.id === 14 && field.type === "table"
+    );
 
-      meetings.push({
-        id: task?.id ?? null,
-        startUtc,
-        endUtc: endDate.toISOString(),
-        startMs: startDate.getTime(),
-        endMs: endDate.getTime(),
-        durationMin,
-        subject: subjectField?.value || "",
-        postLink: postLinkField?.value || "",
-        taskResponsible: task?.responsible || null,
-        responsibleField: responsibleField?.value || null,
-        residents: residentsField?.value || [],
-        residentsNormalized,
-        participants,
-      });
-    }
+    const participants = collectParticipantIds(task, residentsField, responsibleField);
+    const residentsNormalized = normalizeResidents(residentsField);
+
+    meetings.push({
+      id: task?.id ?? null,
+      startUtc,
+      endUtc: endDate.toISOString(),
+      startMs: startDate.getTime(),
+      endMs: endDate.getTime(),
+      durationMin,
+      subject: subjectField?.value || "",
+      postLink: postLinkField?.value || "",
+      taskResponsible: task?.responsible || null,
+      responsibleField: responsibleField?.value || null,
+      residents: residentsField?.value || [],
+      residentsNormalized,
+      participants,
+      participantsUsers: participants.userIds || [],
+    });
+  }
+
+  if (logSummary && rawTasksCount > 0 && meetings.length === 0) {
+    console.warn("[meetings] tasks received but normalized list is empty", {
+      tasksCount: rawTasksCount,
+      normalizedCount: meetings.length,
+    });
+  }
+
+  if (logSummary && meetings.length > 0) {
+    const first = meetings[0];
+    console.debug("[meetings] normalized", {
+      count: meetings.length,
+      firstStartUtc: first?.startUtc || null,
+      firstSubject: first?.subject || "",
+    });
   }
 
   return meetings;
@@ -178,6 +230,7 @@ export function createMeetingsService({ graphClient, cache, config } = {}) {
   const formId = config?.pyrus?.forms?.form_meet;
 
   let lastNormalized = [];
+  let loggedSummary = false;
 
   async function loadRegister({ force = false } = {}) {
     if (!formId) {
@@ -193,7 +246,8 @@ export function createMeetingsService({ graphClient, cache, config } = {}) {
         });
       }
     );
-    lastNormalized = normalizeRegister(data);
+    lastNormalized = normalizeRegister(data, { logSummary: !loggedSummary });
+    loggedSummary = true;
     return lastNormalized;
   }
 
