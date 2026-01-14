@@ -8,6 +8,13 @@ export function addDays(date, count) {
   return next;
 }
 
+export function startOfWeekLocal(date, weekStartsOn = 1) {
+  const base = startOfDay(date);
+  const day = base.getDay();
+  const offset = (day - weekStartsOn + 7) % 7;
+  return addDays(base, -offset);
+}
+
 export function dateKey(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");

@@ -43,10 +43,13 @@ js/
 
   ui/
     userPopover.js        # popover профиля сотрудника
+    popoverEngine.js      # глобальный движок поповеров
+    timeGridSelection.js  # drag-selection для тайм-грида встреч
 
   utils/
     logger.js             # логгер без alert
     dateTime.js           # общие функции дат/часового пояса
+    timeGrid.js           # шаги тайм-грида и расчёты
 
   legacy/
     *                     # устаревшие модули (не подключаются)
@@ -88,6 +91,12 @@ js/
 
 - Общие функции дат/времени живут в `js/utils/dateTime.js`.
 - Правило: не копируем date/time-логику между view, используем общий модуль.
+- Для режима "7 дней" используем `startOfWeekLocal` (понедельник по умолчанию).
+
+## Popover и time-grid правила
+
+- Все popover-элементы открываются через `ui/popoverEngine.js`, без локальных global listeners.
+- Тайм-грид встреч строится с шагом 15 минут (см. `utils/timeGrid.js`), встречи рисуются overlay-блоками поверх сетки.
 
 ## Доступ к маршрутам
 

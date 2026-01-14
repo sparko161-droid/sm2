@@ -7,11 +7,16 @@ import {
   dateKey,
   parseTimeToMinutes,
   startOfDay,
+  startOfWeekLocal,
 } from "../utils/dateTime.js";
+import { TIME_GRID_STEP_MINUTES } from "../utils/timeGrid.js";
+import { createTimeGridSelection } from "../ui/timeGridSelection.js";
+import { closePopover, openPopover } from "../ui/popoverEngine.js";
 
 const DEFAULT_MODE = "day";
 const MODES = ["day", "days4", "days7", "days28", "list"];
 const HOUR_SLOTS = Array.from({ length: 24 }, (_, i) => i);
+const PX_PER_MINUTE = 1;
 
 const MODE_LABELS = {
   day: "День",
@@ -20,12 +25,6 @@ const MODE_LABELS = {
   days28: "28 дней",
   list: "Список",
 };
-
-function startOfWeek(date) {
-  const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  return startOfDay(addDays(date, diff));
-}
 
 function formatDateLabel(date, options) {
   return new Intl.DateTimeFormat("ru-RU", options).format(date);
@@ -98,11 +97,9 @@ export function createMeetView(ctx) {
   nextButton.type = "button";
   const modeGroup = buildElement("div", "meet-toolbar__modes");
   const content = buildElement("div", "meet-content");
-  const popoverLayer = buildElement("div", "meet-popover-layer");
-
   toolbar.append(employeeButton, titleEl, controls);
   controls.append(todayButton, prevButton, nextButton, modeGroup);
-  root.append(toolbar, content, popoverLayer);
+  root.append(toolbar, content);
 
   const state = {
     mode: DEFAULT_MODE,
@@ -118,6 +115,7 @@ export function createMeetView(ctx) {
     calendarCache: new Map(),
     optimisticMeetingId: 0,
   };
+  let selectionController = null;
 
   const modeButtons = new Map();
   for (const mode of MODES) {
@@ -186,10 +184,11 @@ export function createMeetView(ctx) {
       return { start: base, end: addDays(base, 4) };
     }
     if (mode === "days7") {
-      return { start: base, end: addDays(base, 7) };
+      const start = startOfWeekLocal(base);
+      return { start, end: addDays(start, 7) };
     }
     if (mode === "days28") {
-      const start = startOfWeek(base);
+      const start = startOfWeekLocal(base);
       return { start, end: addDays(start, 28) };
     }
     return { start: base, end: addDays(base, 7) };
@@ -268,11 +267,11 @@ export function createMeetView(ctx) {
     });
   }
 
-  function buildMeetingCard(item) {
+  function buildMeetingCard(item, extraClasses = "") {
     const { meeting, meta } = item;
     const allowed = isAllowedMeeting(meeting, state.userId, state.roleIds);
 
-    const card = buildElement("div", "meet-card");
+    const card = buildElement("div", `meet-card ${extraClasses}`.trim());
     card.classList.toggle("meet-card--busy", !allowed);
 
     const time = buildElement("div", "meet-card__time", `${meta.startLocal}–${meta.endLocal}`);
@@ -297,28 +296,50 @@ export function createMeetView(ctx) {
     return card;
   }
 
-  function buildSlot({ dayDate, hour, items }) {
-    const slot = buildElement("button", "meet-slot");
-    slot.type = "button";
-    slot.dataset.date = dateKey(dayDate);
-    slot.dataset.time = `${String(hour).padStart(2, "0")}:00`;
+  function buildSegment({ dayDate, index, isBusy }) {
+    const segment = buildElement("div", "meet-time-grid__segment");
+    segment.dataset.index = String(index);
+    if (index % 4 === 0) {
+      segment.dataset.hour = String(index / 4);
+    }
+    if (isBusy) {
+      segment.classList.add("is-busy");
+    }
+    segment.dataset.date = dateKey(dayDate);
+    return segment;
+  }
 
-    const label = buildElement("div", "meet-slot__time", `${String(hour).padStart(2, "0")}:00`);
-    slot.appendChild(label);
+  function buildTimeGrid({ dayDate, items }) {
+    const grid = buildElement("div", "meet-time-grid");
+    const segments = buildElement("div", "meet-time-grid__segments");
+    const overlay = buildElement("div", "meet-time-grid__overlay");
 
-    if (items?.length) {
-      slot.classList.add("meet-slot--busy");
-      const list = buildElement("div", "meet-slot__items");
-      for (const item of items) {
-        list.appendChild(buildMeetingCard(item));
+    const segmentsCount = (24 * 60) / TIME_GRID_STEP_MINUTES;
+    const busySegments = new Array(segmentsCount).fill(false);
+    for (const item of items) {
+      const startIndex = Math.floor(item.meta.startMinutes / TIME_GRID_STEP_MINUTES);
+      const endMinutes = item.meta.startMinutes + item.meeting.durationMin;
+      const endIndexExclusive = Math.ceil(endMinutes / TIME_GRID_STEP_MINUTES);
+      for (let i = startIndex; i < endIndexExclusive && i < busySegments.length; i += 1) {
+        busySegments[i] = true;
       }
-      slot.appendChild(list);
-    } else {
-      const empty = buildElement("div", "meet-slot__empty", "Свободно");
-      slot.appendChild(empty);
     }
 
-    return slot;
+    for (let index = 0; index < busySegments.length; index += 1) {
+      segments.appendChild(buildSegment({ dayDate, index, isBusy: busySegments[index] }));
+    }
+
+    for (const item of items) {
+      const block = buildMeetingCard(item, "meet-card--overlay");
+      const startMinutes = item.meta.startMinutes;
+      const heightMinutes = item.meeting.durationMin;
+      block.style.top = `${startMinutes * PX_PER_MINUTE}px`;
+      block.style.height = `${heightMinutes * PX_PER_MINUTE}px`;
+      overlay.appendChild(block);
+    }
+
+    grid.append(segments, overlay);
+    return { grid, busySegments };
   }
 
   function renderDayColumn(dayDate, itemsByDate, dayTypeMap) {
@@ -334,17 +355,45 @@ export function createMeetView(ctx) {
       column.classList.add(`meet-day--${type}`);
     }
 
-    const slots = buildElement("div", "meet-grid__slots");
-    const items = itemsByDate.get(dayKey) || [];
-
+    const gridBody = buildElement("div", "meet-grid__body");
+    const hours = buildElement("div", "meet-time-grid__hours");
     for (const hour of HOUR_SLOTS) {
-      const hourItems = items.filter(
-        (item) => item.meta.startMinutes >= hour * 60 && item.meta.startMinutes < (hour + 1) * 60
-      );
-      slots.appendChild(buildSlot({ dayDate, hour, items: hourItems }));
+      const hourLabel = buildElement("div", "meet-time-grid__hour", `${String(hour).padStart(2, "0")}:00`);
+      hours.appendChild(hourLabel);
     }
 
-    column.append(label, slots);
+    const items = itemsByDate.get(dayKey) || [];
+    const { grid, busySegments } = buildTimeGrid({ dayDate, items });
+    grid.dataset.date = dayKey;
+
+    gridBody.append(hours, grid);
+    column.append(label, gridBody);
+
+    if (selectionController) {
+      selectionController.destroy();
+      selectionController = null;
+    }
+
+    if (state.mode === "day") {
+      selectionController = createTimeGridSelection({
+        gridEl: grid,
+        busySegments,
+        stepMinutes: TIME_GRID_STEP_MINUTES,
+        pxPerMinute: PX_PER_MINUTE,
+        dateKey: dayKey,
+        onSelect: ({ dateKey: selectedDate, startMinutes, durationMinutes, point }) => {
+          const time = addMinutesLocal(0, startMinutes).time;
+          openCreateMeetingPopover({
+            date: selectedDate,
+            time,
+            durationMinutes,
+            anchorRect: null,
+            point,
+          });
+        },
+      });
+    }
+
     return column;
   }
 
@@ -472,6 +521,10 @@ export function createMeetView(ctx) {
       return;
     }
     const token = ++state.renderToken;
+    if (selectionController && state.mode !== "day") {
+      selectionController.destroy();
+      selectionController = null;
+    }
     const cached = meetingsService.getCachedMeetings?.() || [];
     const hasCached = Array.isArray(cached) && cached.length > 0;
     if (!state.hasLoaded && !hasCached) {
@@ -513,7 +566,7 @@ export function createMeetView(ctx) {
   }
 
   function closePopovers() {
-    popoverLayer.innerHTML = "";
+    closePopover();
     state.employeePopoverOpen = false;
   }
 
@@ -575,17 +628,10 @@ export function createMeetView(ctx) {
     return popover;
   }
 
-  function openPopover(anchorEl, popoverEl) {
-    const rect = anchorEl.getBoundingClientRect();
-    popoverEl.style.top = `${rect.bottom + window.scrollY + 8}px`;
-    popoverEl.style.left = `${rect.left + window.scrollX}px`;
-    popoverLayer.appendChild(popoverEl);
-  }
-
   function openEmployeePopover() {
     closePopovers();
     const popover = buildEmployeePopover();
-    openPopover(employeeButton, popover);
+    openPopover({ anchorRect: employeeButton.getBoundingClientRect(), contentEl: popover });
     state.employeePopoverOpen = true;
   }
 
@@ -602,32 +648,7 @@ export function createMeetView(ctx) {
     return [...users, ...roles];
   }
 
-  function buildCreateBlockedPopover() {
-    const popover = buildElement("div", "meet-popover meet-popover--blocked");
-    const title = buildElement("div", "meet-form__title", "Создание недоступно");
-    const text = buildElement(
-      "div",
-      "meet-blocked__text",
-      "Создание встреч доступно только в режиме «Сотрудник: Я»"
-    );
-    popover.append(title, text);
-
-    if (state.userId) {
-      const action = buildElement("button", "meet-toolbar__button is-primary", "Переключиться на «Я»");
-      action.type = "button";
-      action.addEventListener("click", () => {
-        state.selectedEmployeeId = state.userId;
-        updateEmployeeButtonLabel();
-        closePopovers();
-        renderMeetings();
-      });
-      popover.appendChild(action);
-    }
-
-    return popover;
-  }
-
-  function buildMeetingPopover({ date, time }) {
+  function buildMeetingPopover({ date, time, durationMinutes, defaultResidents }) {
     const popover = buildElement("div", "meet-popover meet-popover--form");
 
     const subjectInput = buildElement("input", "meet-form__input");
@@ -646,7 +667,7 @@ export function createMeetView(ctx) {
     durationInput.type = "number";
     durationInput.min = "15";
     durationInput.step = "15";
-    durationInput.value = "60";
+    durationInput.value = String(durationMinutes || 60);
 
     const endInput = buildElement("input", "meet-form__input");
     endInput.type = "time";
@@ -681,6 +702,9 @@ export function createMeetView(ctx) {
 
     const options = buildResidentsOptions();
     const selected = new Set();
+    for (const resident of defaultResidents || []) {
+      selected.add(`${resident.type}:${resident.id}`);
+    }
 
     function renderResidents(query) {
       residentList.innerHTML = "";
@@ -834,20 +858,49 @@ export function createMeetView(ctx) {
     return popover;
   }
 
+  function buildDefaultResidents() {
+    const residents = [];
+    if (state.userId) {
+      residents.push({ type: "user", id: state.userId });
+    }
+    if (
+      state.selectedEmployeeId &&
+      state.selectedEmployeeId !== state.userId
+    ) {
+      residents.push({ type: "user", id: state.selectedEmployeeId });
+    }
+    return residents;
+  }
+
+  function openCreateMeetingPopover({ date, time, durationMinutes, anchorRect, point }) {
+    if (!state.userId) return;
+    closePopovers();
+
+    const defaultResidents = buildDefaultResidents();
+    // Если выбран фильтр "Все", по умолчанию оставляем только текущего пользователя.
+    const popover = buildMeetingPopover({
+      date,
+      time,
+      durationMinutes,
+      defaultResidents,
+    });
+    openPopover({ anchorRect, point, contentEl: popover });
+  }
+
   function handleContentClick(event) {
-    const slot = event.target.closest(".meet-slot");
-    if (slot && !slot.classList.contains("meet-slot--busy")) {
-      const date = slot.dataset.date;
-      const time = slot.dataset.time;
-      if (!date || !time) return;
-      closePopovers();
-      if (!state.userId || state.selectedEmployeeId !== state.userId) {
-        const blockedPopover = buildCreateBlockedPopover();
-        openPopover(slot, blockedPopover);
-        return;
-      }
-      const popover = buildMeetingPopover({ date, time });
-      openPopover(slot, popover);
+    const segment = event.target.closest(".meet-time-grid__segment");
+    if (segment && !segment.classList.contains("is-busy")) {
+      const date = segment.dataset.date;
+      const index = Number(segment.dataset.index);
+      if (!date || !Number.isFinite(index)) return;
+      const minutes = index * TIME_GRID_STEP_MINUTES;
+      const time = addMinutesLocal(0, minutes).time;
+      openCreateMeetingPopover({
+        date,
+        time,
+        durationMinutes: TIME_GRID_STEP_MINUTES,
+        anchorRect: segment.getBoundingClientRect(),
+      });
       return;
     }
 
@@ -861,12 +914,6 @@ export function createMeetView(ctx) {
         updateModeButtons();
         renderMeetings();
       }
-    }
-  }
-
-  function handleDocumentClick(event) {
-    if (!popoverLayer.contains(event.target) && !toolbar.contains(event.target)) {
-      closePopovers();
     }
   }
 
@@ -885,7 +932,9 @@ export function createMeetView(ctx) {
 
   todayButton.addEventListener("click", () => {
     const today = startOfDay(new Date());
-    state.anchorDate = state.mode === "days28" ? startOfWeek(today) : today;
+    state.anchorDate = state.mode === "days28" || state.mode === "days7"
+      ? startOfWeekLocal(today)
+      : today;
     renderMeetings();
   });
 
@@ -905,8 +954,8 @@ export function createMeetView(ctx) {
     const mode = btn.dataset.mode;
     if (!MODES.includes(mode)) return;
     state.mode = mode;
-    if (mode === "days28") {
-      state.anchorDate = startOfWeek(state.anchorDate);
+    if (mode === "days28" || mode === "days7") {
+      state.anchorDate = startOfWeekLocal(state.anchorDate);
     }
     updateModeButtons();
     renderMeetings();
@@ -923,14 +972,16 @@ export function createMeetView(ctx) {
         mounted = true;
         resolveCurrentUser();
         loadMembers();
-        document.addEventListener("click", handleDocumentClick);
       }
       updateEmployeeButtonLabel();
       renderMeetings();
     },
     unmount() {
-      document.removeEventListener("click", handleDocumentClick);
       closePopovers();
+      if (selectionController) {
+        selectionController.destroy();
+        selectionController = null;
+      }
     },
   };
 }

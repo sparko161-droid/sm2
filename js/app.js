@@ -20,6 +20,7 @@ import { createHeader } from "./layout/header.js";
 import { mount } from "./layout/mount.js";
 import { createUserPopover } from "./ui/userPopover.js";
 import { createUserBirthdayModal } from "./ui/userBirthdayModal.js";
+import { initPopoverEngineOnce } from "./ui/popoverEngine.js";
 import { createWorkView } from "./views/workView.js";
 import { createMeetView } from "./views/meetView.js";
 import { createKpView } from "./views/kpView.js";
@@ -92,6 +93,7 @@ if (!appRoot) {
 
 const appShell = createAppShell({ rootEl: appRoot });
 const { headerRoot, pageRoot } = appShell;
+initPopoverEngineOnce();
 
 const workViewEl = document.getElementById("work-view");
 if (workViewEl) {
