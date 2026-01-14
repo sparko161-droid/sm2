@@ -5,6 +5,8 @@ import {
   convertLocalRangeToUtcWithMeta,
   convertUtcStartToLocalRange,
   dateKey,
+  formatDateTimeRangeLocal,
+  formatTimeRangeLocal,
   parseTimeToMinutes,
   startOfDay,
   startOfWeekLocal,
@@ -84,6 +86,7 @@ export function createMeetView(ctx) {
     4 * 60;
 
   const root = buildElement("section", "meet-view");
+  const sticky = buildElement("div", "meet-sticky");
   const toolbar = buildElement("div", "meet-toolbar");
   const employeeButton = buildElement("button", "meet-toolbar__button meet-toolbar__employee", "Сотрудник");
   employeeButton.type = "button";
@@ -96,10 +99,14 @@ export function createMeetView(ctx) {
   const nextButton = buildElement("button", "meet-toolbar__icon", "→");
   nextButton.type = "button";
   const modeGroup = buildElement("div", "meet-toolbar__modes");
+  const dayBar = buildElement("div", "meet-daybar is-hidden");
+  const scroll = buildElement("div", "meet-scroll");
   const content = buildElement("div", "meet-content");
   toolbar.append(employeeButton, titleEl, controls);
   controls.append(todayButton, prevButton, nextButton, modeGroup);
-  root.append(toolbar, content);
+  sticky.append(toolbar, dayBar);
+  scroll.appendChild(content);
+  root.append(sticky, scroll);
 
   const state = {
     mode: DEFAULT_MODE,
@@ -274,24 +281,31 @@ export function createMeetView(ctx) {
     const card = buildElement("div", `meet-card ${extraClasses}`.trim());
     card.classList.toggle("meet-card--busy", !allowed);
 
-    const time = buildElement("div", "meet-card__time", `${meta.startLocal}–${meta.endLocal}`);
+    const formattedTime =
+      formatTimeRangeLocal(meeting.startUtc, meeting.endUtc, timezoneOffsetMin) ||
+      `${meta.startLocal}–${meta.endLocal}`;
+    const time = buildElement("div", "meet-card__time", formattedTime);
     const title = buildElement(
       "div",
       "meet-card__title",
       allowed ? meeting.subject || "Без темы" : "Занято"
     );
-    const residents = buildElement(
-      "div",
-      "meet-card__residents",
-      allowed
-        ? meeting.residentsNormalized.map((resident) => resident.title).filter(Boolean).join(", ") ||
-            "—"
-        : ""
-    );
 
     card.append(time, title);
     if (allowed) {
-      card.append(residents);
+      card.classList.add("meet-card--interactive");
+      card.setAttribute("role", "button");
+      card.tabIndex = 0;
+      const openDetails = (event) => {
+        event.stopPropagation();
+        openMeetingDetailsPopover(meeting, card);
+      };
+      card.addEventListener("click", openDetails);
+      card.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openDetails(event);
+      });
     }
     return card;
   }
@@ -342,17 +356,23 @@ export function createMeetView(ctx) {
     return { grid, busySegments };
   }
 
-  function renderDayColumn(dayDate, itemsByDate, dayTypeMap) {
+  function renderDayColumn(dayDate, itemsByDate, dayTypeMap, { showLabel = true } = {}) {
     const column = buildElement("div", "meet-grid__column");
-    const label = buildElement(
-      "div",
-      "meet-grid__day-label",
-      formatDateLabel(dayDate, { weekday: "short", day: "numeric", month: "short" })
-    );
     const dayKey = dateKey(dayDate);
     const type = dayTypeMap.get(dayKey);
     if (type) {
       column.classList.add(`meet-day--${type}`);
+    }
+
+    if (showLabel) {
+      const label = buildElement(
+        "div",
+        "meet-grid__day-label",
+        formatDateLabel(dayDate, { weekday: "short", day: "numeric", month: "short" })
+      );
+      column.append(label);
+    } else {
+      column.classList.add("meet-grid__column--no-label");
     }
 
     const gridBody = buildElement("div", "meet-grid__body");
@@ -367,7 +387,7 @@ export function createMeetView(ctx) {
     grid.dataset.date = dayKey;
 
     gridBody.append(hours, grid);
-    column.append(label, gridBody);
+    column.append(gridBody);
 
     if (selectionController) {
       selectionController.destroy();
@@ -400,7 +420,7 @@ export function createMeetView(ctx) {
   function renderDayView({ start, meetingsByDate, dayTypeMap }) {
     content.innerHTML = "";
     const wrapper = buildElement("div", "meet-day");
-    wrapper.appendChild(renderDayColumn(start, meetingsByDate, dayTypeMap));
+    wrapper.appendChild(renderDayColumn(start, meetingsByDate, dayTypeMap, { showLabel: false }));
     content.appendChild(wrapper);
   }
 
@@ -409,7 +429,7 @@ export function createMeetView(ctx) {
     const grid = buildElement("div", "meet-grid");
     for (let i = 0; i < daysCount; i += 1) {
       const dayDate = addDays(start, i);
-      grid.appendChild(renderDayColumn(dayDate, meetingsByDate, dayTypeMap));
+      grid.appendChild(renderDayColumn(dayDate, meetingsByDate, dayTypeMap, { showLabel: false }));
     }
     content.appendChild(grid);
   }
@@ -460,7 +480,17 @@ export function createMeetView(ctx) {
 
       const items = meetingsByDate.get(dayKey) || [];
       if (items.length) {
-        const count = buildElement("div", "meet-month__count", `${items.length} встреч`);
+        const maxItems = 3;
+        const list = buildElement("div", "meet-month__items");
+        for (const item of items.slice(0, maxItems)) {
+          list.appendChild(buildMonthMeetingRow(item));
+        }
+        if (items.length > maxItems) {
+          list.appendChild(buildElement("div", "meet-month__more", `+ ещё ${items.length - maxItems}`));
+        }
+        cell.appendChild(list);
+      } else {
+        const count = buildElement("div", "meet-month__count", "Нет встреч");
         cell.appendChild(count);
       }
 
@@ -471,6 +501,148 @@ export function createMeetView(ctx) {
       current = addDays(current, 1);
     }
     content.appendChild(grid);
+  }
+
+  function buildMonthMeetingRow(item) {
+    const { meeting, meta } = item;
+    const allowed = isAllowedMeeting(meeting, state.userId, state.roleIds);
+    const row = buildElement("div", "meet-month__meeting");
+    row.classList.toggle("meet-month__meeting--busy", !allowed);
+    const formattedTime =
+      formatTimeRangeLocal(meeting.startUtc, meeting.endUtc, timezoneOffsetMin) ||
+      `${meta.startLocal}–${meta.endLocal}`;
+    const time = buildElement("div", "meet-month__meeting-time", formattedTime);
+    const title = buildElement(
+      "div",
+      "meet-month__meeting-title",
+      allowed ? meeting.subject || "Без темы" : "Занято"
+    );
+    row.append(time, title);
+    if (allowed) {
+      row.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openMeetingDetailsPopover(meeting, row);
+      });
+    }
+    return row;
+  }
+
+  function renderDayBar({ start, daysCount, dayTypeMap }) {
+    dayBar.innerHTML = "";
+    dayBar.classList.remove("is-hidden");
+    dayBar.style.setProperty("--meet-days-count", String(daysCount));
+    for (let i = 0; i < daysCount; i += 1) {
+      const dayDate = addDays(start, i);
+      const item = buildElement(
+        "div",
+        "meet-daybar__item",
+        formatDateLabel(dayDate, { weekday: "short", day: "numeric", month: "short" })
+      );
+      const type = dayTypeMap.get(dateKey(dayDate));
+      if (type) item.classList.add(`meet-day--${type}`);
+      dayBar.appendChild(item);
+    }
+  }
+
+  function hideDayBar() {
+    dayBar.classList.add("is-hidden");
+    dayBar.innerHTML = "";
+  }
+
+  function resolveParticipantsList(meeting) {
+    const ids = new Set();
+    const participants = meeting?.participantsUsers || meeting?.participants?.userIds || [];
+    for (const id of participants) {
+      const normalized = Number(id);
+      if (Number.isFinite(normalized)) ids.add(normalized);
+    }
+    const labels = Array.from(ids).map((id) => {
+      const member = state.memberMap.get(id);
+      const name = member
+        ? `${member.last_name || ""} ${member.first_name || ""}`.trim() ||
+          member.name ||
+          member.email ||
+          String(id)
+        : `ID: ${id}`;
+      return { id, label: name };
+    });
+    labels.sort((a, b) => a.label.localeCompare(b.label, "ru"));
+    return labels;
+  }
+
+  function buildDetailsRow(label, valueContent) {
+    const row = buildElement("div", "meet-details__item");
+    const labelEl = buildElement("div", "meet-details__label", label);
+    const valueEl = buildElement("div", "meet-details__value");
+    if (valueContent instanceof Node) {
+      valueEl.appendChild(valueContent);
+    } else {
+      valueEl.textContent = valueContent;
+    }
+    row.append(labelEl, valueEl);
+    return row;
+  }
+
+  function buildMeetingDetailsPopover(meeting) {
+    const popover = buildElement("div", "meet-popover meet-popover--details");
+    const subject = meeting.subject || "Без темы";
+    const timeLabel =
+      formatDateTimeRangeLocal(meeting.startUtc, meeting.endUtc, timezoneOffsetMin) || "—";
+
+    const postLink = meeting.postLink?.trim();
+    const postLinkValue = postLink
+      ? (() => {
+          const link = document.createElement("a");
+          link.href = postLink;
+          link.textContent = postLink;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.className = "meet-details__link";
+          return link;
+        })()
+      : "Нет ссылки";
+
+    const participants = resolveParticipantsList(meeting);
+    const participantsValue = (() => {
+      if (!participants.length) {
+        return "Нет участников";
+      }
+      const list = buildElement("ul", "meet-details__list");
+      for (const participant of participants) {
+        list.appendChild(buildElement("li", "", participant.label));
+      }
+      return list;
+    })();
+
+    const taskId = Number(meeting.id);
+    const taskLinkValue = Number.isFinite(taskId)
+      ? (() => {
+          const link = document.createElement("a");
+          link.href = `https://pyrus.com/t#id${taskId}`;
+          link.textContent = `#${taskId}`;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.className = "meet-details__link";
+          return link;
+        })()
+      : "Нет ссылки";
+
+    popover.append(
+      buildDetailsRow("Тема", subject),
+      buildDetailsRow("Дата/время", timeLabel),
+      buildDetailsRow("Ссылка на встречу", postLinkValue),
+      buildDetailsRow("Участники", participantsValue),
+      buildDetailsRow("Ссылка на задачу в Pyrus", taskLinkValue)
+    );
+    return popover;
+  }
+
+  function openMeetingDetailsPopover(meeting, anchorEl) {
+    if (!meeting || !anchorEl) return;
+    closePopovers();
+    const popover = buildMeetingDetailsPopover(meeting);
+    openPopover({ anchorRect: anchorEl.getBoundingClientRect(), contentEl: popover });
   }
 
   async function ensureCalendarMap(start, end) {
@@ -534,6 +706,9 @@ export function createMeetView(ctx) {
     }
     formatTitle();
     updateModeButtons();
+    if (state.mode === "days28" || state.mode === "list") {
+      hideDayBar();
+    }
 
     const { start, end } = getRangeForMode(state.mode, state.anchorDate);
     try {
@@ -548,14 +723,19 @@ export function createMeetView(ctx) {
 
       state.hasLoaded = true;
       if (state.mode === "day") {
+        renderDayBar({ start, daysCount: 1, dayTypeMap });
         renderDayView({ start, meetingsByDate, dayTypeMap });
       } else if (state.mode === "days4") {
+        renderDayBar({ start, daysCount: 4, dayTypeMap });
         renderMultiDayView({ start, daysCount: 4, meetingsByDate, dayTypeMap });
       } else if (state.mode === "days7") {
+        renderDayBar({ start, daysCount: 7, dayTypeMap });
         renderMultiDayView({ start, daysCount: 7, meetingsByDate, dayTypeMap });
       } else if (state.mode === "days28") {
+        hideDayBar();
         renderMonthGrid({ start, end, meetingsByDate, dayTypeMap });
       } else {
+        hideDayBar();
         renderListView({ start, end, meetingsByDate, dayTypeMap });
       }
     } catch (error) {
