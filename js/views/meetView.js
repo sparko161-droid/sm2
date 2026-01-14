@@ -100,12 +100,16 @@ export function createMeetView(ctx) {
   nextButton.type = "button";
   const modeGroup = buildElement("div", "meet-toolbar__modes");
   const dayBar = buildElement("div", "meet-daybar is-hidden");
+  const hscrollHeader = buildElement("div", "meet-hscroll meet-hscroll__header");
   const scroll = buildElement("div", "meet-scroll");
+  const hscrollBody = buildElement("div", "meet-hscroll meet-hscroll__body");
   const content = buildElement("div", "meet-content");
   toolbar.append(employeeButton, titleEl, controls);
   controls.append(todayButton, prevButton, nextButton, modeGroup);
-  sticky.append(toolbar, dayBar);
-  scroll.appendChild(content);
+  hscrollHeader.appendChild(dayBar);
+  sticky.append(toolbar, hscrollHeader);
+  hscrollBody.appendChild(content);
+  scroll.appendChild(hscrollBody);
   root.append(sticky, scroll);
 
   const state = {
@@ -268,9 +272,14 @@ export function createMeetView(ctx) {
 
   function applyEmployeeFilter(meetings) {
     if (!state.selectedEmployeeId) return meetings;
+    const selectedId = Number(state.selectedEmployeeId);
+    const isMe = state.userId != null && selectedId === state.userId;
     return meetings.filter((meeting) => {
       const userIds = meeting.participantsUsers || meeting.participants?.userIds || [];
-      return userIds.includes(Number(state.selectedEmployeeId));
+      if (userIds.includes(selectedId)) return true;
+      if (!isMe || !state.roleIds.length) return false;
+      const roleIds = meeting.participants?.roleIds || [];
+      return roleIds.some((roleId) => state.roleIds.includes(Number(roleId)));
     });
   }
 
@@ -419,14 +428,16 @@ export function createMeetView(ctx) {
 
   function renderDayView({ start, meetingsByDate, dayTypeMap }) {
     content.innerHTML = "";
-    const wrapper = buildElement("div", "meet-day");
-    wrapper.appendChild(renderDayColumn(start, meetingsByDate, dayTypeMap, { showLabel: false }));
-    content.appendChild(wrapper);
+    const grid = buildElement("div", "meet-grid");
+    grid.style.setProperty("--meet-days-count", "1");
+    grid.appendChild(renderDayColumn(start, meetingsByDate, dayTypeMap, { showLabel: false }));
+    content.appendChild(grid);
   }
 
   function renderMultiDayView({ start, daysCount, meetingsByDate, dayTypeMap }) {
     content.innerHTML = "";
     const grid = buildElement("div", "meet-grid");
+    grid.style.setProperty("--meet-days-count", String(daysCount));
     for (let i = 0; i < daysCount; i += 1) {
       const dayDate = addDays(start, i);
       grid.appendChild(renderDayColumn(dayDate, meetingsByDate, dayTypeMap, { showLabel: false }));
@@ -1142,6 +1153,18 @@ export function createMeetView(ctx) {
   });
 
   content.addEventListener("click", handleContentClick);
+
+  let syncingScroll = false;
+  const syncScroll = (source, target) => {
+    if (syncingScroll) return;
+    syncingScroll = true;
+    target.scrollLeft = source.scrollLeft;
+    requestAnimationFrame(() => {
+      syncingScroll = false;
+    });
+  };
+  hscrollBody.addEventListener("scroll", () => syncScroll(hscrollBody, hscrollHeader));
+  hscrollHeader.addEventListener("scroll", () => syncScroll(hscrollHeader, hscrollBody));
 
   let mounted = false;
 

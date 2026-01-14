@@ -2272,6 +2272,7 @@ body.line-tabs-open{
   flex-direction: column;
   gap: 16px;
   padding: 20px 24px 32px;
+  --meet-day-min-width: 220px;
 }
 
 .meet-sticky {
@@ -2287,6 +2288,20 @@ body.line-tabs-open{
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.meet-hscroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+}
+
+.meet-hscroll__header {
+  scrollbar-width: none;
+}
+
+.meet-hscroll__header::-webkit-scrollbar {
+  height: 0;
 }
 
 .meet-toolbar {
@@ -2365,7 +2380,9 @@ body.line-tabs-open{
   display: grid;
   gap: 12px;
   margin-top: 12px;
-  grid-template-columns: repeat(var(--meet-days-count, 1), minmax(220px, 1fr));
+  grid-template-columns: repeat(var(--meet-days-count, 1), minmax(var(--meet-day-min-width), 1fr));
+  min-width: 100%;
+  width: max-content;
 }
 
 .meet-daybar.is-hidden {
@@ -2461,8 +2478,10 @@ body.line-tabs-open{
 
 .meet-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(var(--meet-days-count, 1), minmax(var(--meet-day-min-width), 1fr));
   gap: 12px;
+  min-width: 100%;
+  width: max-content;
 }
 
 .meet-grid__column {
@@ -2911,5 +2930,88 @@ body.line-tabs-open{
 
   .meet-toolbar__controls {
     justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .meet-view {
+    padding: 16px;
+    --meet-day-min-width: 180px;
+  }
+
+  .meet-toolbar {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+
+  .meet-toolbar__title {
+    font-size: 16px;
+  }
+
+  .meet-toolbar__button,
+  .meet-toolbar__icon,
+  .meet-toolbar__mode {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .meet-daybar__item {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .meet-grid__column {
+    border-radius: 14px;
+  }
+
+  .meet-grid__body {
+    grid-template-columns: 48px 1fr;
+    padding: 0 8px 10px;
+  }
+
+  .meet-time-grid__hour {
+    font-size: 11px;
+    padding-right: 6px;
+  }
+
+  .meet-card {
+    padding: 8px 10px;
+  }
+
+  .meet-month {
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+  }
+
+  .meet-month__day {
+    padding: 10px;
+    min-height: 88px;
+  }
+}
+
+@media (max-width: 480px) {
+  .meet-view {
+    padding: 12px;
+    --meet-day-min-width: 160px;
+  }
+
+  .meet-toolbar {
+    padding: 8px 10px;
+  }
+
+  .meet-toolbar__controls {
+    gap: 6px;
+  }
+
+  .meet-toolbar__modes {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .meet-month {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+
+  .meet-month__day {
+    min-height: 80px;
   }
 }
