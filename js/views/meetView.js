@@ -1,3 +1,14 @@
+import {
+  addDays,
+  addMinutesLocal,
+  computeDurationMinutes,
+  convertLocalRangeToUtcWithMeta,
+  convertUtcStartToLocalRange,
+  dateKey,
+  parseTimeToMinutes,
+  startOfDay,
+} from "../utils/dateTime.js";
+
 const DEFAULT_MODE = "day";
 const MODES = ["day", "days4", "days7", "days28", "list"];
 const HOUR_SLOTS = Array.from({ length: 24 }, (_, i) => i);
@@ -9,16 +20,6 @@ const MODE_LABELS = {
   days28: "28 дней",
   list: "Список",
 };
-
-function startOfDay(date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function addDays(date, count) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + count);
-  return next;
-}
 
 function startOfWeek(date) {
   const day = date.getDay();
@@ -40,111 +41,6 @@ function formatRangeTitle(start, end) {
   const startLabel = formatDateLabel(start, { day: "numeric", month: "short" });
   const endLabel = formatDateLabel(end, { day: "numeric", month: "short", year: "numeric" });
   return `${startLabel}–${endLabel}`;
-}
-
-function dateKey(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function addMinutesLocal(baseMinutes, delta) {
-  let total = baseMinutes + delta;
-  let dayShift = 0;
-  while (total < 0) {
-    total += 24 * 60;
-    dayShift -= 1;
-  }
-  while (total >= 24 * 60) {
-    total -= 24 * 60;
-    dayShift += 1;
-  }
-  const hh = String(Math.floor(total / 60)).padStart(2, "0");
-  const mm = String(total % 60).padStart(2, "0");
-  return { time: `${hh}:${mm}`, dayShift };
-}
-
-function parseTimeToMinutes(hhmm) {
-  if (!hhmm || typeof hhmm !== "string") return null;
-  const [hh, mm] = hhmm.split(":").map((part) => Number(part));
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
-  return hh * 60 + mm;
-}
-
-function computeDurationMinutes(startLocal, endLocal) {
-  const start = parseTimeToMinutes(startLocal);
-  const end = parseTimeToMinutes(endLocal);
-  if (start == null || end == null) return null;
-  let diff = end - start;
-  if (diff <= 0) diff += 24 * 60;
-  return diff;
-}
-
-function convertUtcStartToLocalRange(utcIsoString, durationMinutes, timezoneOffsetMin) {
-  if (!utcIsoString || typeof utcIsoString !== "string") return null;
-  const startUtc = new Date(utcIsoString);
-  if (Number.isNaN(startUtc.getTime())) return null;
-
-  const startLocalMs = startUtc.getTime() + timezoneOffsetMin * 60 * 1000;
-  const startLocalDate = new Date(startLocalMs);
-
-  const startHH = String(startLocalDate.getUTCHours()).padStart(2, "0");
-  const startMM = String(startLocalDate.getUTCMinutes()).padStart(2, "0");
-  const startLocal = `${startHH}:${startMM}`;
-
-  const startMinutes = startLocalDate.getUTCHours() * 60 + startLocalDate.getUTCMinutes();
-  const { time: endLocal, dayShift } = addMinutesLocal(startMinutes, durationMinutes || 0);
-
-  const baseDate = new Date(
-    Date.UTC(
-      startLocalDate.getUTCFullYear(),
-      startLocalDate.getUTCMonth(),
-      startLocalDate.getUTCDate()
-    )
-  );
-  baseDate.setUTCDate(baseDate.getUTCDate() + dayShift);
-  const y = baseDate.getUTCFullYear();
-  const m = String(baseDate.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(baseDate.getUTCDate()).padStart(2, "0");
-
-  return {
-    localDateKey: `${y}-${m}-${d}`,
-    startLocal,
-    endLocal,
-    startMinutes,
-  };
-}
-
-function convertLocalRangeToUtcWithMeta(year, monthIndex, day, startLocal, endLocal, offsetMin) {
-  const durationMinutes = computeDurationMinutes(startLocal, endLocal);
-  if (durationMinutes == null) return null;
-
-  const y = Number(year);
-  const m = Number(monthIndex);
-  const d = Number(day);
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-
-  const startMin = parseTimeToMinutes(startLocal);
-  if (startMin == null) return null;
-  const hhNum = Math.floor(startMin / 60);
-  const mmNum = startMin % 60;
-  const offsetMs = offsetMin * 60 * 1000;
-  const baseUtcMs = Date.UTC(y, m, d, hhNum, mmNum);
-  if (!Number.isFinite(baseUtcMs)) return null;
-
-  const startUtcMs = baseUtcMs - offsetMs;
-  const endUtcMs = startUtcMs + durationMinutes * 60 * 1000;
-
-  const startDate = new Date(startUtcMs);
-  const endDate = new Date(endUtcMs);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
-
-  return {
-    durationMinutes,
-    startUtcIso: startDate.toISOString(),
-    endUtcIso: endDate.toISOString(),
-  };
 }
 
 function buildElement(tag, className, text) {
@@ -215,6 +111,7 @@ export function createMeetView(ctx) {
     userId: null,
     roleIds: [],
     renderToken: 0,
+    hasLoaded: false,
     members: [],
     memberMap: new Map(),
     employeePopoverOpen: false,
@@ -322,6 +219,15 @@ export function createMeetView(ctx) {
     content.appendChild(skeleton);
   }
 
+  function showLoading() {
+    content.innerHTML = "";
+    const wrapper = buildElement("div", "meet-loading");
+    const spinner = buildElement("div", "meet-loading__spinner");
+    const text = buildElement("div", "meet-loading__text", "Загрузка встреч...");
+    wrapper.append(spinner, text);
+    content.appendChild(wrapper);
+  }
+
   function showError(message, onRetry) {
     content.innerHTML = "";
     const wrapper = buildElement("div", "meet-error");
@@ -340,7 +246,8 @@ export function createMeetView(ctx) {
       const meta = convertUtcStartToLocalRange(
         meeting.startUtc,
         meeting.durationMin,
-        timezoneOffsetMin
+        timezoneOffsetMin,
+        { adjustDayByDuration: true }
       );
       if (!meta) continue;
       const list = map.get(meta.localDateKey) || [];
@@ -564,7 +471,13 @@ export function createMeetView(ctx) {
       return;
     }
     const token = ++state.renderToken;
-    showSkeleton();
+    const cached = meetingsService.getCachedMeetings?.() || [];
+    const hasCached = Array.isArray(cached) && cached.length > 0;
+    if (!state.hasLoaded && !hasCached) {
+      showLoading();
+    } else {
+      showSkeleton();
+    }
     formatTitle();
     updateModeButtons();
 
@@ -579,6 +492,7 @@ export function createMeetView(ctx) {
       const filtered = applyEmployeeFilter(meetings);
       const meetingsByDate = getMeetingsByDate(filtered);
 
+      state.hasLoaded = true;
       if (state.mode === "day") {
         renderDayView({ start, meetingsByDate, dayTypeMap });
       } else if (state.mode === "days4") {
@@ -685,6 +599,31 @@ export function createMeetView(ctx) {
       return { type: "user", id: Number(member.id), title: title || String(member.id) };
     });
     return [...users, ...roles];
+  }
+
+  function buildCreateBlockedPopover() {
+    const popover = buildElement("div", "meet-popover meet-popover--blocked");
+    const title = buildElement("div", "meet-form__title", "Создание недоступно");
+    const text = buildElement(
+      "div",
+      "meet-blocked__text",
+      "Создание встреч доступно только в режиме «Сотрудник: Я»"
+    );
+    popover.append(title, text);
+
+    if (state.userId) {
+      const action = buildElement("button", "meet-toolbar__button is-primary", "Переключиться на «Я»");
+      action.type = "button";
+      action.addEventListener("click", () => {
+        state.selectedEmployeeId = state.userId;
+        updateEmployeeButtonLabel();
+        closePopovers();
+        renderMeetings();
+      });
+      popover.appendChild(action);
+    }
+
+    return popover;
   }
 
   function buildMeetingPopover({ date, time }) {
@@ -896,6 +835,11 @@ export function createMeetView(ctx) {
       const time = slot.dataset.time;
       if (!date || !time) return;
       closePopovers();
+      if (!state.userId || state.selectedEmployeeId !== state.userId) {
+        const blockedPopover = buildCreateBlockedPopover();
+        openPopover(slot, blockedPopover);
+        return;
+      }
       const popover = buildMeetingPopover({ date, time });
       openPopover(slot, popover);
       return;

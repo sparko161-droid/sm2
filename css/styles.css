@@ -2365,6 +2365,37 @@ body.line-tabs-open{
   animation: meet-skeleton 1.4s ease infinite;
 }
 
+.meet-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+}
+
+.meet-loading__spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  animation: meet-spin 1s linear infinite;
+}
+
+.meet-loading__text {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+@keyframes meet-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes meet-skeleton {
   0% {
     background-position: 0% 50%;
@@ -2609,6 +2640,18 @@ body.line-tabs-open{
 
 .meet-popover--form {
   width: min(320px, 90vw);
+}
+
+.meet-popover--blocked {
+  width: min(280px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meet-blocked__text {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .meet-form__title {
