@@ -2447,44 +2447,91 @@ body.line-tabs-open{
   background: var(--bg-alt);
 }
 
-.meet-grid__slots {
+.meet-grid__body {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 0;
+  padding: 0 12px 12px;
+}
+
+.meet-time-grid__hours {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 0;
+  padding-top: 8px;
 }
 
-.meet-slot {
-  border: 1px dashed var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.meet-slot--busy {
-  border-style: solid;
-  cursor: default;
-}
-
-.meet-slot__time {
+.meet-time-grid__hour {
+  height: 60px;
   font-size: 12px;
   color: var(--text-muted);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-right: 8px;
 }
 
-.meet-slot__empty {
-  font-size: 13px;
-  color: var(--text-muted);
+.meet-time-grid {
+  position: relative;
+  height: 1440px;
+  margin-top: 8px;
+  border-left: 1px solid var(--border);
 }
 
-.meet-slot__items {
+.meet-time-grid__segments {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+
+.meet-time-grid__segment {
+  height: 15px;
+  border-top: 1px solid var(--border);
+  position: relative;
+  cursor: pointer;
+}
+
+.meet-time-grid__segment::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: transparent;
+}
+
+.meet-time-grid__segment[data-hour] {
+  border-top-color: var(--border);
+}
+
+.meet-time-grid__segment.is-busy {
+  cursor: not-allowed;
+}
+
+.meet-time-grid__segment:hover:not(.is-busy) {
+  background: rgba(126, 156, 255, 0.12);
+}
+
+.meet-time-grid__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.meet-time-selection {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(126, 156, 255, 0.2);
+  border: 1px solid rgba(126, 156, 255, 0.5);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.meet-time-selection.is-hidden {
+  display: none;
 }
 
 .meet-card {
@@ -2495,6 +2542,14 @@ body.line-tabs-open{
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.meet-card--overlay {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  pointer-events: auto;
+  box-shadow: var(--shadow-soft);
 }
 
 .meet-card--busy {
@@ -2587,13 +2642,6 @@ body.line-tabs-open{
 
 .meet-day--workday {
   background: var(--calendar-workday-bg);
-}
-
-.meet-popover-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 20;
 }
 
 .meet-popover {
@@ -2706,6 +2754,17 @@ body.line-tabs-open{
   color: var(--danger);
   font-size: 12px;
   margin-top: 8px;
+}
+
+.global-popover-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.global-popover-item {
+  pointer-events: auto;
 }
 
 @media (max-width: 900px) {
