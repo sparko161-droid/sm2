@@ -13,6 +13,7 @@ import { createMeetingsService } from "./services/meetingsService.js";
 import { createAccessService } from "./services/accessService.js";
 import { createAuthService } from "./services/authService.js";
 import { createUserProfileService } from "./services/userProfileService.js";
+import { createTimezoneService } from "./services/timezoneService.js";
 import * as requestCache from "./cache/requestCache.js";
 import { subscribe, navigate } from "./router/hashRouter.js";
 import { createAppShell } from "./layout/appShell.js";
@@ -65,6 +66,8 @@ const authService = createAuthService({
   navigate,
   graphClient,
 });
+const timezoneService = createTimezoneService({ config });
+timezoneService.init();
 
 const services = {
   graphClient,
@@ -77,6 +80,7 @@ const services = {
   prodCalendarService,
   accessService,
   authService,
+  timezoneService,
 };
 
 const ctx = {
@@ -157,6 +161,19 @@ const header = createHeader({
     userPopover.open(anchorEl);
   },
   canAccessRoute: accessService.canAccessRoute,
+  getTimezoneLabelShort: () => timezoneService.getLabelShort(),
+  listTimezoneZones: () => timezoneService.listZones(),
+  onTimezoneChange: (zoneId) => {
+    timezoneService.setZoneById(zoneId);
+  }
+});
+
+timezoneService.subscribe(() => {
+  header.updateTimezoneLabel();
+  if (currentView) {
+    currentView.unmount?.();
+    currentView.mount?.();
+  }
 });
 headerRoot.appendChild(header.el);
 

@@ -136,12 +136,12 @@ export function convertUtcStartToLocalRange(
   const adjustDayByDuration = Boolean(options.adjustDayByDuration);
   const baseDate = adjustDayByDuration
     ? new Date(
-        Date.UTC(
-          startLocalDate.getUTCFullYear(),
-          startLocalDate.getUTCMonth(),
-          startLocalDate.getUTCDate()
-        )
+      Date.UTC(
+        startLocalDate.getUTCFullYear(),
+        startLocalDate.getUTCMonth(),
+        startLocalDate.getUTCDate()
       )
+    )
     : startLocalDate;
   if (adjustDayByDuration) {
     baseDate.setUTCDate(baseDate.getUTCDate() + dayShift);
@@ -205,4 +205,9 @@ export function formatDateTimeRangeLocal(startUtc, endUtc, timezoneOffsetMin) {
   const endTime = endInfo ? formatTimeParts(endInfo.date, endInfo.useUtc) : startTime;
   const dateLabel = formatDateParts(startInfo.date, startInfo.useUtc);
   return `${dateLabel} ${startTime}–${endTime}`;
+}
+export function formatDateTimeRangeLocalWithMskLabel(startUtc, endUtc, timezoneOffsetMin, labelLong) {
+  const range = formatDateTimeRangeLocal(startUtc, endUtc, timezoneOffsetMin);
+  if (!range) return "";
+  return labelLong ? `${range} ${labelLong}` : range;
 }

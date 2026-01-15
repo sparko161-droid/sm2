@@ -52,7 +52,21 @@ const DEFAULT_CONFIG = {
     gantt: [],
   },
   timezone: {
-    localOffsetMin: 4 * 60, // GMT+4
+    localOffsetMin: 4 * 60, // legacy fallback
+    storageKey: "sm2_timezone",
+    zones: [
+      { id: "kaliningrad", city: "Калининград", utcOffsetMin: 120 },
+      { id: "moscow", city: "Москва", utcOffsetMin: 180 },
+      { id: "samara", city: "Самара", utcOffsetMin: 240 },
+      { id: "yekaterinburg", city: "Екатеринбург", utcOffsetMin: 300 },
+      { id: "omsk", city: "Омск", utcOffsetMin: 360 },
+      { id: "krasnoyarsk", city: "Красноярск", utcOffsetMin: 420 },
+      { id: "irkutsk", city: "Иркутск", utcOffsetMin: 480 },
+      { id: "yakutsk", city: "Якутск", utcOffsetMin: 540 },
+      { id: "vladivostok", city: "Владивосток", utcOffsetMin: 600 },
+      { id: "magadan", city: "Магадан", utcOffsetMin: 660 },
+      { id: "kamchatka", city: "Камчатка", utcOffsetMin: 720 },
+    ],
   },
   storage: {
     keys: {

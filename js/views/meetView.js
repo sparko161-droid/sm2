@@ -6,6 +6,7 @@ import {
   convertUtcStartToLocalRange,
   dateKey,
   formatDateTimeRangeLocal,
+  formatDateTimeRangeLocalWithMskLabel,
   formatTimeRangeLocal,
   parseTimeToMinutes,
   startOfDay,
@@ -86,9 +87,10 @@ export function createMeetView(ctx) {
   const authService = services.authService;
   const graphClient = services.graphClient;
   const userProfileService = services.userProfileService;
-  const timezoneOffsetMin =
-    ctx?.getConfigValue?.("timezone.localOffsetMin", { defaultValue: 4 * 60, required: true }) ??
-    4 * 60;
+  const timezoneService = services.timezoneService;
+
+  const getOffsetMin = () => timezoneService?.getOffsetMin() ?? 180;
+  const getLabelLong = () => timezoneService?.getLabelLong() ?? "";
 
   const root = buildElement("section", "meet-view");
   const sticky = buildElement("div", "meet-sticky");
@@ -341,7 +343,7 @@ export function createMeetView(ctx) {
       const meta = convertUtcStartToLocalRange(
         meeting.startUtc,
         meeting.durationMin,
-        timezoneOffsetMin,
+        getOffsetMin(),
         { adjustDayByDuration: true }
       );
       if (!meta) continue;
@@ -380,7 +382,7 @@ export function createMeetView(ctx) {
     card.classList.toggle("meet-card--busy", !allowed);
 
     const formattedTime =
-      formatTimeRangeLocal(meeting.startUtc, meeting.endUtc, timezoneOffsetMin) ||
+      formatTimeRangeLocal(meeting.startUtc, meeting.endUtc, getOffsetMin()) ||
       `${meta.startLocal}–${meta.endLocal}`;
     const time = buildElement("div", "meet-card__time", formattedTime);
     const title = buildElement(
@@ -712,7 +714,7 @@ export function createMeetView(ctx) {
     const row = buildElement("div", "meet-month__meeting");
     row.classList.toggle("meet-month__meeting--busy", !allowed);
     const formattedTime =
-      formatTimeRangeLocal(meeting.startUtc, meeting.endUtc, timezoneOffsetMin) ||
+      formatTimeRangeLocal(meeting.startUtc, meeting.endUtc, getOffsetMin()) ||
       `${meta.startLocal}–${meta.endLocal}`;
     const time = buildElement("div", "meet-month__meeting-time", formattedTime);
     const title = buildElement(
@@ -858,7 +860,7 @@ export function createMeetView(ctx) {
     const popover = buildElement("div", "meet-popover meet-popover--details");
     const subject = meeting.subject || "Без темы";
     const timeLabel =
-      formatDateTimeRangeLocal(meeting.startUtc, meeting.endUtc, timezoneOffsetMin) || "—";
+      formatDateTimeRangeLocalWithMskLabel(meeting.startUtc, meeting.endUtc, getOffsetMin(), getLabelLong()) || "—";
 
     const postLink = meeting.postLink?.trim();
     const postLinkValue = postLink
@@ -911,7 +913,7 @@ export function createMeetView(ctx) {
   function buildBusyMeetingDetailsPopover(meeting) {
     const popover = buildElement("div", "meet-popover meet-popover--details");
     const timeLabel =
-      formatDateTimeRangeLocal(meeting.startUtc, meeting.endUtc, timezoneOffsetMin) || "—";
+      formatDateTimeRangeLocalWithMskLabel(meeting.startUtc, meeting.endUtc, getOffsetMin(), getLabelLong()) || "—";
 
     const participants = resolveParticipantsList(meeting);
     const participantsValue = (() => {
@@ -1380,7 +1382,7 @@ export function createMeetView(ctx) {
           day,
           startInput.value,
           endInput.value || "",
-          timezoneOffsetMin
+          getOffsetMin()
         );
         if (!meta) {
           throw new Error("Некорректные дата или время");

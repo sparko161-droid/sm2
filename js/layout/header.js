@@ -1,3 +1,5 @@
+import { openPopover } from "../ui/popoverEngine.js";
+
 const NAV_ITEMS = [
   { route: "work", label: "График работы" },
   { route: "meet", label: "Встречи" },
@@ -11,6 +13,9 @@ export function createHeader({
   onLogout,
   onOpenUserPopover,
   canAccessRoute,
+  getTimezoneLabelShort,
+  listTimezoneZones,
+  onTimezoneChange,
 } = {}) {
   const header = document.createElement("header");
   header.className = "app-header";
@@ -45,6 +50,50 @@ export function createHeader({
 
   const rightGroup = document.createElement("div");
   rightGroup.className = "app-header__actions";
+
+  const timezoneButton = document.createElement("button");
+  timezoneButton.type = "button";
+  timezoneButton.className = "btn toggle";
+  timezoneButton.addEventListener("click", () => {
+    openTimezonePopover();
+  });
+
+  function openTimezonePopover() {
+    const popover = document.createElement("div");
+    popover.className = "meet-popover";
+
+    const zones = listTimezoneZones ? listTimezoneZones() : [];
+    zones.forEach((zone) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "meet-popover__item";
+
+      const mskOffset = 180;
+      const deltaHours = (zone.utcOffsetMin - mskOffset) / 60;
+      const label = deltaHours === 0 ? "МСК" : (deltaHours > 0 ? `МСК+${deltaHours}` : `МСК${deltaHours}`);
+
+      btn.textContent = `${label} — ${zone.city}`;
+      btn.addEventListener("click", () => {
+        if (onTimezoneChange) {
+          onTimezoneChange(zone.id);
+        }
+      });
+      popover.appendChild(btn);
+    });
+
+    openPopover({
+      id: "header_timezone",
+      anchorRect: timezoneButton.getBoundingClientRect(),
+      contentEl: popover,
+    });
+  }
+
+  function updateTimezoneLabel() {
+    if (getTimezoneLabelShort) {
+      timezoneButton.textContent = `📍 ${getTimezoneLabelShort()}`;
+    }
+  }
+  updateTimezoneLabel();
 
   const themeButton = document.createElement("button");
   themeButton.type = "button";
@@ -119,6 +168,7 @@ export function createHeader({
   userBlock.appendChild(userText);
   userBlock.appendChild(avatarButton);
 
+  rightGroup.appendChild(timezoneButton);
   rightGroup.appendChild(themeButton);
   rightGroup.appendChild(logoutButton);
   rightGroup.appendChild(userBlock);
@@ -172,5 +222,5 @@ export function createHeader({
 
   updateThemeLabel();
 
-  return { el: header, setActive, setUserSummary, updateThemeLabel };
+  return { el: header, setActive, setUserSummary, updateThemeLabel, updateTimezoneLabel };
 }

@@ -32,8 +32,9 @@ let vacationsService;
 let scheduleService;
 let prodCalendarService;
 let authService;
+let timezoneService;
 let router;
-let TIMEZONE_OFFSET_MIN = 4 * 60;
+// TIMEZONE_OFFSET_MIN removed
 
 
 
@@ -92,11 +93,12 @@ function setupContext(ctx) {
   scheduleService = services.scheduleService;
   prodCalendarService = services.prodCalendarService;
   authService = services.authService;
+  timezoneService = services.timezoneService;
   router = ctx.router;
 
-  TIMEZONE_OFFSET_MIN = getConfigValue
-    ? getConfigValue("timezone.localOffsetMin", { defaultValue: 4 * 60, required: true })
-    : 4 * 60;
+  // Use dynamic getters instead of static content
+  // TIMEZONE_OFFSET_MIN removed in favor of direct service access
+
 
   LINE_KEYS_IN_UI_ORDER = config?.ui?.lines?.order || [];
   LINE_LABELS = config?.ui?.lines?.labels || {};
@@ -520,7 +522,7 @@ function convertLocalRangeToUtc(day, startLocal, endLocal) {
     day,
     startLocal,
     endLocal,
-    TIMEZONE_OFFSET_MIN
+    timezoneService ? timezoneService.getOffsetMin() : 180
   );
 }
 
@@ -2047,7 +2049,7 @@ function handleShiftCellClick({ line, row, day, dayIndex, shift, cellEl }) {
       day,
       normStartLocal,
       normEndLocal,
-      TIMEZONE_OFFSET_MIN
+      timezoneService ? timezoneService.getOffsetMin() : 180
     );
     if (!conversion) {
       alert("Некорректное время смены. Проверьте формат (например 08:00–20:00).");
@@ -2445,11 +2447,11 @@ async function reloadScheduleForCurrentMonth() {
     const range = convertUtcStartToLocalRange(
       startUtcIso,
       rawDuration,
-      TIMEZONE_OFFSET_MIN
+      timezoneService ? timezoneService.getOffsetMin() : 180
     );
     if (!range) continue;
 
-    const { localDateKey, startLocal, endLocal } = range;
+    const { localDateKey, startLocal, endLocal, startMinutes } = range;
     const [yStr, mStr, dStr] = localDateKey.split("-");
     const y = Number(yStr);
     const m = Number(mStr) - 1;
@@ -2502,9 +2504,13 @@ async function reloadScheduleForCurrentMonth() {
         ? moneyField.value
         : Number(moneyField.value || 0);
 
+    const endMinutes = (startMinutes + rawDuration) % (24 * 60);
+
     const entry = {
       startLocal,
       endLocal,
+      startMinutes,
+      endMinutes,
       amount,
       templateId: shiftItemId,
       taskId: task.id,
@@ -3176,7 +3182,7 @@ function openShiftPopoverReadOnly(context, anchorEl) {
     <div class="shift-popover-body">
       ${shift ? `
         <div class="shift-popover-section">
-          <div class="shift-popover-section-title">Информация о смене</div>
+          <div class="shift-popover-section-title">Информация о смене (${timezoneService ? timezoneService.getLabelShort() : "МСК"})</div>
           
           <div class="field-row">
             <label>Начало:</label>
@@ -3192,6 +3198,9 @@ function openShiftPopoverReadOnly(context, anchorEl) {
             <label>Сумма:</label>
             <div>${shift.amount ? shift.amount.toLocaleString('ru-RU') + ' ₽' : "—"}</div>
           </div>
+        </div>
+        <div class="shift-popover-note">
+          Время отображается ${timezoneService ? timezoneService.getLabelLong() : "по МСК"}.
         </div>
       ` : `
         <div class="shift-popover-note">
@@ -3297,6 +3306,7 @@ function openShiftPopover(context, anchorEl) {
         </div>
 
         <div class="shift-popover-note">
+          Время указывается ${timezoneService ? timezoneService.getLabelLong() : "по МСК"}. <br>
           Изменения сохраняются в локальном кэше в браузере и не отправляются в Pyrus.
         </div>
       </div>
@@ -3403,7 +3413,7 @@ function openShiftPopover(context, anchorEl) {
         day,
         start,
         end,
-        TIMEZONE_OFFSET_MIN
+        timezoneService ? timezoneService.getOffsetMin() : 180
       );
       if (!conversion) {
         alert("Некорректное время смены. Проверьте формат (например 08:00–20:00).");
@@ -3530,9 +3540,23 @@ export function createWorkView(ctx) {
           start();
         }
       }
+      // Re-render schedule when timezone changes
+      if (timezoneService) {
+        this.unsubscribeTimezone = timezoneService.subscribe(() => {
+          if (state.monthMeta && state.monthMeta.year) {
+            // Invalidate cache and reload to re-calculate local times
+            scheduleService.invalidateMonthSchedule(getMonthKey(state.monthMeta.year, state.monthMeta.monthIndex));
+            reloadScheduleForCurrentMonth().catch(console.error);
+          }
+        });
+      }
     },
     unmount() {
       el.classList.add("hidden");
+      if (this.unsubscribeTimezone) {
+        this.unsubscribeTimezone();
+        this.unsubscribeTimezone = null;
+      }
     },
     initTheme() {
       initTheme();
