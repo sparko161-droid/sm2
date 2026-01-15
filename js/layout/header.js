@@ -168,9 +168,15 @@ export function createHeader({
   userBlock.appendChild(userText);
   userBlock.appendChild(avatarButton);
 
-  rightGroup.appendChild(timezoneButton);
-  rightGroup.appendChild(themeButton);
-  rightGroup.appendChild(logoutButton);
+  /* ГРУППА КНОПОК (СЛЕВА В МОБ) */
+  const buttonsGroup = document.createElement("div");
+  buttonsGroup.className = "app-header__buttons-group";
+
+  buttonsGroup.appendChild(timezoneButton);
+  buttonsGroup.appendChild(themeButton);
+  buttonsGroup.appendChild(logoutButton);
+
+  rightGroup.appendChild(buttonsGroup);
   rightGroup.appendChild(userBlock);
 
   headerContent.appendChild(nav);

@@ -279,6 +279,10 @@ body.login-active #app {
     flex-shrink: 0;
   }
 
+  .app-header__buttons-group {
+    gap: 6px;
+  }
+
   .app-header__actions {
     gap: 6px;
     flex-wrap: nowrap;
@@ -369,6 +373,12 @@ body.login-active #app {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.app-header__buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .app-header__user {
