@@ -26,6 +26,32 @@ function extractInitials(firstName, lastName) {
   return `${firstLetter}${secondLetter}`.toUpperCase();
 }
 
+function normalizeAvatarPayload(payload) {
+  if (!payload) return "";
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("data:")) return trimmed;
+    if (trimmed.startsWith("http")) return trimmed;
+    const isBase64 = /^[A-Za-z0-9+/=]+$/.test(trimmed);
+    if (isBase64) {
+      return `data:image/jpeg;base64,${trimmed}`;
+    }
+    return trimmed;
+  }
+  if (typeof payload !== "object") return "";
+
+  if (payload.url) {
+    return String(payload.url);
+  }
+
+  const base64 = payload.base64 || payload.data || payload.content || "";
+  if (!base64) return "";
+  if (String(base64).startsWith("data:")) return String(base64);
+  const contentType = payload.contentType || payload.mimeType || "image/png";
+  return `data:${contentType};base64,${base64}`;
+}
+
 function normalizeProfileData(data) {
   if (!data || typeof data !== "object") return null;
   const profile = { ...data };
@@ -48,6 +74,7 @@ function normalizeProfileData(data) {
     department_name: departmentName,
     department_id: departmentId,
     roleIds,
+    avatarUrl: data.avatarUrl || profile.avatarUrl || "",
   };
 }
 
@@ -61,8 +88,10 @@ export function createUserProfileService({ pyrusClient, cache, config } = {}) {
     Number(config?.storage?.profile?.cookieDays) ||
     Number(config?.storage?.auth?.cookieDays) ||
     0;
+  const avatarSize = Number(config?.ui?.avatarSize) || 40;
 
   let profile = null;
+  const avatarCache = new Map();
 
   function saveProfile(nextProfile) {
     profile = normalizeProfileData(nextProfile);
@@ -104,7 +133,23 @@ export function createUserProfileService({ pyrusClient, cache, config } = {}) {
     if (cache?.invalidateByPrefix) {
       cache.invalidateByPrefix("pyrus:members:detail:");
     }
-    return saveProfile(data);
+    const savedProfile = saveProfile(data);
+    if (savedProfile?.avatar_id) {
+      try {
+        const avatarUrl = await loadAvatar({
+          avatarId: savedProfile.avatar_id,
+          size: avatarSize,
+          force,
+        });
+        if (avatarUrl) {
+          savedProfile.avatarUrl = avatarUrl;
+          if (cookieDays) {
+            setCookie(storageKey, JSON.stringify(savedProfile), cookieDays);
+          }
+        }
+      } catch (_) {}
+    }
+    return savedProfile;
   }
 
   function getCachedProfile() {
@@ -122,15 +167,39 @@ export function createUserProfileService({ pyrusClient, cache, config } = {}) {
     return cached?.roleIds || [];
   }
 
+  async function loadAvatar({ avatarId, size = avatarSize, force = false } = {}) {
+    if (!avatarId) return "";
+    const key = `${avatarId}:${size}`;
+    if (!force && avatarCache.has(key)) {
+      return avatarCache.get(key);
+    }
+    const url = `https://files.pyrus.com/services/avatar/${avatarId}/${size}`;
+    const raw = await pyrusClient.pyrusRequest(url, { method: "GET" });
+    const data = unwrapPyrusData(raw);
+    const normalized = normalizeAvatarPayload(data);
+    if (!normalized) {
+      throw new Error("Avatar payload is invalid");
+    }
+    avatarCache.set(key, normalized);
+    return normalized;
+  }
+
   function clear() {
     profile = null;
     setCookie(storageKey, "", -1);
+    for (const url of avatarCache.values()) {
+      if (typeof url === "string" && url.startsWith("blob:")) {
+        URL.revokeObjectURL(url);
+      }
+    }
+    avatarCache.clear();
   }
 
   return {
     loadCurrentUserProfile,
     getCachedProfile,
     getRoleIds,
+    loadAvatar,
     clear,
   };
 }

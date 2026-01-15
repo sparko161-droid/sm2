@@ -9,6 +9,7 @@ import { createCatalogsService } from "./services/catalogsService.js";
 import { createVacationsService } from "./services/vacationsService.js";
 import { createScheduleService } from "./services/scheduleService.js";
 import { createProdCalendarService } from "./services/prodCalendarService.js";
+import { createMeetingsService } from "./services/meetingsService.js";
 import { createAccessService } from "./services/accessService.js";
 import { createAuthService } from "./services/authService.js";
 import { createUserProfileService } from "./services/userProfileService.js";
@@ -18,6 +19,8 @@ import { createAppShell } from "./layout/appShell.js";
 import { createHeader } from "./layout/header.js";
 import { mount } from "./layout/mount.js";
 import { createUserPopover } from "./ui/userPopover.js";
+import { createUserBirthdayModal } from "./ui/userBirthdayModal.js";
+import { initPopoverEngineOnce } from "./ui/popoverEngine.js";
 import { createWorkView } from "./views/workView.js";
 import { createMeetView } from "./views/meetView.js";
 import { createKpView } from "./views/kpView.js";
@@ -46,6 +49,11 @@ const scheduleService = createScheduleService({
   pyrusClient,
   formId: config.pyrus.forms.smeni,
 });
+const meetingsService = createMeetingsService({
+  graphClient,
+  cache: requestCache,
+  config,
+});
 const prodCalendarService = createProdCalendarService({ config });
 const accessService = createAccessService({ config, userProfileService });
 const authService = createAuthService({
@@ -62,6 +70,7 @@ const services = {
   catalogsService,
   vacationsService,
   scheduleService,
+  meetingsService,
   prodCalendarService,
   accessService,
   authService,
@@ -84,6 +93,7 @@ if (!appRoot) {
 
 const appShell = createAppShell({ rootEl: appRoot });
 const { headerRoot, pageRoot } = appShell;
+initPopoverEngineOnce();
 
 const workViewEl = document.getElementById("work-view");
 if (workViewEl) {
@@ -128,6 +138,7 @@ workView.initTheme?.();
 const userPopover = createUserPopover({
   getProfile: () => userProfileService.getCachedProfile(),
 });
+const birthdayModal = createUserBirthdayModal();
 
 const header = createHeader({
   onNavigate: navigate,
@@ -136,6 +147,7 @@ const header = createHeader({
   },
   onLogout: () => {
     userPopover.close?.();
+    birthdayModal.close?.();
     authService.logout?.();
   },
   onOpenUserPopover: (anchorEl) => {
@@ -157,11 +169,40 @@ function getSessionUserId() {
 
 function updateHeaderProfile(profile) {
   if (!profile) return;
+  updateHeaderSummary(profile);
+  if (isBirthdayToday(profile) && !birthdayModal.isOpen()) {
+    birthdayModal.open();
+  }
+}
+
+function updateHeaderSummary(profile) {
+  if (!profile) return;
+  if (profile.avatar_id && !profile.avatarUrl) {
+    userProfileService
+      .loadAvatar({ avatarId: profile.avatar_id })
+      .then((avatarUrl) => {
+        if (!avatarUrl) return;
+        profile.avatarUrl = avatarUrl;
+        updateHeaderSummary(profile);
+      })
+      .catch(() => {});
+  }
   header.setUserSummary({
     fullName: profile.fullName,
     position: profile.position,
     initials: profile.initials,
+    avatarUrl: profile.avatarUrl,
   });
+}
+
+function isBirthdayToday(profile) {
+  const birthDate = profile?.birth_date;
+  if (!birthDate || typeof birthDate !== "object") return false;
+  const day = Number(birthDate.day);
+  const month = Number(birthDate.month);
+  if (!day || !month) return false;
+  const now = new Date();
+  return now.getDate() === day && now.getMonth() + 1 === month;
 }
 
 function routeHasRestrictions(routeName) {
