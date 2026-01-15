@@ -8,6 +8,21 @@ function formatRoles(roles) {
   return roles.map((role) => String(role)).join(", ");
 }
 
+function formatTelegram(profile) {
+  const nickname = profile?.messenger?.nickname || profile?.skype || "";
+  const trimmed = String(nickname || "").trim();
+  if (!trimmed) return "";
+  return trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
+}
+
+function formatBirthDate(birthDate) {
+  if (!birthDate || typeof birthDate !== "object") return "";
+  const day = String(birthDate.day || "").padStart(2, "0");
+  const month = String(birthDate.month || "").padStart(2, "0");
+  if (!day || !month) return "";
+  return `${day}.${month}`;
+}
+
 export function createUserPopover({ getProfile, onClose } = {}) {
   let popoverEl = null;
   let backdropEl = null;
@@ -26,6 +41,9 @@ export function createUserPopover({ getProfile, onClose } = {}) {
       "Сотовый": profile.phoneMobile || profile.mobile_phone,
       Email: profile.email,
       Отдел: profile.department_name || profile.department?.name,
+      TG: formatTelegram(profile),
+      Локация: profile.location,
+      "День рождения": formatBirthDate(profile.birth_date),
       "ID сотрудника": profile.id,
       Roles: formatRoles(profile.roleIds || profile.roles),
     };
