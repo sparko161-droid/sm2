@@ -1325,19 +1325,20 @@ export function createMeetView(ctx) {
         // Pyrus expects the meeting range on the task root (due + duration),
         // while the due_date_time field stores only the start timestamp.
         // NOTE: duration must be a string.
+        const f = config?.pyrus?.fields?.form_meet || {};
         const payload = {
           form_id: config?.pyrus?.forms?.form_meet,
           due: meta.startUtcIso,
           duration: String(meta.durationMinutes),
           fields: [
-            { id: 1, value: subject },
-            { id: 4, value: meta.startUtcIso },
-            { id: 27, value: { id: state.userId, type: "user" } },
+            { id: f.subject, value: subject },
+            { id: f.due, value: meta.startUtcIso },
+            { id: f.responsible, value: { id: state.userId, type: "user" } },
             {
-              id: 14,
+              id: f.residentsTable,
               value: residents.map((resident, index) => ({
                 row_id: index,
-                cells: [{ id: 15, value: { id: resident.id, type: resident.type } }],
+                cells: [{ id: f.residentCell, value: { id: resident.id, type: resident.type } }],
               })),
             },
           ],

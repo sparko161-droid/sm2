@@ -146,7 +146,7 @@ function findField(fields, predicate) {
   return safeArray(fields).find((field) => field && predicate(field));
 }
 
-function normalizeRegister(raw, { logSummary = false } = {}) {
+function normalizeRegister(raw, { logSummary = false, fieldConfig = {} } = {}) {
   const { tasks, registerItems, rawTasksCount } = unwrapRegisterPayload(raw);
   const meetings = [];
 
@@ -158,7 +158,10 @@ function normalizeRegister(raw, { logSummary = false } = {}) {
     const fields = safeArray(task?.fields);
     const dueField = findField(
       fields,
-      (field) => field.type === "due_date_time" || field.code === "Due" || field.id === 4
+      (field) =>
+        field.type === "due_date_time" ||
+        field.code === fieldConfig.due ||
+        field.id === fieldConfig.due
     );
     const startUtc = dueField?.value || null;
     if (!startUtc || typeof startUtc !== "string") continue;
@@ -169,16 +172,19 @@ function normalizeRegister(raw, { logSummary = false } = {}) {
 
     const subjectField = findField(
       fields,
-      (field) => field.code === "Subject" || field.id === 1
+      (field) => field.code === fieldConfig.subject || field.id === fieldConfig.subject
     );
-    const postLinkField = findField(fields, (field) => field.code === "PostLink");
+    const postLinkField = findField(
+      fields,
+      (field) => field.code === fieldConfig.postLink || field.id === fieldConfig.postLink
+    );
     const responsibleField = findField(
       fields,
-      (field) => field.id === 27 && field.type === "person"
+      (field) => field.id === fieldConfig.responsible && field.type === "person"
     );
     const residentsField = findField(
       fields,
-      (field) => field.id === 14 && field.type === "table"
+      (field) => field.id === fieldConfig.residentsTable && field.type === "table"
     );
 
     const participants = collectParticipantIds(task, residentsField, responsibleField);
@@ -246,7 +252,10 @@ export function createMeetingsService({ graphClient, cache, config } = {}) {
         });
       }
     );
-    lastNormalized = normalizeRegister(data, { logSummary: !loggedSummary });
+    lastNormalized = normalizeRegister(data, {
+      logSummary: !loggedSummary,
+      fieldConfig: config?.pyrus?.fields?.form_meet,
+    });
     loggedSummary = true;
     return lastNormalized;
   }
