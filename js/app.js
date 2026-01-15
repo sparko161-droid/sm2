@@ -48,11 +48,13 @@ const vacationsService = createVacationsService({
 const scheduleService = createScheduleService({
   pyrusClient,
   formId: config.pyrus.forms.smeni,
+  graphClient,
 });
 const meetingsService = createMeetingsService({
   graphClient,
   cache: requestCache,
   config,
+  membersService,
 });
 const prodCalendarService = createProdCalendarService({ config });
 const accessService = createAccessService({ config, userProfileService });
@@ -61,6 +63,7 @@ const authService = createAuthService({
   userProfileService,
   requestCache,
   navigate,
+  graphClient,
 });
 
 const services = {
@@ -185,7 +188,7 @@ function updateHeaderSummary(profile) {
         profile.avatarUrl = avatarUrl;
         updateHeaderSummary(profile);
       })
-      .catch(() => {});
+      .catch(() => { });
   }
   header.setUserSummary({
     fullName: profile.fullName,

@@ -109,14 +109,30 @@ export function createMeetView(ctx) {
   const scroll = buildElement("div", "meet-scroll");
   const hscrollBody = buildElement("div", "meet-hscroll meet-hscroll__body");
   const content = buildElement("div", "meet-content");
-  toolbar.append(employeeButton, controls);
-  controls.append(todayButton, prevButton, titleEl, nextButton, modeGroup);
+
+  controls.append(todayButton, prevButton, nextButton, modeGroup);
+  toolbar.append(employeeButton, titleEl, controls);
+
   hscrollHeader.appendChild(dayBar);
-  sticky.append(toolbar, hscrollHeader);
   hscrollBody.appendChild(content);
   scroll.appendChild(hscrollBody);
+
+  sticky.append(toolbar, hscrollHeader);
   root.append(sticky, scroll);
 
+  let isSyncingHScroll = false;
+  hscrollBody.addEventListener("scroll", () => {
+    if (isSyncingHScroll) return;
+    isSyncingHScroll = true;
+    hscrollHeader.scrollLeft = hscrollBody.scrollLeft;
+    isSyncingHScroll = false;
+  });
+  hscrollHeader.addEventListener("scroll", () => {
+    if (isSyncingHScroll) return;
+    isSyncingHScroll = true;
+    hscrollBody.scrollLeft = hscrollHeader.scrollLeft;
+    isSyncingHScroll = false;
+  });
   const STORAGE_KEYS = config.storage?.keys || {};
 
   function getStoredMode() {
@@ -128,14 +144,19 @@ export function createMeetView(ctx) {
     }
   }
 
-  function getStoredEmployeeId() {
+  function getStoredEmployeeIds() {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.meetSelectedEmployee);
-      if (val === null) return null;
-      const num = Number(val);
-      return Number.isFinite(num) ? num : null;
+      if (val === null) return [];
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) {
+        return parsed.map(Number).filter(id => Number.isFinite(id));
+      }
+      // Backward compatibility: if it was a single number
+      const num = Number(parsed);
+      return Number.isFinite(num) ? [num] : [];
     } catch (_) {
-      return null;
+      return [];
     }
   }
 
@@ -145,12 +166,12 @@ export function createMeetView(ctx) {
     } catch (_) { }
   }
 
-  function saveStoredEmployeeId(id) {
+  function saveStoredEmployeeIds(ids) {
     try {
-      if (id === null) {
+      if (!Array.isArray(ids) || ids.length === 0) {
         localStorage.removeItem(STORAGE_KEYS.meetSelectedEmployee);
       } else {
-        localStorage.setItem(STORAGE_KEYS.meetSelectedEmployee, String(id));
+        localStorage.setItem(STORAGE_KEYS.meetSelectedEmployee, JSON.stringify(ids));
       }
     } catch (_) { }
   }
@@ -158,7 +179,8 @@ export function createMeetView(ctx) {
   const state = {
     mode: getStoredMode(),
     anchorDate: startOfDay(new Date()),
-    selectedEmployeeId: getStoredEmployeeId(),
+    selectedEmployeeIds: getStoredEmployeeIds(),
+    selectedEmployeeScope: { userIds: [], roleIds: [] },
     userId: null,
     roleIds: [],
     renderToken: 0,
@@ -200,16 +222,24 @@ export function createMeetView(ctx) {
 
   function updateEmployeeButtonLabel() {
     let label = "Сотрудник";
-    if (state.selectedEmployeeId === null) {
+    const ids = state.selectedEmployeeIds || [];
+    if (ids.length === 0) {
       label = "Сотрудник: Все";
-    } else if (state.selectedEmployeeId === state.userId) {
-      label = "Сотрудник: Я";
-    } else {
-      const member = state.memberMap.get(state.selectedEmployeeId);
-      if (member) {
-        const fullName = `${member.last_name || ""} ${member.first_name || ""}`.trim();
-        label = `Сотрудник: ${fullName || member.name || member.email || member.id}`;
+    } else if (ids.length === 1) {
+      const id = ids[0];
+      if (id === state.userId) {
+        label = "Сотрудник: Я";
+      } else {
+        const member = state.memberMap.get(id);
+        if (member) {
+          const fullName = `${member.last_name || ""} ${member.first_name || ""}`.trim();
+          label = `Сотрудник: ${fullName || member.name || member.email || member.id}`;
+        } else {
+          label = `Сотрудник: ID ${id}`;
+        }
       }
+    } else {
+      label = `Сотрудники (${ids.length})`;
     }
     employeeButton.textContent = label;
   }
@@ -326,15 +356,19 @@ export function createMeetView(ctx) {
   }
 
   function applyEmployeeFilter(meetings) {
-    if (!state.selectedEmployeeId) return meetings;
-    const selectedId = Number(state.selectedEmployeeId);
-    const isMe = state.userId != null && selectedId === state.userId;
+    const ids = state.selectedEmployeeIds || [];
+    if (ids.length === 0) return meetings;
+
+    const scope = state.selectedEmployeeScope || { userIds: [], roleIds: [] };
+    const targetUserIds = scope.userIds || [];
+    const targetRoleIds = scope.roleIds || [];
+
     return meetings.filter((meeting) => {
-      const userIds = meeting.participantsUsers || meeting.participants?.userIds || [];
-      if (userIds.includes(selectedId)) return true;
-      if (!isMe || !state.roleIds.length) return false;
-      const roleIds = meeting.participants?.roleIds || [];
-      return roleIds.some((roleId) => state.roleIds.includes(Number(roleId)));
+      const uIds = meeting.participantsUsers || meeting.participants?.userIds || [];
+      const rIds = meeting.participants?.roleIds || [];
+      const hasUser = uIds.some(id => targetUserIds.includes(Number(id)));
+      const hasRole = rIds.some(id => targetRoleIds.includes(Number(id)));
+      return hasUser || hasRole;
     });
   }
 
@@ -995,8 +1029,17 @@ export function createMeetView(ctx) {
 
       if (token !== state.renderToken) return;
 
+      if (state.selectedEmployeeIds.length > 0) {
+        state.selectedEmployeeScope = await meetingsService.resolveParticipantScope({
+          userIds: state.selectedEmployeeIds,
+        });
+      } else {
+        state.selectedEmployeeScope = { userIds: [], roleIds: [] };
+      }
+
       const meetings = await meetingsService.getMeetingsForRange({ startLocal: start, endLocal: end });
       const filtered = applyEmployeeFilter(meetings);
+
       const meetingsByDate = getMeetingsByDate(filtered);
 
       state.currentMeetingsByDate = meetingsByDate;
@@ -1026,6 +1069,7 @@ export function createMeetView(ctx) {
       updateNowLine();
     }
   }
+
 
   function scrollToNow() {
     if (!["day", "days4", "days7"].includes(state.mode)) return;
@@ -1115,62 +1159,91 @@ export function createMeetView(ctx) {
   }
 
   function buildEmployeePopover() {
-    const popover = buildElement("div", "meet-popover");
+    const popover = buildElement("div", "meet-popover meet-popover--employee");
     const search = buildElement("input", "meet-popover__search");
     search.type = "search";
     search.placeholder = "Поиск сотрудника";
 
     const list = buildElement("div", "meet-popover__list");
 
+    // Временное состояние выбора во время работы поповера
+    const currentSelection = new Set(state.selectedEmployeeIds);
+
     function renderItems(filterText) {
       list.innerHTML = "";
       const query = String(filterText || "").trim().toLowerCase();
 
-      const baseItems = [{ id: null, label: "Все" }];
+      const baseItems = [];
       if (state.userId) {
         baseItems.push({ id: state.userId, label: "Я" });
       }
-      for (const item of baseItems) {
-        const btn = buildElement("button", "meet-popover__item", item.label);
-        btn.type = "button";
-        btn.dataset.employeeId = item.id ?? "";
-        btn.addEventListener("click", () => {
-          state.selectedEmployeeId = item.id ?? null;
-          saveStoredEmployeeId(state.selectedEmployeeId);
-          updateEmployeeButtonLabel();
-          closePopovers();
-          renderMeetings();
-        });
-        list.appendChild(btn);
-      }
 
-      const filtered = state.members.filter((member) => {
-        const name = `${member.last_name || ""} ${member.first_name || ""}`.trim();
+      const allItems = [
+        ...baseItems,
+        ...state.members.map(m => ({
+          id: Number(m.id),
+          label: `${m.last_name || ""} ${m.first_name || ""}`.trim() || m.name || m.email || String(m.id)
+        }))
+      ];
+
+      const filtered = allItems.filter(item => {
         if (!query) return true;
-        return name.toLowerCase().includes(query);
+        return item.label.toLowerCase().includes(query);
       });
 
-      for (const member of filtered) {
-        const name = `${member.last_name || ""} ${member.first_name || ""}`.trim();
-        const label = name || member.name || member.email || String(member.id);
-        const btn = buildElement("button", "meet-popover__item", label);
-        btn.type = "button";
-        btn.dataset.employeeId = String(member.id);
-        btn.addEventListener("click", () => {
-          state.selectedEmployeeId = Number(member.id);
-          saveStoredEmployeeId(state.selectedEmployeeId);
-          updateEmployeeButtonLabel();
-          closePopovers();
-          renderMeetings();
+      // Отображаем список с чекбоксами
+      for (const item of filtered) {
+        const row = buildElement("div", "meet-popover__row");
+        const checkbox = buildElement("input", "meet-popover__checkbox");
+        checkbox.type = "checkbox";
+        checkbox.checked = currentSelection.has(item.id);
+
+        const label = buildElement("label", "meet-popover__label", item.label);
+
+        const toggle = () => {
+          if (currentSelection.has(item.id)) {
+            currentSelection.delete(item.id);
+          } else {
+            currentSelection.add(item.id);
+          }
+          checkbox.checked = currentSelection.has(item.id);
+        };
+
+        row.addEventListener("click", (e) => {
+          if (e.target !== checkbox) toggle();
         });
-        list.appendChild(btn);
+        checkbox.addEventListener("change", toggle);
+
+        row.append(checkbox, label);
+        list.appendChild(row);
       }
     }
+
+    const footer = buildElement("div", "meet-popover__footer");
+    const applyBtn = buildElement("button", "meet-toolbar__button meet-toolbar__button--primary", "Применить");
+    applyBtn.addEventListener("click", () => {
+      state.selectedEmployeeIds = Array.from(currentSelection);
+      saveStoredEmployeeIds(state.selectedEmployeeIds);
+      updateEmployeeButtonLabel();
+      closePopovers();
+      renderMeetings();
+    });
+
+    const resetBtn = buildElement("button", "meet-toolbar__button", "Сбросить");
+    resetBtn.addEventListener("click", () => {
+      state.selectedEmployeeIds = [];
+      saveStoredEmployeeIds(state.selectedEmployeeIds);
+      updateEmployeeButtonLabel();
+      closePopovers();
+      renderMeetings();
+    });
+
+    footer.append(applyBtn, resetBtn);
 
     search.addEventListener("input", () => renderItems(search.value));
     renderItems("");
 
-    popover.append(search, list);
+    popover.append(search, list, footer);
     return popover;
   }
 
@@ -1322,34 +1395,13 @@ export function createMeetView(ctx) {
           residents.push({ type, id });
         }
 
-        // Pyrus expects the meeting range on the task root (due + duration),
-        // while the due_date_time field stores only the start timestamp.
-        // NOTE: duration must be a string.
-        const payload = {
-          form_id: config?.pyrus?.forms?.form_meet,
-          due: meta.startUtcIso,
-          duration: String(meta.durationMinutes),
-          fields: [
-            { id: 1, value: subject },
-            { id: 4, value: meta.startUtcIso },
-            { id: 27, value: { id: state.userId, type: "user" } },
-            {
-              id: 14,
-              value: residents.map((resident, index) => ({
-                row_id: index,
-                cells: [{ id: 15, value: { id: resident.id, type: resident.type } }],
-              })),
-            },
-          ],
-        };
-
-        const response = await graphClient.callGraphApi("pyrus_api", {
-          method: "POST",
-          path: "/v4/tasks",
-          body: payload,
+        const { taskId } = await meetingsService.createMeeting({
+          subject,
+          startUtc: meta.startUtcIso,
+          durationMinutes: meta.durationMinutes,
+          residents,
+          userId: state.userId,
         });
-
-        const taskId = response?.data?.id ?? response?.data?.task_id ?? response?.task_id ?? null;
         const meeting = {
           id: taskId ?? `local-${state.optimisticMeetingId++}`,
           startUtc: meta.startUtcIso,

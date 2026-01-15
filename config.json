@@ -59,7 +59,12 @@
   },
   "pyrus": {
     "catalogs": {
-      "shifts": 281369
+      "shifts": {
+        "id": 281369,
+        "columns": {
+          "department": 4
+        }
+      }
     },
     "forms": {
       "otpusk": 2348174,
@@ -76,6 +81,14 @@
         "due": 4,
         "amount": 5,
         "template": 10
+      },
+      "form_meet": {
+        "subject": 1,
+        "due": 4,
+        "responsible": 27,
+        "residentsTable": 14,
+        "residentCell": 15,
+        "postLink": "PostLink"
       }
     }
   },
@@ -150,12 +163,12 @@
       ],
       "labels": {
         "ALL": "ВСЕ",
-        "OP": "OP",
-        "OV": "OV",
+        "OP": "ОП",
+        "OV": "ОВ",
         "L1": "L1",
         "L2": "L2",
         "AI": "AI",
-        "OU": "OU"
+        "OU": "ОУ"
       }
     }
   },

@@ -146,7 +146,7 @@ function findField(fields, predicate) {
   return safeArray(fields).find((field) => field && predicate(field));
 }
 
-function normalizeRegister(raw, { logSummary = false } = {}) {
+function normalizeRegister(raw, { logSummary = false, fieldConfig = {} } = {}) {
   const { tasks, registerItems, rawTasksCount } = unwrapRegisterPayload(raw);
   const meetings = [];
 
@@ -158,7 +158,10 @@ function normalizeRegister(raw, { logSummary = false } = {}) {
     const fields = safeArray(task?.fields);
     const dueField = findField(
       fields,
-      (field) => field.type === "due_date_time" || field.code === "Due" || field.id === 4
+      (field) =>
+        field.type === "due_date_time" ||
+        field.code === fieldConfig.due ||
+        field.id === fieldConfig.due
     );
     const startUtc = dueField?.value || null;
     if (!startUtc || typeof startUtc !== "string") continue;
@@ -169,16 +172,19 @@ function normalizeRegister(raw, { logSummary = false } = {}) {
 
     const subjectField = findField(
       fields,
-      (field) => field.code === "Subject" || field.id === 1
+      (field) => field.code === fieldConfig.subject || field.id === fieldConfig.subject
     );
-    const postLinkField = findField(fields, (field) => field.code === "PostLink");
+    const postLinkField = findField(
+      fields,
+      (field) => field.code === fieldConfig.postLink || field.id === fieldConfig.postLink
+    );
     const responsibleField = findField(
       fields,
-      (field) => field.id === 27 && field.type === "person"
+      (field) => field.id === fieldConfig.responsible && field.type === "person"
     );
     const residentsField = findField(
       fields,
-      (field) => field.id === 14 && field.type === "table"
+      (field) => field.id === fieldConfig.residentsTable && field.type === "table"
     );
 
     const participants = collectParticipantIds(task, residentsField, responsibleField);
@@ -221,7 +227,7 @@ function normalizeRegister(raw, { logSummary = false } = {}) {
   return meetings;
 }
 
-export function createMeetingsService({ graphClient, cache, config } = {}) {
+export function createMeetingsService({ graphClient, cache, config, membersService } = {}) {
   if (!graphClient || typeof graphClient.callGraphApi !== "function") {
     throw new Error("graphClient is required for meetingsService");
   }
@@ -231,6 +237,44 @@ export function createMeetingsService({ graphClient, cache, config } = {}) {
 
   let lastNormalized = [];
   let loggedSummary = false;
+
+  async function resolveParticipantScope({ userIds }) {
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return { userIds: [], roleIds: [] };
+    }
+
+    const allRoleIds = new Set();
+    const validUserIds = [];
+
+    await Promise.all(
+      userIds.map(async (id) => {
+        const userId = Number(id);
+        if (!Number.isFinite(userId)) return;
+        validUserIds.push(userId);
+
+        try {
+          if (!membersService) return;
+          const details = await membersService.getMemberDetails({ id: userId });
+          // Пытаемся извлечь роли. В структуре деталей участника обычно есть roles или role_ids
+          const roles = details?.roles || details?.role_ids || [];
+          if (Array.isArray(roles)) {
+            for (const r of roles) {
+              const rId = typeof r === "object" ? r.id : r;
+              if (rId != null) allRoleIds.add(Number(rId));
+            }
+          }
+        } catch (err) {
+          console.warn(`Failed to resolve roles for user ${userId}`, err);
+        }
+      })
+    );
+
+    return {
+      userIds: validUserIds,
+      roleIds: Array.from(allRoleIds),
+    };
+  }
+
 
   async function loadRegister({ force = false } = {}) {
     if (!formId) {
@@ -246,7 +290,10 @@ export function createMeetingsService({ graphClient, cache, config } = {}) {
         });
       }
     );
-    lastNormalized = normalizeRegister(data, { logSummary: !loggedSummary });
+    lastNormalized = normalizeRegister(data, {
+      logSummary: !loggedSummary,
+      fieldConfig: config?.pyrus?.fields?.form_meet,
+    });
     loggedSummary = true;
     return lastNormalized;
   }
@@ -277,12 +324,47 @@ export function createMeetingsService({ graphClient, cache, config } = {}) {
     lastNormalized = [meeting, ...lastNormalized];
   }
 
+  async function createMeeting({ subject, startUtc, durationMinutes, residents, userId }) {
+    if (!formId) {
+      throw new Error("form_meet is missing in config");
+    }
+    const f = config?.pyrus?.fields?.form_meet || {};
+    const payload = {
+      form_id: formId,
+      due: startUtc,
+      duration: String(durationMinutes),
+      fields: [
+        { id: f.subject, value: subject },
+        { id: f.due, value: startUtc },
+        { id: f.responsible, value: { id: userId, type: "user" } },
+        {
+          id: f.residentsTable,
+          value: residents.map((resident, index) => ({
+            row_id: index,
+            cells: [{ id: f.residentCell, value: { id: resident.id, type: resident.type } }],
+          })),
+        },
+      ],
+    };
+
+    const response = await graphClient.callGraphApi("pyrus_api", {
+      method: "POST",
+      path: "/v4/tasks",
+      body: payload,
+    });
+
+    const taskId = response?.data?.id ?? response?.data?.task_id ?? response?.task_id ?? null;
+    return { taskId, raw: response };
+  }
+
   return {
     loadRegister,
     getMeetingsForRange,
     getCachedMeetings,
     invalidateCache,
     addOptimisticMeeting,
+    createMeeting,
+    resolveParticipantScope,
   };
 }
 

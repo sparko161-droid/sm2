@@ -383,7 +383,7 @@ function setCookie(name, value, days) {
   try {
     const expires = new Date(Date.now() + days * 86400000).toUTCString();
     document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function saveAuthCache(login) {
@@ -400,7 +400,7 @@ function saveAuthCache(login) {
   };
   try {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
-  } catch (_) {}
+  } catch (_) { }
   // Дублируем в cookie (минимальный объём) — на случай очистки localStorage
   setCookie(AUTH_STORAGE_KEY, JSON.stringify(payload), AUTH_COOKIE_DAYS);
 }
@@ -426,33 +426,33 @@ function shouldCheckEmailToday() {
 function markEmailCheckedToday() {
   try {
     localStorage.setItem(AUTH_EMAIL_CHECK_KEY, getTodayDateString());
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function applyAuthCache(data) {
   if (!data) return false;
-state.auth.user = data.user || null;
-state.auth.roles = data.roles || state.auth.roles || null;
-state.auth.memberId = data.memberId || state.auth.memberId || null;
-state.auth.login = data.login || state.auth.login || null;
+  state.auth.user = data.user || null;
+  state.auth.roles = data.roles || state.auth.roles || null;
+  state.auth.memberId = data.memberId || state.auth.memberId || null;
+  state.auth.login = data.login || state.auth.login || null;
 
-if (state.auth.roles) {
-  state.auth.permissions = resolvePermissionsFromRoles(
-    state.auth.roles,
-    ROLE_MATRIX_BY_LINE
-  );
-} else {
-  state.auth.permissions = normalizePermissions(
-    data.permissions || state.auth.permissions
-  );
-}
-
-// гарантируем ключи вкладок
-for (const k of ["ALL", "OP", "OV", "OU", "AI", "L1", "L2"]) {
-  if (!Object.prototype.hasOwnProperty.call(state.auth.permissions, k)) {
-    state.auth.permissions[k] = state.auth.permissions.ALL || "view";
+  if (state.auth.roles) {
+    state.auth.permissions = resolvePermissionsFromRoles(
+      state.auth.roles,
+      ROLE_MATRIX_BY_LINE
+    );
+  } else {
+    state.auth.permissions = normalizePermissions(
+      data.permissions || state.auth.permissions
+    );
   }
-}
+
+  // гарантируем ключи вкладок
+  for (const k of ["ALL", "OP", "OV", "OU", "AI", "L1", "L2"]) {
+    if (!Object.prototype.hasOwnProperty.call(state.auth.permissions, k)) {
+      state.auth.permissions[k] = state.auth.permissions.ALL || "view";
+    }
+  }
 
   const login = (data.login || state.auth.user?.login || "").trim();
   updateCurrentUserLabel(login);
@@ -1429,7 +1429,7 @@ function bindTopBarButtons() {
     updateLineToggleUI();
     authService?.logout?.();
   });
-btnPrevMonthEl.addEventListener("click", () => {
+  btnPrevMonthEl.addEventListener("click", () => {
     const { year, monthIndex } = state.monthMeta;
     const date = new Date(Date.UTC(year, monthIndex, 1));
     date.setMonth(monthIndex - 1);
@@ -1527,7 +1527,7 @@ function initQuickAssignPanel() {
 
   quickModeToggleEl?.addEventListener("click", () => {
     const currentLine = state.ui.currentLine;
-    
+
     if (state.ui.isScheduleCached) {
       alert("Данные загружаются, редактирование временно недоступно.");
       return;
@@ -1537,7 +1537,7 @@ function initQuickAssignPanel() {
       alert(`У вас нет прав на редактирование линии ${currentLine}`);
       return;
     }
-    
+
     state.quickMode.enabled = !state.quickMode.enabled;
     updateQuickModeToggleUI();
   });
@@ -1599,33 +1599,33 @@ function updateQuickModeForLine() {
   const currentLine = state.ui.currentLine;
   const canEdit = canEditLine(currentLine);
   const isCached = state.ui.isScheduleCached;
-  
+
   if (!canEdit && state.quickMode.enabled) {
     state.quickMode.enabled = false;
     updateQuickModeToggleUI();
   }
-  
+
   if (quickModeToggleEl) {
     quickModeToggleEl.disabled = !canEdit;
-    quickModeToggleEl.title = canEdit 
+    quickModeToggleEl.title = canEdit
       ? "Включить быстрое назначение смен"
       : isCached
-      ? "Данные загружаются, редактирование временно недоступно"
-      : `Нет прав на редактирование ${currentLine}`;
+        ? "Данные загружаются, редактирование временно недоступно"
+        : `Нет прав на редактирование ${currentLine}`;
   }
-  
+
   if (quickTemplateSelectEl) {
     quickTemplateSelectEl.disabled = !canEdit;
   }
-  
+
   if (quickTimeFromInputEl) {
     quickTimeFromInputEl.disabled = !canEdit;
   }
-  
+
   if (quickTimeToInputEl) {
     quickTimeToInputEl.disabled = !canEdit;
   }
-  
+
   if (quickAmountInputEl) {
     quickAmountInputEl.disabled = !canEdit;
   }
@@ -1634,25 +1634,25 @@ function updateQuickModeForLine() {
 function countChangesForLine(line) {
   const { year, monthIndex } = state.monthMeta;
   let count = 0;
-  
+
   const prefix = `${line}-${year}-${monthIndex + 1}-`;
   for (const key in state.localChanges) {
     if (key.startsWith(prefix)) {
       count++;
     }
   }
-  
+
   return count;
 }
 
 function updateSaveButtonState() {
   if (!btnSavePyrusEl) return;
-  
+
   const currentLine = state.ui.currentLine;
   const canEdit = canEditLine(currentLine);
   const changesCount = countChangesForLine(currentLine);
   const isCached = state.ui.isScheduleCached;
-  
+
   if (!canEdit) {
     btnSavePyrusEl.textContent = isCached
       ? `Данные загружаются (${currentLine})`
@@ -1729,17 +1729,17 @@ function logChange({
     date,
     previousShift: previousShift
       ? {
-          startLocal: previousShift.startLocal || "",
-          endLocal: previousShift.endLocal || "",
-          amount: Number(previousShift.amount || 0),
-        }
+        startLocal: previousShift.startLocal || "",
+        endLocal: previousShift.endLocal || "",
+        amount: Number(previousShift.amount || 0),
+      }
       : null,
     nextShift: nextShift
       ? {
-          startLocal: nextShift.startLocal || "",
-          endLocal: nextShift.endLocal || "",
-          amount: Number(nextShift.amount || 0),
-        }
+        startLocal: nextShift.startLocal || "",
+        endLocal: nextShift.endLocal || "",
+        amount: Number(nextShift.amount || 0),
+      }
       : null,
   };
 
@@ -1821,14 +1821,14 @@ function buildPyrusChangesPayload(lineToSave = null) {
           const conversion =
             currentShift.startUtcIso && currentShift.durationMinutes != null
               ? {
-                  startUtcIso: currentShift.startUtcIso,
-                  durationMinutes: Number(currentShift.durationMinutes),
-                }
+                startUtcIso: currentShift.startUtcIso,
+                durationMinutes: Number(currentShift.durationMinutes),
+              }
               : convertLocalRangeToUtc(
-                  day,
-                  currentShift.startLocal,
-                  currentShift.endLocal
-                );
+                day,
+                currentShift.startLocal,
+                currentShift.endLocal
+              );
           if (!conversion) return;
 
           result.create.task.push({
@@ -1853,14 +1853,14 @@ function buildPyrusChangesPayload(lineToSave = null) {
           const conversion =
             currentShift.startUtcIso && currentShift.durationMinutes != null
               ? {
-                  startUtcIso: currentShift.startUtcIso,
-                  durationMinutes: Number(currentShift.durationMinutes),
-                }
+                startUtcIso: currentShift.startUtcIso,
+                durationMinutes: Number(currentShift.durationMinutes),
+              }
               : convertLocalRangeToUtc(
-                  day,
-                  currentShift.startLocal,
-                  currentShift.endLocal
-                );
+                day,
+                currentShift.startLocal,
+                currentShift.endLocal
+              );
           if (!conversion) return;
 
           result.edit.task.push({
@@ -1884,24 +1884,24 @@ async function handleSaveToPyrus() {
   if (!btnSavePyrusEl) return;
 
   const currentLine = state.ui.currentLine;
-  
+
   if (!canEditLine(currentLine)) {
     alert(`У вас нет прав на сохранение изменений для линии ${currentLine}`);
     return;
   }
 
   const payload = buildPyrusChangesPayload(currentLine);
-  
-  const hasChanges = 
+
+  const hasChanges =
     payload.create.task.length > 0 ||
     payload.deleted.task.length > 0 ||
     payload.edit.task.length > 0;
-  
+
   if (!hasChanges) {
     alert(`Нет изменений для сохранения в линии ${currentLine}`);
     return;
   }
-  
+
   btnSavePyrusEl.disabled = true;
   btnSavePyrusEl.textContent = "Сохранение...";
 
@@ -1911,16 +1911,16 @@ async function handleSaveToPyrus() {
       month: state.monthMeta.monthIndex + 1,
       year: state.monthMeta.year,
     };
-    
-    await graphClient.callGraphApi("pyrus_save", { changes: payload, meta });
-    
+
+    await scheduleService.saveToPyrus({ changes: payload, meta });
+
     alert(`Изменения для линии ${currentLine} успешно отправлены в Pyrus.\n` +
-          `Создано: ${payload.create.task.length}\n` +
-          `Изменено: ${payload.edit.task.length}\n` +
-          `Удалено: ${payload.deleted.task.length}`);
-    
+      `Создано: ${payload.create.task.length}\n` +
+      `Изменено: ${payload.edit.task.length}\n` +
+      `Удалено: ${payload.deleted.task.length}`);
+
     state.originalScheduleByLine[currentLine] = deepClone(state.scheduleByLine[currentLine]);
-    
+
     const { year, monthIndex } = state.monthMeta;
     const prefix = `${currentLine}-${year}-${monthIndex + 1}-`;
     for (const key in state.localChanges) {
@@ -1929,13 +1929,13 @@ async function handleSaveToPyrus() {
       }
     }
     persistLocalChanges();
-    
+
     updateSaveButtonState();
 
     const monthKey = getMonthKey(state.monthMeta.year, state.monthMeta.monthIndex);
     scheduleService.invalidateMonthSchedule(monthKey);
     await reloadScheduleForCurrentMonth();
-    
+
   } catch (err) {
     console.error("handleSaveToPyrus error", err);
     alert(`Не удалось отправить в Pyrus: ${err.message || err}`);
@@ -2039,8 +2039,8 @@ function handleShiftCellClick({ line, row, day, dayIndex, shift, cellEl }) {
         : null;
 
     const key = `${line}-${year}-${monthIndex + 1}-${row.employeeId}-${day}`;
-	    // Важно: в быстрых кликах используем year/monthIndex из текущего выбранного месяца,
-	    // иначе state.monthMeta может быть неинициализирован/рассинхронизирован.
+    // Важно: в быстрых кликах используем year/monthIndex из текущего выбранного месяца,
+    // иначе state.monthMeta может быть неинициализирован/рассинхронизирован.
     const conversion = convertLocalRangeToUtcWithMeta(
       year,
       monthIndex,
@@ -2049,19 +2049,19 @@ function handleShiftCellClick({ line, row, day, dayIndex, shift, cellEl }) {
       normEndLocal,
       TIMEZONE_OFFSET_MIN
     );
-	    if (!conversion) {
-	      alert("Некорректное время смены. Проверьте формат (например 08:00–20:00)." );
-	      return;
-	    }
+    if (!conversion) {
+      alert("Некорректное время смены. Проверьте формат (например 08:00–20:00).");
+      return;
+    }
     state.localChanges[key] = {
       startLocal: normStartLocal,
       endLocal: normEndLocal,
       amount,
       templateId,
       specialShortLabel,
-	      startUtcIso: conversion.startUtcIso,
-	      endUtcIso: conversion.endUtcIso,
-	      durationMinutes: conversion.durationMinutes,
+      startUtcIso: conversion.startUtcIso,
+      endUtcIso: conversion.endUtcIso,
+      durationMinutes: conversion.durationMinutes,
     };
     persistLocalChanges();
 
@@ -2147,110 +2147,111 @@ async function loadEmployees() {
   const members = data.members || [];
   const employeesByLine = { ALL: [], OP: [], OV: [], L1: [], L2: [], AI: [], OU: [] };
 
-// Жёсткая маршрутизация по department_id (и отдельный TOP для вкладки "ВСЕ")
-for (const m of members) {
-  if (m.banned) continue;
+  // Жёсткая маршрутизация по department_id (и отдельный TOP для вкладки "ВСЕ")
+  for (const m of members) {
+    if (m.banned) continue;
 
-  const deptIdRaw = m.department_id;
-  const deptId = deptIdRaw != null ? Number(deptIdRaw) : null;
+    const deptIdRaw = m.department_id;
+    const deptId = deptIdRaw != null ? Number(deptIdRaw) : null;
 
-  const employee = {
-    id: m.id,
-    fullName: `${m.last_name || ""} ${m.first_name || ""}`.trim(),
-    email: m.email || "",
-    departmentName: m.department_name || "",
-    departmentId: deptId,
-    avatarId: m.avatar_id || null,
-    phone: m.phone || "",
-    position: m.position || "",
-    birthDay:
-      m.birth_date && typeof m.birth_date.day === "number"
-        ? m.birth_date.day
-        : m.birth_date && m.birth_date.day
-        ? Number(m.birth_date.day)
-        : null,
-    birthMonth:
-      m.birth_date && typeof m.birth_date.month === "number"
-        ? m.birth_date.month
-        : m.birth_date && m.birth_date.month
-        ? Number(m.birth_date.month)
-        : null,
+    const employee = {
+      id: m.id,
+      fullName: `${m.last_name || ""} ${m.first_name || ""}`.trim(),
+      email: m.email || "",
+      departmentName: m.department_name || "",
+      departmentId: deptId,
+      avatarId: m.avatar_id || null,
+      phone: m.phone || "",
+      position: m.position || "",
+      birthDay:
+        m.birth_date && typeof m.birth_date.day === "number"
+          ? m.birth_date.day
+          : m.birth_date && m.birth_date.day
+            ? Number(m.birth_date.day)
+            : null,
+      birthMonth:
+        m.birth_date && typeof m.birth_date.month === "number"
+          ? m.birth_date.month
+          : m.birth_date && m.birth_date.month
+            ? Number(m.birth_date.month)
+            : null,
+    };
+
+    // ALL: добавляем всех
+    employeesByLine.ALL.push(employee);
+
+    // Остальные вкладки: по deptId
+    if (deptId != null) {
+      if (LINE_DEPT_IDS.L1.includes(deptId)) employeesByLine.L1.push(employee);
+      if (LINE_DEPT_IDS.L2.includes(deptId)) employeesByLine.L2.push(employee);
+      if (LINE_DEPT_IDS.OV.includes(deptId)) employeesByLine.OV.push(employee);
+      if (LINE_DEPT_IDS.OP.includes(deptId)) employeesByLine.OP.push(employee);
+      if (LINE_DEPT_IDS.OU.includes(deptId)) employeesByLine.OU.push(employee);
+      if (LINE_DEPT_IDS.AI.includes(deptId)) employeesByLine.AI.push(employee);
+    }
+  }
+
+  const sortEmployeesByName = (arr) =>
+    arr.sort((a, b) => a.fullName.localeCompare(b.fullName, "ru"));
+
+  const sortEmployeesByDeptOrder = (arr, deptOrder) => {
+    const orderIndex = new Map(deptOrder.map((id, idx) => [Number(id), idx]));
+    return arr.sort((a, b) => {
+      const ai = orderIndex.has(a.departmentId)
+        ? orderIndex.get(a.departmentId)
+        : Number.MAX_SAFE_INTEGER;
+      const bi = orderIndex.has(b.departmentId)
+        ? orderIndex.get(b.departmentId)
+        : Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      return a.fullName.localeCompare(b.fullName, "ru");
+    });
   };
 
-  // ALL: добавляем всех
-  employeesByLine.ALL.push(employee);
+  // "ВСЕ": сначала TOP_MANAGEMENT_IDS, затем отделы в заданном порядке
+  const ALL_DEPT_ORDER = [
+    ...LINE_DEPT_IDS.OP,
+    ...LINE_DEPT_IDS.OV,
+    ...LINE_DEPT_IDS.L1,
+    ...LINE_DEPT_IDS.L2,
+    ...LINE_DEPT_IDS.AI,
+    ...LINE_DEPT_IDS.OU,
+  ];
 
-  // Остальные вкладки: по deptId
-  if (deptId != null) {
-    if (LINE_DEPT_IDS.L1.includes(deptId)) employeesByLine.L1.push(employee);
-    if (LINE_DEPT_IDS.L2.includes(deptId)) employeesByLine.L2.push(employee);
-    if (LINE_DEPT_IDS.OV.includes(deptId)) employeesByLine.OV.push(employee);
-    if (LINE_DEPT_IDS.OP.includes(deptId)) employeesByLine.OP.push(employee);
-    if (LINE_DEPT_IDS.OU.includes(deptId)) employeesByLine.OU.push(employee);
-    if (LINE_DEPT_IDS.AI.includes(deptId)) employeesByLine.AI.push(employee);
-  }
-}
+  const topIndex = new Map(TOP_MANAGEMENT_IDS.map((id, idx) => [Number(id), idx]));
+  const allDeptIndex = new Map(ALL_DEPT_ORDER.map((id, idx) => [Number(id), idx]));
 
-const sortEmployeesByName = (arr) =>
-  arr.sort((a, b) => a.fullName.localeCompare(b.fullName, "ru"));
+  employeesByLine.ALL.sort((a, b) => {
+    const at = topIndex.has(a.id) ? topIndex.get(a.id) : null;
+    const bt = topIndex.has(b.id) ? topIndex.get(b.id) : null;
+    if (at != null || bt != null) {
+      if (at == null) return 1;
+      if (bt == null) return -1;
+      return at - bt;
+    }
 
-const sortEmployeesByDeptOrder = (arr, deptOrder) => {
-  const orderIndex = new Map(deptOrder.map((id, idx) => [Number(id), idx]));
-  return arr.sort((a, b) => {
-    const ai = orderIndex.has(a.departmentId)
-      ? orderIndex.get(a.departmentId)
-      : Number.MAX_SAFE_INTEGER;
-    const bi = orderIndex.has(b.departmentId)
-      ? orderIndex.get(b.departmentId)
-      : Number.MAX_SAFE_INTEGER;
+    const ai = a.departmentId != null && allDeptIndex.has(a.departmentId) ? allDeptIndex.get(a.departmentId) : Number.MAX_SAFE_INTEGER;
+    const bi = b.departmentId != null && allDeptIndex.has(b.departmentId) ? allDeptIndex.get(b.departmentId) : Number.MAX_SAFE_INTEGER;
     if (ai !== bi) return ai - bi;
+
+    // неизвестные dept -> внизу, по имени
     return a.fullName.localeCompare(b.fullName, "ru");
   });
-};
 
-// "ВСЕ": сначала TOP_MANAGEMENT_IDS, затем отделы в заданном порядке
-const ALL_DEPT_ORDER = [
-  ...LINE_DEPT_IDS.OP,
-  ...LINE_DEPT_IDS.OV,
-  ...LINE_DEPT_IDS.L1,
-  ...LINE_DEPT_IDS.L2,
-  ...LINE_DEPT_IDS.AI,
-  ...LINE_DEPT_IDS.OU,
-];
+  state.employeesByLine.ALL = employeesByLine.ALL;
+  state.employeesByLine.OP = sortEmployeesByDeptOrder(employeesByLine.OP, DEPT_ORDER_BY_LINE.OP);
+  state.employeesByLine.OV = sortEmployeesByName(employeesByLine.OV);
+  state.employeesByLine.L1 = sortEmployeesByName(employeesByLine.L1);
+  state.employeesByLine.L2 = sortEmployeesByDeptOrder(employeesByLine.L2, DEPT_ORDER_BY_LINE.L2);
+  state.employeesByLine.AI = sortEmployeesByName(employeesByLine.AI);
+  state.employeesByLine.OU = sortEmployeesByName(employeesByLine.OU);
 
-const topIndex = new Map(TOP_MANAGEMENT_IDS.map((id, idx) => [Number(id), idx]));
-const allDeptIndex = new Map(ALL_DEPT_ORDER.map((id, idx) => [Number(id), idx]));
-
-employeesByLine.ALL.sort((a, b) => {
-  const at = topIndex.has(a.id) ? topIndex.get(a.id) : null;
-  const bt = topIndex.has(b.id) ? topIndex.get(b.id) : null;
-  if (at != null || bt != null) {
-    if (at == null) return 1;
-    if (bt == null) return -1;
-    return at - bt;
-  }
-
-  const ai = a.departmentId != null && allDeptIndex.has(a.departmentId) ? allDeptIndex.get(a.departmentId) : Number.MAX_SAFE_INTEGER;
-  const bi = b.departmentId != null && allDeptIndex.has(b.departmentId) ? allDeptIndex.get(b.departmentId) : Number.MAX_SAFE_INTEGER;
-  if (ai !== bi) return ai - bi;
-
-  // неизвестные dept -> внизу, по имени
-  return a.fullName.localeCompare(b.fullName, "ru");
-});
-
-state.employeesByLine.ALL = employeesByLine.ALL;
-state.employeesByLine.OP = sortEmployeesByDeptOrder(employeesByLine.OP, DEPT_ORDER_BY_LINE.OP);
-state.employeesByLine.OV = sortEmployeesByName(employeesByLine.OV);
-state.employeesByLine.L1 = sortEmployeesByName(employeesByLine.L1);
-state.employeesByLine.L2 = sortEmployeesByDeptOrder(employeesByLine.L2, DEPT_ORDER_BY_LINE.L2);
-state.employeesByLine.AI = sortEmployeesByName(employeesByLine.AI);
-state.employeesByLine.OU = sortEmployeesByName(employeesByLine.OU);
-
-persistCachedEmployees();
+  persistCachedEmployees();
 }
 
 async function loadShiftsCatalog() {
-  const data = await catalogsService.getShiftsCatalog({ catalogId: PYRUS_CATALOG_IDS.shifts });
+  const catalogId = PYRUS_CATALOG_IDS.shifts?.id || PYRUS_CATALOG_IDS.shifts;
+  const data = await catalogsService.getShiftsCatalog({ catalogId });
 
   const catalog = Array.isArray(data) ? data[0] : data;
   if (!catalog) return;
@@ -2338,7 +2339,7 @@ async function loadShiftsCatalog() {
   }
 
   // записываем в state все линии
-  for (const key of ["ALL","OP","OV","L1","L2","AI","OU"]) {
+  for (const key of ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"]) {
     state.shiftTemplatesByLine[key] = templatesByLine[key] || [];
   }
 
@@ -2413,7 +2414,7 @@ async function reloadScheduleForCurrentMonth() {
   };
 
   const inferLineFromEmployee = (empId) => {
-    for (const k of ["OP","OV","L1","L2","AI","OU"]) {
+    for (const k of ["OP", "OV", "L1", "L2", "AI", "OU"]) {
       const list = state.employeesByLine[k] || [];
       if (list.some((e) => e.id === empId)) return k;
     }
@@ -2461,7 +2462,8 @@ async function reloadScheduleForCurrentMonth() {
     if (!empId) continue;
 
     const shiftCatalog = shiftField.value || {};
-    const deptRaw = (shiftCatalog.values && shiftCatalog.values[4]) || "";
+    const deptColIdx = PYRUS_CATALOG_IDS.shifts?.columns?.department ?? 4;
+    const deptRaw = (shiftCatalog.values && shiftCatalog.values[deptColIdx]) || "";
     const tokens = parseDeptTokens(deptRaw);
 
     // Определяем, в какие вкладки раскладывать смену.
@@ -2470,7 +2472,7 @@ async function reloadScheduleForCurrentMonth() {
     // - если токены не распознаны => пытаемся вывести по департаменту сотрудника
     let targetLines = [];
     if (tokens.includes("ALL")) {
-      targetLines = ["OP","OV","L1","L2","AI","OU"];
+      targetLines = ["OP", "OV", "L1", "L2", "AI", "OU"];
     } else {
       targetLines = tokens.filter((t) => shiftMapByLine[t]);
     }
@@ -2535,7 +2537,7 @@ async function reloadScheduleForCurrentMonth() {
     days.push(d);
   }
 
-  for (const line of ["ALL","OP","OV","L1","L2","AI","OU"]) {
+  for (const line of ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"]) {
     const empList = state.employeesByLine[line] || [];
     const map = shiftMapByLine[line];
 
@@ -2603,7 +2605,7 @@ function renderScheduleCurrentLine() {
 
   const table = document.createElement("table");
   table.className = "schedule-table";
-  
+
   if (!canEdit) {
     table.classList.add("read-only-mode");
   }
@@ -2685,10 +2687,10 @@ function renderScheduleCurrentLine() {
               : null;
 
     const th1 = document.createElement("th");
-const th1Label = document.createElement("span");
-th1Label.className = "header-text";
-th1Label.textContent = String(day);
-th1.appendChild(th1Label);
+    const th1Label = document.createElement("span");
+    th1Label.className = "header-text";
+    th1Label.textContent = String(day);
+    th1.appendChild(th1Label);
 
     if (dayKind) {
       th1.classList.add(`day-${dayKind}`);
@@ -3156,7 +3158,7 @@ function openVacationPopover(context, anchorEl) {
 function openShiftPopoverReadOnly(context, anchorEl) {
   const { line, employeeName, day, shift } = context;
   const { year, monthIndex } = state.monthMeta;
-  
+
   const dateLabel = `${String(day).padStart(2, "0")}.${String(
     monthIndex + 1
   ).padStart(2, "0")}.${year}`;
@@ -3258,19 +3260,18 @@ function openShiftPopover(context, anchorEl) {
         <div class="shift-popover-section-title">Шаблоны смен</div>
         <div class="shift-template-list">
           ${templates
-            .map(
-              (t) => `
+      .map(
+        (t) => `
             <button class="shift-template-pill" data-template-id="${t.id}">
               <div class="name">${t.name}</div>
-              ${
-                t.timeRange
-                  ? `<div class="time">${t.timeRange.start}–${t.timeRange.end}</div>`
-                  : ""
-              }
+              ${t.timeRange
+            ? `<div class="time">${t.timeRange.start}–${t.timeRange.end}</div>`
+            : ""
+          }
             </button>
           `
-            )
-            .join("")}
+      )
+      .join("")}
         </div>
       </div>
 
@@ -3279,23 +3280,20 @@ function openShiftPopover(context, anchorEl) {
 
         <div class="field-row">
           <label>Начало</label>
-          <input type="time" id="shift-start-input" value="${
-            shift?.startLocal || ""
-          }">
+          <input type="time" id="shift-start-input" value="${shift?.startLocal || ""
+    }">
         </div>
 
         <div class="field-row">
           <label>Окончание</label>
-          <input type="time" id="shift-end-input" value="${
-            shift?.endLocal || ""
-          }">
+          <input type="time" id="shift-end-input" value="${shift?.endLocal || ""
+    }">
         </div>
 
         <div class="field-row">
           <label>Сумма</label>
-          <input type="number" id="shift-amount-input" value="${
-            shift?.amount || ""
-          }">
+          <input type="number" id="shift-amount-input" value="${shift?.amount || ""
+    }">
         </div>
 
         <div class="shift-popover-note">
@@ -3305,9 +3303,8 @@ function openShiftPopover(context, anchorEl) {
     </div>
 
     <div class="shift-popover-footer">
-      <button class="btn danger" type="button" id="shift-btn-delete" ${
-        hasShift ? "" : "disabled"
-      }>Удалить</button>
+      <button class="btn danger" type="button" id="shift-btn-delete" ${hasShift ? "" : "disabled"
+    }>Удалить</button>
       <button class="btn" type="button" id="shift-btn-cancel">Отмена</button>
       <button class="btn primary" type="button" id="shift-btn-save">Сохранить локально</button>
     </div>
@@ -3371,8 +3368,8 @@ function openShiftPopover(context, anchorEl) {
           const startInput = document.getElementById("shift-start-input");
           const endInput = document.getElementById("shift-end-input");
           if (startInput && endInput) {
-	        startInput.value = normalizeTimeHHMM(tmpl.timeRange.start);
-	        endInput.value = normalizeTimeHHMM(tmpl.timeRange.end);
+            startInput.value = normalizeTimeHHMM(tmpl.timeRange.start);
+            endInput.value = normalizeTimeHHMM(tmpl.timeRange.end);
           }
         }
 
@@ -3390,16 +3387,16 @@ function openShiftPopover(context, anchorEl) {
       const endInput = document.getElementById("shift-end-input");
       const amountInput = document.getElementById("shift-amount-input");
 
-	    const start = normalizeTimeHHMM(startInput.value);
-	    const end = normalizeTimeHHMM(endInput.value);
+      const start = normalizeTimeHHMM(startInput.value);
+      const end = normalizeTimeHHMM(endInput.value);
       const amount = Number(amountInput.value || 0);
 
       const key = `${line}-${year}-${monthIndex + 1}-${employeeId}-${day}`;
       const templateId =
         selectedTemplateId != null ? selectedTemplateId : shift?.templateId;
       const specialShortLabel = resolveSpecialShortLabel(line, templateId);
-	      // В поповере всегда есть year/monthIndex выбранного месяца — используем их,
-	      // чтобы не ловить RangeError на невалидном state.monthMeta.
+      // В поповере всегда есть year/monthIndex выбранного месяца — используем их,
+      // чтобы не ловить RangeError на невалидном state.monthMeta.
       const conversion = convertLocalRangeToUtcWithMeta(
         year,
         monthIndex,
@@ -3408,19 +3405,19 @@ function openShiftPopover(context, anchorEl) {
         end,
         TIMEZONE_OFFSET_MIN
       );
-	      if (!conversion) {
-	        alert("Некорректное время смены. Проверьте формат (например 08:00–20:00)." );
-	        return;
-	      }
+      if (!conversion) {
+        alert("Некорректное время смены. Проверьте формат (например 08:00–20:00).");
+        return;
+      }
       state.localChanges[key] = {
         startLocal: start,
         endLocal: end,
         amount,
         templateId,
         specialShortLabel,
-	        startUtcIso: conversion.startUtcIso,
-	        endUtcIso: conversion.endUtcIso,
-	        durationMinutes: conversion.durationMinutes,
+        startUtcIso: conversion.startUtcIso,
+        endUtcIso: conversion.endUtcIso,
+        durationMinutes: conversion.durationMinutes,
       };
       persistLocalChanges();
 
@@ -3445,7 +3442,7 @@ function openShiftPopover(context, anchorEl) {
 }
 
 function applyLocalChangesToSchedule() {
-  for (const line of ["ALL","OP","OV","L1","L2","AI","OU"]) {
+  for (const line of ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"]) {
     const sched = state.scheduleByLine[line];
     if (!sched || !sched.rows) continue;
 
@@ -3453,9 +3450,8 @@ function applyLocalChangesToSchedule() {
 
     for (const row of sched.rows) {
       sched.days.forEach((day, idx) => {
-        const key = `${line}-${year}-${
-          monthIndex + 1
-        }-${row.employeeId}-${day}`;
+        const key = `${line}-${year}-${monthIndex + 1
+          }-${row.employeeId}-${day}`;
         const change = state.localChanges[key];
         if (!change || typeof change !== "object") return;
 
@@ -3467,7 +3463,7 @@ function applyLocalChangesToSchedule() {
         const enriched = change.startUtcIso
           ? change
           : convertLocalRangeToUtc(day, change.startLocal, change.endLocal) ||
-            change;
+          change;
 
         const specialShortLabel =
           change.specialShortLabel ??

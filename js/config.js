@@ -83,19 +83,29 @@ const DEFAULT_CONFIG = {
   // даже если config.json пустой/не загрузился.
   pyrus: {
     catalogs: {
-      shifts: 281369,
+      shifts: {
+        id: 281369,
+        columns: {
+          department: 4,
+        },
+      },
     },
     forms: {
       otpusk: 2348174,
       smeni: 2375272,
       form_meet: 1382379,
     },
-    // Важно: в коде выше использовались:
-    // - smeni.template (а не smeni.shift)
-    // - otpusk.person, otpusk.period
     fields: {
       otpusk: { person: 1, period: 2 },
       smeni: { due: 4, amount: 5, person: 8, template: 10 },
+      form_meet: {
+        subject: 1,
+        due: 4,
+        responsible: 27,
+        residentsTable: 14,
+        residentCell: 15,
+        postLink: "PostLink",
+      },
     },
   },
 
@@ -245,10 +255,14 @@ function normalizeConfig(config) {
   const timezone = root.timezone ?? {};
   const pyrus = root.pyrus ?? {};
   const pyrusCatalogs = pyrus.catalogs ?? {};
+  const pyrusCatalogsShifts = pyrusCatalogs.shifts ?? {};
+  const pyrusCatalogsShiftsColumns = pyrusCatalogsShifts.columns ?? {};
+
   const pyrusForms = pyrus.forms ?? {};
   const pyrusFields = pyrus.fields ?? {};
   const pyrusFieldsOtpusk = pyrusFields.otpusk ?? {};
   const pyrusFieldsSmeni = pyrusFields.smeni ?? {};
+  const pyrusFieldsMeet = pyrusFields.form_meet ?? {};
 
   const ui = root.ui ?? {};
   const uiLines = ui.lines ?? {};
@@ -336,6 +350,14 @@ function normalizeConfig(config) {
       catalogs: {
         ...DEFAULT_CONFIG.pyrus.catalogs,
         ...pyrusCatalogs,
+        shifts: {
+          ...DEFAULT_CONFIG.pyrus.catalogs.shifts,
+          ...pyrusCatalogsShifts,
+          columns: {
+            ...DEFAULT_CONFIG.pyrus.catalogs.shifts.columns,
+            ...pyrusCatalogsShiftsColumns,
+          },
+        },
       },
       forms: {
         ...DEFAULT_CONFIG.pyrus.forms,
@@ -351,6 +373,10 @@ function normalizeConfig(config) {
         smeni: {
           ...DEFAULT_CONFIG.pyrus.fields.smeni,
           ...pyrusFieldsSmeni,
+        },
+        form_meet: {
+          ...DEFAULT_CONFIG.pyrus.fields.form_meet,
+          ...pyrusFieldsMeet,
         },
       },
     },

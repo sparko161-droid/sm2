@@ -8,7 +8,7 @@ function setCookie(name, value, days) {
   try {
     const expires = new Date(Date.now() + days * 86400000).toUTCString();
     document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function createLoginView(ctx) {
@@ -49,7 +49,7 @@ export function createLoginView(ctx) {
     };
     try {
       localStorage.setItem(storageKey, JSON.stringify(payload));
-    } catch (_) {}
+    } catch (_) { }
     if (cookieDays) {
       setCookie(storageKey, JSON.stringify(payload), cookieDays);
     }
@@ -231,7 +231,7 @@ export function createLoginView(ctx) {
     }
 
     async function sendEmailAuthCode(payload) {
-      return ctx.services.graphClient.callGraphApi("email", payload);
+      return ctx.services.authService.sendEmailAuthCode(payload);
     }
 
     function resetEmailAuthState(keepEmail = true) {

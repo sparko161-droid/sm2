@@ -13,7 +13,7 @@ function setCookie(name, value, days) {
   try {
     const expires = new Date(Date.now() + days * 86400000).toUTCString();
     document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function readRawSession(storageKey) {
@@ -39,7 +39,7 @@ function resolveSavedAt(payload) {
   return payload?.savedAt ?? payload?.createdAt ?? payload?.ts ?? payload?.timestamp ?? null;
 }
 
-export function createAuthService({ config, userProfileService, requestCache, navigate } = {}) {
+export function createAuthService({ config, userProfileService, requestCache, navigate, graphClient } = {}) {
   const storageKey = config?.storage?.auth?.key || "sm_graph_auth_v1";
   const ttlMs = Number(config?.storage?.auth?.sessionTtlMs ?? config?.storage?.auth?.ttlMs) || 0;
   const cookieDays = Number(config?.storage?.auth?.cookieDays) || 0;
@@ -60,7 +60,7 @@ export function createAuthService({ config, userProfileService, requestCache, na
   function clearSession() {
     try {
       localStorage.removeItem(storageKey);
-    } catch (_) {}
+    } catch (_) { }
     if (cookieDays) {
       setCookie(storageKey, "", -1);
     }
@@ -73,5 +73,12 @@ export function createAuthService({ config, userProfileService, requestCache, na
     navigate?.("login");
   }
 
-  return { hasValidSession, getSession, clearSession, logout };
+  async function sendEmailAuthCode(payload) {
+    if (!graphClient) {
+      throw new Error("graphClient is required for sendEmailAuthCode");
+    }
+    return graphClient.callGraphApi("email", payload);
+  }
+
+  return { hasValidSession, getSession, clearSession, logout, sendEmailAuthCode };
 }
