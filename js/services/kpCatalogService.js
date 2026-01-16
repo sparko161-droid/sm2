@@ -1,116 +1,119 @@
 
 import { cached } from "../cache/requestCache.js";
-import { 
-    getKpServicesCatalog, 
-    getKpMaintenanceCatalog, 
-    getKpLicensesCatalog,
-    getKpEquipmentForm 
+import {
+    getKpCatalogIds,
+    getKpServicesMapping,
+    getKpMaintenanceMapping,
+    getKpLicensesMapping,
+    getKpEquipmentFormConfig
 } from "../config.js";
 
-export function createKpCatalogsService({ pyrusClient }) {
+export function createKpCatalogsService({ pyrusClient, catalogsService }) {
     const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-    // Helper to get value from Catalog Item (array of values) or Form Task (fields list)
-    // Pyrus Catalog response items: { values: ["Name", "Price", ...] } - order matches headers
-    // Pyrus Form Register response items: { fields: [{id, value}, ...] }
-    
-    function getCatalogValue(item, headers, colName) {
-        // Headers: ["Name", "Price", ...]
-        // Item: { values: ["Sva", "100", ...] }
-        // We need mapping from config: { "name": "Название", "price": "Цена" }
-        // We find index of "Название" in headers, pick that index from item.values
-        if (!item?.values || !headers) return null;
-        
-        // This helper assumes 'colName' is the config key (e.g. "name"), 
-        // which maps to a Pyrus Column Name (e.g. "Название").
-        
-        // Note: The logic inside specific load functions handles the mapping resolution.
-        return null;
+    if (!catalogsService || typeof catalogsService.getCatalog !== "function") {
+        throw new Error("catalogsService with getCatalog is required for kpCatalogsService");
+    }
+
+    function extractCatalogData(data) {
+        return {
+            headers: data.headers || data.catalog_headers || [],
+            items: data.items || data.catalog_items || [],
+        };
     }
 
     // --- Services (Catalog) ---
     async function loadServicesCatalog() {
-        const conf = getKpServicesCatalog(); // { id, columns: { name: "Название", price: "Цена" } }
-        
+        const catalogIds = getKpCatalogIds();
+        const mapping = getKpServicesMapping(); // { name: "Название", price: "Цена" }
+
         return cached(
-            `kp_catalog_services_${conf.id}`,
+            `kp_catalog_services_${catalogIds.services}`,
+            { ttlMs: CACHE_TTL_MS },
             async () => {
-                const data = await pyrusClient.getCatalog(conf.id); 
-                // data = { items: [{ values: [...] }], headers: ["Название", "Цена", ...] }
-                // or data could be array if normalized? pyrusClient.getCatalog implementation needs check.
-                // Assuming standard Pyrus response or normalized. 
-                // If pyrusClient.getCatalog returns raw Pyrus response:
-                
-                const headers = data.headers || [];
-                const items = data.items || [];
-                
-                // Map headers to indices
-                const nameIdx = headers.indexOf(conf.columns.name);
-                const priceIdx = headers.indexOf(conf.columns.price);
-                const descIdx = headers.indexOf(conf.columns.description); // optional
+                const data = await catalogsService.getCatalog({ catalogId: catalogIds.services });
+                const { headers, items } = extractCatalogData(data);
+
+                const nameIdx = headers.indexOf(mapping.name);
+                const priceIdx = headers.indexOf(mapping.price);
+                const descIdx = mapping.description ? headers.indexOf(mapping.description) : -1;
+
+                if (nameIdx < 0 || priceIdx < 0) {
+                    console.error("[KP][Catalogs] Services catalog headers mismatch", {
+                        headers,
+                        mapping,
+                    });
+                }
 
                 return items.map(item => ({
-                    id: item.item_id || Math.random(), // Catalog items have item_id
+                    id: item.item_id,
                     name: (nameIdx >= 0 ? item.values[nameIdx] : "") || "Без названия",
                     price: (priceIdx >= 0 ? Number(item.values[priceIdx]) : 0) || 0,
                     description: (descIdx >= 0 ? item.values[descIdx] : "") || "",
                 }));
-            },
-            CACHE_TTL_MS
+            }
         );
     }
 
     // --- Licenses (Catalog) ---
     async function loadLicensesCatalog() {
-        const conf = getKpLicensesCatalog(); // { id, columns: { name: "sm_name", description: "sm_opisanie" } }
-        
+        const catalogIds = getKpCatalogIds();
+        const mapping = getKpLicensesMapping(); // { name: "sm_name", description: "sm_opisanie" }
+
         return cached(
-            `kp_catalog_licenses_${conf.id}`,
+            `kp_catalog_licenses_${catalogIds.licenses}`,
+            { ttlMs: CACHE_TTL_MS },
             async () => {
-                const data = await pyrusClient.getCatalog(conf.id);
-                const headers = data.headers || [];
-                const items = data.items || [];
-                
-                const nameIdx = headers.indexOf(conf.columns.name);
-                const descIdx = headers.indexOf(conf.columns.description);
-                // Price not in config columns? If missing, assume 0 or look for "Цена"?
-                // Config says: columns: {name, description}. No price?
-                // Maybe licenses have dynamic price or it's in description. 
-                // Let's check if 'price' key exists in config, if not check specific.
-                // For now, assume price is 0 if not mapped.
-                
+                const data = await catalogsService.getCatalog({ catalogId: catalogIds.licenses });
+                const { headers, items } = extractCatalogData(data);
+
+                const nameIdx = headers.indexOf(mapping.name);
+                const descIdx = headers.indexOf(mapping.description);
+
+                if (nameIdx < 0 || descIdx < 0) {
+                    console.error("[KP][Catalogs] Licenses catalog headers mismatch", {
+                        headers,
+                        mapping,
+                    });
+                }
+
                 return items.map(item => ({
                     id: item.item_id,
                     name: (nameIdx >= 0 ? item.values[nameIdx] : "") || "Без названия",
                     description: (descIdx >= 0 ? item.values[descIdx] : "") || "",
-                    price: 0 // Default
+                    price: 0
                 }));
-            },
-            CACHE_TTL_MS
+            }
         );
     }
 
     // --- Maintenance (Catalog) ---
     async function loadMaintenanceCatalog() {
-        const conf = getKpMaintenanceCatalog(); 
-        // { id, columns: { terminals: "Фронтов", sum: "Сумма", range: "кол-во" } }
-        
+        const catalogIds = getKpCatalogIds();
+        const mapping = getKpMaintenanceMapping();
+
         return cached(
-            `kp_catalog_maintenance_${conf.id}`,
+            `kp_catalog_maintenance_${catalogIds.maintenance}`,
+            { ttlMs: CACHE_TTL_MS },
             async () => {
-                const data = await pyrusClient.getCatalog(conf.id);
-                const headers = data.headers || [];
-                const items = data.items || [];
-                
-                const termIdx = headers.indexOf(conf.columns.terminals); // "Фронтов" - likely just visual
-                const sumIdx = headers.indexOf(conf.columns.sum); // "Сумма" -> Price
-                const rangeIdx = headers.indexOf(conf.columns.range); // "кол-во" -> Range e.g. "1-2"
-                
+                const data = await catalogsService.getCatalog({ catalogId: catalogIds.maintenance });
+                const { headers, items } = extractCatalogData(data);
+
+                const termIdx = headers.indexOf(mapping.terminals);
+                const sumIdx = headers.indexOf(mapping.sum);
+                const rangeIdx = headers.indexOf(mapping.range);
+
+                if (sumIdx < 0 || rangeIdx < 0) {
+                    console.error("[KP][Catalogs] Maintenance catalog headers mismatch", {
+                        headers,
+                        mapping,
+                    });
+                }
+
                 return items.map(item => {
                     const rangeStr = (rangeIdx >= 0 ? item.values[rangeIdx] : "") || "";
                     const price = (sumIdx >= 0 ? Number(item.values[sumIdx]) : 0);
-                    
-                    // Parse range "1-5" or "10+"
+
                     let min = 0, max = 0;
                     if (rangeStr.includes("-")) {
                         const parts = rangeStr.split("-");
@@ -120,11 +123,10 @@ export function createKpCatalogsService({ pyrusClient }) {
                         min = Number(rangeStr.replace(/\D/g, ""));
                         max = Infinity;
                     } else {
-                        // Single number?
                         min = Number(rangeStr) || 0;
                         max = min;
                     }
-                    
+
                     return {
                         id: item.item_id,
                         rangeRaw: rangeStr,
@@ -133,8 +135,7 @@ export function createKpCatalogsService({ pyrusClient }) {
                         price: price
                     };
                 }).sort((a,b) => a.terminalsMin - b.terminalsMin);
-            },
-            CACHE_TTL_MS
+            }
         );
     }
     
@@ -149,16 +150,15 @@ export function createKpCatalogsService({ pyrusClient }) {
         // Technically this is a Form Register, so we use getFormRegister via pyrusClient (or wrapper)
         // Ideally kpEquipmentService handles this, but kpView calls kpCatalogService.loadEquipmentCatalog too.
         // We implement it here to satisfy the call.
-        const conf = getKpEquipmentForm(); // { id, fieldIds: { ... } }
-        
+        const conf = getKpEquipmentFormConfig();
+
         return cached(
             `kp_catalog_equipment_reg_${conf.id}`,
+            { ttlMs: CACHE_TTL_MS },
             async () => {
-                // Use getFormRegister for Forms
                 const response = await pyrusClient.getFormRegister(conf.id);
                 const tasks = response.tasks || [];
-                
-                // Helper to find field
+
                 const getVal = (task, fieldId) => {
                     if (!task.fields) return null;
                     const f = task.fields.find(x => x.id === fieldId);
@@ -168,21 +168,17 @@ export function createKpCatalogsService({ pyrusClient }) {
                 return tasks.map(task => {
                     const name = getVal(task, conf.fieldIds.name) || "Без названия";
                     const price = Number(getVal(task, conf.fieldIds.salePrice)) || 0;
-                    const photoField = getVal(task, conf.fieldIds.photo); // might be text or object?
-                    // Photo in register is typically object { id, name, ... } if attachment
-                    // Or list of attachments.
-                    
-                    // For now, map simple structure
+                    const photoField = getVal(task, conf.fieldIds.photo);
+
                     return {
-                        id: task.id, // Task ID
+                        id: task.id,
                         name,
                         price,
-                        image: null, // We don't load image content here
-                        photo: photoField // Keep raw for downstream processing
+                        image: null,
+                        photo: photoField
                     };
                 });
-            },
-            CACHE_TTL_MS
+            }
         );
     }
 

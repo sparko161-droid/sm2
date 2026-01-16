@@ -1,4 +1,4 @@
-import { getKpEquipmentForm } from "../config.js";
+import { getKpEquipmentFormConfig } from "../config.js";
 
 // Cache valid for session
 let cache = null;
@@ -8,10 +8,10 @@ export function createKpEquipmentService({ pyrusClient }) {
     async function loadEquipmentRegister() {
         if (cache) return cache;
         
-        const conf = getKpEquipmentForm(); // { id, fieldIds: { type, description, photo, salePrice, name } }
+        const conf = getKpEquipmentFormConfig(); // { id, fieldIds: { type, description, photo, salePrice, name } }
         
         try {
-            // GET /forms/:id/register
+            // GET /v4/forms/:id/register
             const data = await pyrusClient.getFormRegister(conf.id);
             const tasks = data.tasks || [];
             

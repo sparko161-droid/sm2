@@ -1,5 +1,5 @@
 
-import { getKpCrmForm } from "../config.js";
+import { getKpCrmFormConfig } from "../config.js";
 
 export function createCrmService({ pyrusClient, config }) {
 
@@ -14,7 +14,7 @@ export function createCrmService({ pyrusClient, config }) {
      */
     async function loadDealsForManager({ managerId }) {
         try {
-            const crmConf = getKpCrmForm(); // { id, filters: {managerFieldId}, registerFieldIds }
+            const crmConf = getKpCrmFormConfig(); // { id, filters: {managerFieldId}, registerFieldIds }
             
             const params = {};
             // field_ids needs to be comma joined string usually or array if proxy handles it.

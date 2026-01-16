@@ -8,6 +8,22 @@ export function createCatalogsService({ pyrusClient, ttlMs = DEFAULT_CATALOG_TTL
     throw new Error("pyrusClient is required for catalogsService");
   }
 
+  async function getCatalog({ catalogId, force } = {}) {
+    if (!catalogId) {
+      throw new Error("catalogId is required for getCatalog");
+    }
+    return cached(
+      `pyrus:catalogs:${catalogId}`,
+      { ttlMs, force },
+      async () => {
+        const raw = await pyrusClient.pyrusRequest(`/v4/catalogs/${catalogId}`, {
+          method: "GET",
+        });
+        return unwrapPyrusData(raw);
+      }
+    );
+  }
+
   async function getShiftsCatalog({ catalogId, force } = {}) {
     if (!catalogId) {
       throw new Error("catalogId is required for getShiftsCatalog");
@@ -24,5 +40,5 @@ export function createCatalogsService({ pyrusClient, ttlMs = DEFAULT_CATALOG_TTL
     );
   }
 
-  return { getShiftsCatalog };
+  return { getCatalog, getShiftsCatalog };
 }

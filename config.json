@@ -168,59 +168,55 @@
       "name": "ООО \"Стандарт Мастер\"",
       "address": "АДРЕС_ЗАГЛУШКА_ЗАМЕНИТЬ"
     },
-    "pyrus": {
-      "catalogs": {
-        "services": {
-          "id": 265029,
-          "columns": {
-            "name": "Название",
-            "price": "Цена"
-          }
-        },
-        "maintenance": {
-          "id": 228631,
-          "columns": {
-            "terminals": "Фронтов",
-            "sum": "Сумма",
-            "range": "кол-во"
-          }
-        },
-        "licenses": {
-          "id": 282333,
-          "columns": {
-            "name": "sm_name",
-            "description": "sm_opisanie"
-          }
+    "catalogs": {
+      "services": {
+        "catalogId": 265029,
+        "mapping": {
+          "name": "Название",
+          "price": "Цена"
         }
       },
-      "forms": {
-        "equipment": {
-          "id": 2386773,
-          "fieldIds": {
-            "type": 1,
-            "description": 3,
-            "photo": 4,
-            "salePrice": 5,
-            "name": 7
-          }
-        },
-        "crm": {
-          "id": 2305023,
-          "filters": {
-            "managerFieldId": 7
-          },
-          "registerFieldIds": [
-            7,
-            156,
-            1,
-            138,
-            2,
-            6,
-            161,
-            162
-          ]
+      "maintenance": {
+        "catalogId": 228631,
+        "mapping": {
+          "terminals": "Фронтов",
+          "sum": "Сумма",
+          "range": "кол-во"
+        }
+      },
+      "licenses": {
+        "catalogId": 282333,
+        "mapping": {
+          "name": "sm_name",
+          "description": "sm_opisanie"
         }
       }
+    },
+    "equipment": {
+      "formId": 2386773,
+      "fieldIds": {
+        "type": 1,
+        "description": 3,
+        "photo": 4,
+        "salePrice": 5,
+        "name": 7
+      }
+    },
+    "crm": {
+      "formId": 2305023,
+      "filters": {
+        "managerFieldId": 7
+      },
+      "registerFieldIds": [
+        7,
+        156,
+        1,
+        138,
+        2,
+        6,
+        161,
+        162
+      ]
     },
     "n8n": {
       "webhooks": {

@@ -3,6 +3,11 @@
 ## 1. Config-Driven Integrations
 All Pyrus IDs must be in `config.json`. Hardcoding is forbidden.
 
+### 1.1 Pyrus endpoints & caching
+- Use `/v4/forms/...` and `/v4/catalogs/...` for all Pyrus form/catalog requests.
+- `requestCache.cached` signature is **always**: `cached(key, { ttlMs, force }, async () => { ... })`.
+- Catalogs use `catalogId`; forms use `formId`. Do not mix them in config or code.
+
 **Verification Commands:**
 ```bash
 # Must return empty (except config files)
