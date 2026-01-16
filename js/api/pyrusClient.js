@@ -25,8 +25,8 @@ export function createPyrusClient({ graphClient }) {
 
   async function getRegistry(formId, params = {}) {
     // params usually contains filters like { f_id, f_value } or format options
-    // The proxy expects: GET /forms/:id/register
-    // We map it to: path: `/forms/${formId}/register` + query params in body or mapped via proxy conventions
+    // The proxy expects: GET /v4/forms/:id/register
+    // We map it to: path: `/v4/forms/${formId}/register` + query params in body or mapped via proxy conventions
     // Assuming the existing proxy allows passing query params via the payload or we construct the path with query.
 
     // For n8n proxy / graph client, usually we send a JSON body. 
@@ -34,10 +34,20 @@ export function createPyrusClient({ graphClient }) {
     // Let's assume the standard way: 
     // If params are passed, we send them.
 
-    return unwrapPyrusData(await pyrusRequest(`/forms/${formId}/register`, {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).filter(([, value]) => value !== undefined && value !== null)
+    ).toString();
+    const path = query
+      ? `/v4/forms/${formId}/register?${query}`
+      : `/v4/forms/${formId}/register`;
+
+    return unwrapPyrusData(await pyrusRequest(path, {
       method: "GET", // or POST depending on how complex search is, but Pyrus registry is often read via GET with params
-      body: params
     }));
+  }
+
+  async function getFormRegister(formId, params = {}) {
+    return getRegistry(formId, params);
   }
 
   async function getTask(taskId) {
@@ -56,6 +66,7 @@ export function createPyrusClient({ graphClient }) {
   return {
     pyrusRequest,
     getRegistry,
+    getFormRegister,
     getTask,
     createTask,
     updateTask
