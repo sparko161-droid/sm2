@@ -8,18 +8,47 @@ import {
     getKpEquipmentFormConfig
 } from "../config.js";
 
-export function createKpCatalogsService({ pyrusClient, catalogsService }) {
+export function createKpCatalogsService({ pyrusClient }) {
     const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-    if (!catalogsService || typeof catalogsService.getCatalog !== "function") {
-        throw new Error("catalogsService with getCatalog is required for kpCatalogsService");
+    if (!pyrusClient || typeof pyrusClient.getCatalog !== "function") {
+        throw new Error("pyrusClient with getCatalog is required for kpCatalogsService");
     }
 
-    function extractCatalogData(data) {
-        return {
-            headers: data.headers || data.catalog_headers || [],
-            items: data.items || data.catalog_items || [],
-        };
+    const cleanText = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+
+    const parseNumber = (value) => {
+        if (typeof value === "number") return value;
+        const cleaned = String(value ?? "")
+            .replace(/\s+/g, "")
+            .replace(",", ".")
+            .replace(/[^\d.-]/g, "");
+        const parsed = Number(cleaned);
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    function indexByHeader(headers) {
+        const map = new Map();
+        headers.forEach((header, index) => {
+            const key = cleanText(header);
+            if (key && !map.has(key)) {
+                map.set(key, index);
+            }
+        });
+        return map;
+    }
+
+    function getHeaderIndex(headerMap, headerLabel, context) {
+        const key = cleanText(headerLabel);
+        const idx = headerMap.get(key);
+        if (idx === undefined) {
+            console.warn("[KP][Catalogs] Missing header", {
+                context,
+                header: headerLabel,
+                headers: Array.from(headerMap.keys()),
+            });
+        }
+        return idx;
     }
 
     // --- Services (Catalog) ---
@@ -31,25 +60,20 @@ export function createKpCatalogsService({ pyrusClient, catalogsService }) {
             `kp_catalog_services_${catalogIds.services}`,
             { ttlMs: CACHE_TTL_MS },
             async () => {
-                const data = await catalogsService.getCatalog({ catalogId: catalogIds.services });
-                const { headers, items } = extractCatalogData(data);
+                const data = await pyrusClient.getCatalog(catalogIds.services);
+                const headerMap = indexByHeader(data.headers || []);
 
-                const nameIdx = headers.indexOf(mapping.name);
-                const priceIdx = headers.indexOf(mapping.price);
-                const descIdx = mapping.description ? headers.indexOf(mapping.description) : -1;
+                const nameIdx = getHeaderIndex(headerMap, mapping.name, "services.name");
+                const priceIdx = getHeaderIndex(headerMap, mapping.price, "services.price");
+                const descIdx = mapping.description
+                    ? getHeaderIndex(headerMap, mapping.description, "services.description")
+                    : undefined;
 
-                if (nameIdx < 0 || priceIdx < 0) {
-                    console.error("[KP][Catalogs] Services catalog headers mismatch", {
-                        headers,
-                        mapping,
-                    });
-                }
-
-                return items.map(item => ({
+                return (data.items || []).map(item => ({
                     id: item.item_id,
-                    name: (nameIdx >= 0 ? item.values[nameIdx] : "") || "Без названия",
-                    price: (priceIdx >= 0 ? Number(item.values[priceIdx]) : 0) || 0,
-                    description: (descIdx >= 0 ? item.values[descIdx] : "") || "",
+                    name: cleanText(nameIdx !== undefined ? item.values?.[nameIdx] : "") || "Без названия",
+                    price: parseNumber(priceIdx !== undefined ? item.values?.[priceIdx] : 0),
+                    description: cleanText(descIdx !== undefined ? item.values?.[descIdx] : ""),
                 }));
             }
         );
@@ -64,23 +88,16 @@ export function createKpCatalogsService({ pyrusClient, catalogsService }) {
             `kp_catalog_licenses_${catalogIds.licenses}`,
             { ttlMs: CACHE_TTL_MS },
             async () => {
-                const data = await catalogsService.getCatalog({ catalogId: catalogIds.licenses });
-                const { headers, items } = extractCatalogData(data);
+                const data = await pyrusClient.getCatalog(catalogIds.licenses);
+                const headerMap = indexByHeader(data.headers || []);
 
-                const nameIdx = headers.indexOf(mapping.name);
-                const descIdx = headers.indexOf(mapping.description);
+                const nameIdx = getHeaderIndex(headerMap, mapping.name, "licenses.name");
+                const descIdx = getHeaderIndex(headerMap, mapping.description, "licenses.description");
 
-                if (nameIdx < 0 || descIdx < 0) {
-                    console.error("[KP][Catalogs] Licenses catalog headers mismatch", {
-                        headers,
-                        mapping,
-                    });
-                }
-
-                return items.map(item => ({
+                return (data.items || []).map(item => ({
                     id: item.item_id,
-                    name: (nameIdx >= 0 ? item.values[nameIdx] : "") || "Без названия",
-                    description: (descIdx >= 0 ? item.values[descIdx] : "") || "",
+                    name: cleanText(nameIdx !== undefined ? item.values?.[nameIdx] : "") || "Без названия",
+                    description: cleanText(descIdx !== undefined ? item.values?.[descIdx] : ""),
                     price: 0
                 }));
             }
@@ -96,42 +113,41 @@ export function createKpCatalogsService({ pyrusClient, catalogsService }) {
             `kp_catalog_maintenance_${catalogIds.maintenance}`,
             { ttlMs: CACHE_TTL_MS },
             async () => {
-                const data = await catalogsService.getCatalog({ catalogId: catalogIds.maintenance });
-                const { headers, items } = extractCatalogData(data);
+                const data = await pyrusClient.getCatalog(catalogIds.maintenance);
+                const headerMap = indexByHeader(data.headers || []);
 
-                const termIdx = headers.indexOf(mapping.terminals);
-                const sumIdx = headers.indexOf(mapping.sum);
-                const rangeIdx = headers.indexOf(mapping.range);
+                const terminalsIdx = getHeaderIndex(headerMap, mapping.terminals, "maintenance.terminals");
+                const sumIdx = getHeaderIndex(headerMap, mapping.sum, "maintenance.sum");
+                const rangeIdx = mapping.range
+                    ? getHeaderIndex(headerMap, mapping.range, "maintenance.range")
+                    : undefined;
 
-                if (sumIdx < 0 || rangeIdx < 0) {
-                    console.error("[KP][Catalogs] Maintenance catalog headers mismatch", {
-                        headers,
-                        mapping,
-                    });
-                }
-
-                return items.map(item => {
-                    const rangeStr = (rangeIdx >= 0 ? item.values[rangeIdx] : "") || "";
-                    const price = (sumIdx >= 0 ? Number(item.values[sumIdx]) : 0);
-
-                    let min = 0, max = 0;
-                    if (rangeStr.includes("-")) {
-                        const parts = rangeStr.split("-");
-                        min = Number(parts[0]);
-                        max = Number(parts[1]);
-                    } else if (rangeStr.includes("+") || rangeStr.includes(">")) {
-                        min = Number(rangeStr.replace(/\D/g, ""));
-                        max = Infinity;
-                    } else {
-                        min = Number(rangeStr) || 0;
-                        max = min;
+                const parseRange = (value) => {
+                    const normalized = cleanText(value);
+                    if (!normalized) return { min: 0, max: 0, raw: "" };
+                    if (normalized.includes("-")) {
+                        const [left, right] = normalized.split("-").map((v) => parseNumber(v));
+                        return { min: left || 0, max: right || 0, raw: normalized };
                     }
+                    if (normalized.includes("+") || normalized.includes(">")) {
+                        const min = parseNumber(normalized);
+                        return { min, max: Infinity, raw: normalized };
+                    }
+                    const single = parseNumber(normalized);
+                    return { min: single, max: single, raw: normalized };
+                };
+
+                return (data.items || []).map(item => {
+                    const terminalsValue = terminalsIdx !== undefined ? item.values?.[terminalsIdx] : "";
+                    const rangeValue = rangeIdx !== undefined ? item.values?.[rangeIdx] : "";
+                    const range = parseRange(terminalsValue || rangeValue);
+                    const price = parseNumber(sumIdx !== undefined ? item.values?.[sumIdx] : 0);
 
                     return {
                         id: item.item_id,
-                        rangeRaw: rangeStr,
-                        terminalsMin: min,
-                        terminalsMax: max,
+                        rangeRaw: range.raw,
+                        terminalsMin: range.min,
+                        terminalsMax: range.max,
                         price: price
                     };
                 }).sort((a,b) => a.terminalsMin - b.terminalsMin);

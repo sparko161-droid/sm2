@@ -15,6 +15,27 @@ export function createPyrusClient({ graphClient }) {
     throw new Error("graphClient is required for pyrusClient");
   }
 
+  function unwrapArrayPayload(data) {
+    if (Array.isArray(data)) return data[0] || null;
+    return data;
+  }
+
+  function normalizeCatalogPayload(data) {
+    const normalized = unwrapArrayPayload(data) || {};
+    const rawHeaders = normalized.catalog_headers || normalized.headers || [];
+    const headers = rawHeaders
+      .map((header) => (typeof header === "string" ? header : header?.name))
+      .filter(Boolean)
+      .map((header) => String(header).trim());
+    const items = normalized.items || normalized.catalog_items || [];
+    return { headers, items };
+  }
+
+  function normalizeFormRegisterPayload(data) {
+    const normalized = unwrapArrayPayload(data) || {};
+    return { tasks: normalized.tasks || [] };
+  }
+
   async function pyrusRequest(endpoint, payload = {}) {
     const method = payload.method || "GET";
     const body = payload.body || null;
@@ -47,7 +68,16 @@ export function createPyrusClient({ graphClient }) {
   }
 
   async function getFormRegister(formId, params = {}) {
-    return getRegistry(formId, params);
+    const data = await getRegistry(formId, params);
+    return normalizeFormRegisterPayload(data);
+  }
+
+  async function getCatalog(catalogId) {
+    if (!catalogId) {
+      throw new Error("catalogId is required for getCatalog");
+    }
+    const data = unwrapPyrusData(await pyrusRequest(`/v4/catalogs/${catalogId}`, { method: "GET" }));
+    return normalizeCatalogPayload(data);
   }
 
   async function getTask(taskId) {
@@ -67,6 +97,7 @@ export function createPyrusClient({ graphClient }) {
     pyrusRequest,
     getRegistry,
     getFormRegister,
+    getCatalog,
     getTask,
     createTask,
     updateTask

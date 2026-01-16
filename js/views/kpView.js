@@ -1,5 +1,5 @@
 import { createEmptyKpModel, recalcKpModel, formatMoney } from "../utils/kpCalc.js";
-import { openPopover } from "../ui/popoverEngine.js";
+import { openPopover, closePopover } from "../ui/popoverEngine.js";
 
 export function createKpView({ services, router }) {
   const { crmService, authService, kpCatalogService, kpService, kpEquipmentService, kpN8nService } = services;
@@ -453,55 +453,96 @@ export function createKpView({ services, router }) {
       }
       
       const popDiv = document.createElement("div");
-      popDiv.style.cssText = "max-height: 400px; overflow-y: auto; padding: 5px; width: 300px;";
-      
-      // Optional: Add manual empty row button
+      popDiv.className = "kp-popover";
+
+      const searchInput = document.createElement("input");
+      searchInput.className = "kp-popover__search";
+      searchInput.type = "text";
+      searchInput.placeholder = "Поиск...";
+
       const addMan = document.createElement("button");
-      addMan.className = "btn btn-sm";
+      addMan.className = "btn btn-sm kp-popover__add";
+      addMan.type = "button";
       addMan.textContent = "+ Пустая строка";
-      addMan.style.width="100%";
       addMan.onclick = () => {
           let row = { name: "Новая позиция", qty: 1, price: 0, total: 0 };
-          if (sectionKey === 'equipment') row = { ...row, typeName: "", photo: null };
+          if (sectionKey === "equipment") row = { ...row, typeName: "", photo: null };
           state.model.sections[sectionKey].items.push(row);
           doRecalc();
       };
-      popDiv.appendChild(addMan);
-      
-      items.forEach(it => {
-          const b = document.createElement("div");
-          b.className = "btn-list-item";
-          b.style.cssText = "padding: 8px; border-bottom: 1px solid #eee; cursor: pointer;";
-          
-          let sub = "";
-          if (it.description) sub += `<div><small style='color:#666'>${it.description}</small></div>`;
-          if (it.typeName) sub += `<div><small style='color:blue'>${it.typeName}</small></div>`;
-          
-          b.innerHTML = `
-             <div style="font-weight: bold;">${it.name}</div>
-             ${sub}
-             <div style="text-align: right; color: darkgreen;">${it.price > 0 ? it.price + " ₽" : ""}</div>
-          `;
-          b.onclick = () => {
-              const row = {
-                  name: it.name,
-                  qty: 1,
-                  price: it.price,
-                  total: it.price,
-                  description: it.description || "",
-                  typeName: it.typeName || "",
-                  photo: it.photo || null
+
+      const listEl = document.createElement("div");
+      listEl.className = "kp-popover__list";
+
+      let popoverId = null;
+
+      const renderList = (list) => {
+          listEl.innerHTML = "";
+          list.forEach((it) => {
+              const itemEl = document.createElement("div");
+              itemEl.className = "kp-popover__item";
+
+              const description = it.description ? `<div class="kp-popover__meta">${it.description}</div>` : "";
+              const typeName = it.typeName ? `<div class="kp-popover__meta">${it.typeName}</div>` : "";
+              const price = it.price > 0 ? `${it.price} ₽` : "";
+
+              itemEl.innerHTML = `
+                  <div class="kp-popover__row">
+                      <div class="kp-popover__name">${it.name}</div>
+                      <div class="kp-popover__price">${price}</div>
+                  </div>
+                  ${description}
+                  ${typeName}
+              `;
+              itemEl.onclick = () => {
+                  const row = {
+                      name: it.name,
+                      qty: 1,
+                      price: it.price,
+                      total: it.price,
+                      description: it.description || "",
+                      typeName: it.typeName || "",
+                      photo: it.photo || null
+                  };
+                  state.model.sections[sectionKey].items.push(row);
+                  doRecalc();
+                  if (popoverId) closePopover(popoverId);
               };
-              state.model.sections[sectionKey].items.push(row);
-              doRecalc();
-          };
-          popDiv.appendChild(b);
+              listEl.appendChild(itemEl);
+          });
+      };
+
+      const filterList = () => {
+          const query = searchInput.value.trim().toLowerCase();
+          if (!query) return items;
+          return items.filter((it) => {
+              const haystack = `${it.name || ""} ${it.description || ""} ${it.typeName || ""}`.toLowerCase();
+              return haystack.includes(query);
+          });
+      };
+
+      let debounceId = null;
+      searchInput.addEventListener("input", () => {
+          if (debounceId) window.clearTimeout(debounceId);
+          debounceId = window.setTimeout(() => {
+              renderList(filterList());
+          }, 80);
       });
-      
-      openPopover({
+
+      popDiv.appendChild(searchInput);
+      popDiv.appendChild(addMan);
+      popDiv.appendChild(listEl);
+
+      renderList(items);
+
+      popoverId = openPopover({
           id: `kp_cat_${sectionKey}`,
           anchorRect: anchorEl.getBoundingClientRect(),
           contentEl: popDiv
+      });
+
+      window.requestAnimationFrame(() => {
+          searchInput.focus();
       });
   }
 

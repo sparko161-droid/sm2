@@ -83,7 +83,7 @@ const timezoneService = createTimezoneService({ config });
 timezoneService.init();
 
 const crmService = createCrmService({ pyrusClient, config });
-const kpCatalogService = createKpCatalogsService({ pyrusClient, catalogsService });
+const kpCatalogService = createKpCatalogsService({ pyrusClient });
 const kpService = createKpService({ pyrusClient, config });
 const kpN8nService = createKpN8nService();
 const kpEquipmentService = createKpEquipmentService({ pyrusClient });
