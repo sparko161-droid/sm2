@@ -13,9 +13,22 @@ import { createMeetingsService } from "./services/meetingsService.js";
 import { createAccessService } from "./services/accessService.js";
 import { createAuthService } from "./services/authService.js";
 import { createUserProfileService } from "./services/userProfileService.js";
+import { createCrmService } from "./services/crmService.js";
+import { createKpCatalogsService } from "./services/kpCatalogService.js";
+import { createKpService } from "./services/kpService.js";
+import { createKpN8nService } from "./services/kpN8nService.js";
+import { createKpEquipmentService } from "./services/kpEquipmentService.js";
 import { createTimezoneService } from "./services/timezoneService.js";
 import * as requestCache from "./cache/requestCache.js";
 import { subscribe, navigate } from "./router/hashRouter.js";
+import { installGlobalErrorOverlay } from "./utils/errorOverlay.js";
+
+// Init Fail-safe ASAP
+installGlobalErrorOverlay();
+
+// ... existing imports ...
+
+
 import { createAppShell } from "./layout/appShell.js";
 import { createHeader } from "./layout/header.js";
 import { mount } from "./layout/mount.js";
@@ -69,6 +82,12 @@ const authService = createAuthService({
 const timezoneService = createTimezoneService({ config });
 timezoneService.init();
 
+const crmService = createCrmService({ pyrusClient, config });
+const kpCatalogService = createKpCatalogsService({ pyrusClient });
+const kpService = createKpService({ pyrusClient, config });
+const kpN8nService = createKpN8nService();
+const kpEquipmentService = createKpEquipmentService({ pyrusClient });
+
 const services = {
   graphClient,
   membersService,
@@ -81,6 +100,11 @@ const services = {
   accessService,
   authService,
   timezoneService,
+  crmService,
+  kpCatalogService,
+  kpService,
+  kpN8nService,
+  kpEquipmentService,
 };
 
 const ctx = {

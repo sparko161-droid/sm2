@@ -51,6 +51,18 @@ const DEFAULT_CONFIG = {
     kp: [],
     gantt: [],
   },
+  meetings: {
+    formId: 1382379,
+    fields: {
+      subject: 1,
+      dueDateTime: 4,
+      residentsTable: 14,
+      residentCellPerson: 15,
+      postLink: 20,
+      status: 26,
+      responsible: 27,
+    },
+  },
   timezone: {
     localOffsetMin: 4 * 60, // legacy fallback
     storageKey: "sm2_timezone",
@@ -249,6 +261,8 @@ const REQUIRED_PATHS = [
   "calendar",
   "calendar.prodCal",
   "calendar.prodCal.urlTemplate",
+  "meetings",
+  "meetings.formId",
 ];
 
 function normalizeConfig(config) {
@@ -265,6 +279,9 @@ function normalizeConfig(config) {
   const storage = root.storage ?? {};
   const storageKeys = storage.keys ?? {};
   const storageAuth = storage.auth ?? {};
+
+  const meetings = root.meetings ?? {};
+  const meetingsFields = meetings.fields ?? {};
 
   const timezone = root.timezone ?? {};
   const pyrus = root.pyrus ?? {};
@@ -355,6 +372,15 @@ function normalizeConfig(config) {
       auth: {
         ...DEFAULT_CONFIG.storage.auth,
         ...storageAuth,
+      },
+    },
+
+    meetings: {
+      ...DEFAULT_CONFIG.meetings,
+      ...meetings,
+      fields: {
+        ...DEFAULT_CONFIG.meetings.fields,
+        ...meetingsFields,
       },
     },
 
@@ -575,4 +601,86 @@ export function getConfigValue(path, options = {}) {
 
 export function getConfig() {
   return config;
+}
+
+export function getMeetingsFormId() {
+  return config.meetings?.formId || config.pyrus?.forms?.form_meet;
+}
+
+export function getMeetingsFieldIds() {
+  const f = config.meetings?.fields || {};
+  const legacy = config.pyrus?.fields?.form_meet || {};
+
+  return {
+    subject: f.subject ?? legacy.subject,
+    dueDateTime: f.dueDateTime ?? legacy.due ?? 4,
+    residentsTable: f.residentsTable ?? legacy.residentsTable ?? 14,
+    residentCellPerson: f.residentCellPerson ?? legacy.residentCell ?? 15,
+    postLink: f.postLink ?? legacy.postLink ?? 20,
+    status: f.status ?? 26,
+    responsible: f.responsible ?? legacy.responsible ?? 27,
+  };
+}
+
+export function getKpConfig() {
+  return config.kp || {};
+}
+
+export function getKpCompanyConfig() {
+  const kp = getKpConfig();
+  return kp.company || {};
+}
+
+// === NEW TYPED GETTERS ===
+
+export function getKpCompanyName() {
+  const v = config.kp?.company?.name;
+  if (!v) throw new Error("[KP][Config] Missing kp.company.name");
+  return v;
+}
+
+export function getKpCompanyAddress() {
+  const v = config.kp?.company?.address;
+  if (!v) throw new Error("[KP][Config] Missing kp.company.address");
+  return v;
+}
+
+export function getKpServicesCatalog() {
+  const v = config.kp?.pyrus?.catalogs?.services;
+  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.catalogs.services");
+  return v;
+}
+
+export function getKpMaintenanceCatalog() {
+  const v = config.kp?.pyrus?.catalogs?.maintenance;
+  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.catalogs.maintenance");
+  return v;
+}
+
+export function getKpLicensesCatalog() {
+  const v = config.kp?.pyrus?.catalogs?.licenses;
+  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.catalogs.licenses");
+  return v;
+}
+
+export function getKpEquipmentForm() {
+  const v = config.kp?.pyrus?.forms?.equipment;
+  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.forms.equipment");
+  return v;
+}
+
+export function getKpCrmForm() {
+  const v = config.kp?.pyrus?.forms?.crm;
+  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.forms.crm");
+  return v;
+}
+
+export function getKpN8nPyrusFilesWebhookUrl() {
+  const v = config.kp?.n8n?.webhooks?.pyrusFiles;
+  if (!v) throw new Error("[KP][Config] Missing kp.n8n.webhooks.pyrusFiles");
+  return v;
+}
+
+export function getKpTaxConfig() {
+  return config.kp?.tax || { rate: 20, included: true };
 }

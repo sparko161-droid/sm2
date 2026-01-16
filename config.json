@@ -39,12 +39,16 @@
         1139300,
         1139301
       ],
-      "OP": [1139296],
+      "OP": [
+        1139296
+      ],
       "OV": [
         1139297,
         1195028
       ],
-      "OU": [1139302],
+      "OU": [
+        1139302
+      ],
       "AI": [
         1139300,
         1225080
@@ -56,6 +60,18 @@
     "meet": [],
     "kp": [],
     "gantt": []
+  },
+  "meetings": {
+    "formId": 1382379,
+    "fields": {
+      "subject": 1,
+      "dueDateTime": 4,
+      "residentsTable": 14,
+      "residentCellPerson": 15,
+      "postLink": 20,
+      "status": 26,
+      "responsible": 27
+    }
   },
   "pyrus": {
     "catalogs": {
@@ -145,6 +161,75 @@
         "Инженера 5/2",
         "Инженера 2/2"
       ]
+    }
+  },
+  "kp": {
+    "company": {
+      "name": "ООО \"Стандарт Мастер\"",
+      "address": "АДРЕС_ЗАГЛУШКА_ЗАМЕНИТЬ"
+    },
+    "pyrus": {
+      "catalogs": {
+        "services": {
+          "id": 265029,
+          "columns": {
+            "name": "Название",
+            "price": "Цена"
+          }
+        },
+        "maintenance": {
+          "id": 228631,
+          "columns": {
+            "terminals": "Фронтов",
+            "sum": "Сумма",
+            "range": "кол-во"
+          }
+        },
+        "licenses": {
+          "id": 282333,
+          "columns": {
+            "name": "sm_name",
+            "description": "sm_opisanie"
+          }
+        }
+      },
+      "forms": {
+        "equipment": {
+          "id": 2386773,
+          "fieldIds": {
+            "type": 1,
+            "description": 3,
+            "photo": 4,
+            "salePrice": 5,
+            "name": 7
+          }
+        },
+        "crm": {
+          "id": 2305023,
+          "filters": {
+            "managerFieldId": 7
+          },
+          "registerFieldIds": [
+            7,
+            156,
+            1,
+            138,
+            2,
+            6,
+            161,
+            162
+          ]
+        }
+      }
+    },
+    "n8n": {
+      "webhooks": {
+        "pyrusFiles": "REPLACE_ME__N8N_WEBHOOK_URL"
+      }
+    },
+    "tax": {
+      "rate": 20,
+      "included": true
     }
   },
   "timezone": {

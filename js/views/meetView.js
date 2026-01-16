@@ -477,7 +477,57 @@ export function createMeetView(ctx) {
     }
 
     grid.append(segments, overlay);
+    grid.append(segments, overlay);
     return { grid, busySegments };
+  }
+
+  function updateTimeGridOverlay(gridEl, items) {
+    if (!gridEl) return;
+    const overlay = gridEl.querySelector(".meet-time-grid__overlay");
+    const segmentsContainer = gridEl.querySelector(".meet-time-grid__segments");
+    if (!overlay || !segmentsContainer) return;
+
+    // 1. Recalculate busy segments
+    const segmentsCount = (24 * 60) / TIME_GRID_STEP_MINUTES;
+    const busySegments = new Array(segmentsCount).fill(false);
+    for (const item of items) {
+      const startIndex = Math.floor(item.meta.startMinutes / TIME_GRID_STEP_MINUTES);
+      const endMinutes = item.meta.startMinutes + item.meeting.durationMin;
+      const endIndexExclusive = Math.ceil(endMinutes / TIME_GRID_STEP_MINUTES);
+      for (let i = startIndex; i < endIndexExclusive && i < busySegments.length; i += 1) {
+        busySegments[i] = true;
+      }
+    }
+
+    // 2. Update segments classes (reuse DOM)
+    const segmentEls = segmentsContainer.children;
+    for (let i = 0; i < segmentEls.length; i++) {
+      if (busySegments[i]) segmentEls[i].classList.add("is-busy");
+      else segmentEls[i].classList.remove("is-busy");
+    }
+
+    // 3. Rebuild overlay
+    overlay.innerHTML = "";
+    const plannedItems = planMeetingsLayout(items);
+
+    for (const item of plannedItems) {
+      const block = buildMeetingCard(item, "meet-card--overlay");
+      const startMinutes = item.meta.startMinutes;
+      const heightMinutes = item.meeting.durationMin;
+      const { colIndex, totalCols } = item.layout;
+
+      block.style.top = `${startMinutes * PX_PER_MINUTE}px`;
+      block.style.height = `${heightMinutes * PX_PER_MINUTE}px`;
+
+      const width = 100 / totalCols;
+      const left = colIndex * width;
+      block.style.width = `calc(${width}% - 12px)`;
+      block.style.left = `calc(${left}% + 6px)`;
+
+      overlay.appendChild(block);
+    }
+
+    return busySegments;
   }
 
   function planMeetingsLayout(items) {
@@ -605,6 +655,7 @@ export function createMeetView(ctx) {
     content.innerHTML = "";
     const grid = buildElement("div", "meet-grid");
     grid.style.setProperty("--meet-days-count", "1");
+    grid.dataset.mode = "day";
     grid.appendChild(renderDayColumn(start, meetingsByDate, dayTypeMap, { showLabel: false }));
     content.appendChild(grid);
   }
@@ -613,6 +664,7 @@ export function createMeetView(ctx) {
     content.innerHTML = "";
     const grid = buildElement("div", "meet-grid");
     grid.style.setProperty("--meet-days-count", String(daysCount));
+    grid.dataset.mode = state.mode;
     for (let i = 0; i < daysCount; i += 1) {
       const dayDate = addDays(start, i);
       grid.appendChild(renderDayColumn(dayDate, meetingsByDate, dayTypeMap, { showLabel: false }));
@@ -794,6 +846,9 @@ export function createMeetView(ctx) {
       placement: "center",
       onClose: () => {
         // При закрытии оверлея удаляем его контроллер выделения, чтобы не текла память
+        if (selectionControllers.has(dayKey)) {
+          selectionControllers.get(dayKey).destroy?.();
+        }
         selectionControllers.delete(dayKey);
         deselectAllDays();
       }
@@ -1023,13 +1078,21 @@ export function createMeetView(ctx) {
       const dayTypeMap = await ensureCalendarMap(start, end);
       state.currentDayTypeMap = dayTypeMap;
 
-      // Предварительно рендерим с кешированными данными если еще не загрузились
       if (!state.hasLoaded) {
         const cachedMeetingsByDate = getMeetingsByDate(applyEmployeeFilter(cached));
         state.currentMeetingsByDate = cachedMeetingsByDate;
       }
 
       if (token !== state.renderToken) return;
+
+      // reuse check
+      const canReuse = (state.mode === "day" || state.mode === "days4" || state.mode === "days7") &&
+        checkCanReuseGrid(start, getModeDaysCount(state.mode));
+
+      if (canReuse && state.hasLoaded) {
+        // Optimization: skip full re-render, only update overlays
+        // But we need to make sure we have the fresh data first
+      }
 
       if (state.selectedEmployeeIds.length > 0) {
         state.selectedEmployeeScope = await meetingsService.resolveParticipantScope({
@@ -1047,7 +1110,9 @@ export function createMeetView(ctx) {
       state.currentMeetingsByDate = meetingsByDate;
       state.hasLoaded = true;
 
-      if (state.mode === "day") {
+      if (canReuse) {
+        updateDayView({ start, daysCount: getModeDaysCount(state.mode), meetingsByDate, dayTypeMap });
+      } else if (state.mode === "day") {
         renderDayBar({ start, daysCount: 1, dayTypeMap });
         renderDayView({ start, meetingsByDate, dayTypeMap });
       } else if (state.mode === "days4") {
@@ -1593,6 +1658,78 @@ export function createMeetView(ctx) {
   hscrollHeader.addEventListener("scroll", () => syncScroll(hscrollHeader, hscrollBody));
 
   let mounted = false;
+
+  function getModeDaysCount(mode) {
+    if (mode === "day") return 1;
+    if (mode === "days4") return 4;
+    if (mode === "days7") return 7;
+    return 0;
+  }
+
+  function checkCanReuseGrid(start, daysCount) {
+    const grid = content.querySelector(".meet-grid");
+    if (!grid) return false;
+    // Check if days count matches
+    if (grid.style.getPropertyValue("--meet-days-count") !== String(daysCount)) return false;
+
+    // Strict mode check
+    if (grid.dataset.mode && grid.dataset.mode !== state.mode) return false;
+
+    // Check first column date
+    const firstCol = grid.querySelector(".meet-time-grid");
+    if (!firstCol) return false;
+    if (firstCol.dataset.date !== dateKey(start)) return false;
+
+    return true;
+  }
+
+  function updateDayView({ start, daysCount, meetingsByDate }) {
+    const grid = content.querySelector(".meet-grid");
+    if (!grid) return;
+    const timeGrids = grid.querySelectorAll(".meet-time-grid");
+
+    for (let i = 0; i < daysCount; i++) {
+      if (i >= timeGrids.length) break;
+      const dayDate = addDays(start, i);
+      const dayKey = dateKey(dayDate);
+      const items = meetingsByDate.get(dayKey) || [];
+      const gridEl = timeGrids[i];
+
+      // Update overlay and busy segments
+      const busySegments = updateTimeGridOverlay(gridEl, items);
+
+      // Update selection controller busy segments if exists
+      if (selectionControllers.has(dayKey)) {
+        const controller = selectionControllers.get(dayKey);
+        // We need to inject new busySegments into controller. 
+        // Currently controller doesn't expose method to update busySegments.
+        // So we might need to recreate it OR update controller.
+        // Ideally controller reads from DOM or we pass it. 
+        // BUT `timeGridSelection` uses passed `busySegments` array.
+        // So we MUST recreate controller or patch it.
+        // Let's recreate it for safety - it's cheap enough compared to full DOM.
+        controller.destroy();
+        const newController = createTimeGridSelection({
+          gridEl,
+          busySegments,
+          stepMinutes: TIME_GRID_STEP_MINUTES,
+          pxPerMinute: PX_PER_MINUTE,
+          dateKey: dayKey,
+          onSelect: ({ dateKey: selectedDate, startMinutes, durationMinutes, point }) => {
+            const time = addMinutesLocal(0, startMinutes).time;
+            openCreateMeetingPopover({
+              date: selectedDate,
+              time,
+              durationMinutes,
+              anchorRect: null,
+              point,
+            });
+          },
+        });
+        selectionControllers.set(dayKey, newController);
+      }
+    }
+  }
 
   return {
     el: root,

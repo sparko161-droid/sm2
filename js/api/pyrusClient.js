@@ -23,5 +23,41 @@ export function createPyrusClient({ graphClient }) {
     return graphClient.callGraphApi("pyrus_api", requestPayload);
   }
 
-  return { pyrusRequest };
+  async function getRegistry(formId, params = {}) {
+    // params usually contains filters like { f_id, f_value } or format options
+    // The proxy expects: GET /forms/:id/register
+    // We map it to: path: `/forms/${formId}/register` + query params in body or mapped via proxy conventions
+    // Assuming the existing proxy allows passing query params via the payload or we construct the path with query.
+
+    // For n8n proxy / graph client, usually we send a JSON body. 
+    // If the proxy simply forwards the body to Pyrus, for getRegistry Pyrus expects a POST or GET with params.
+    // Let's assume the standard way: 
+    // If params are passed, we send them.
+
+    return unwrapPyrusData(await pyrusRequest(`/forms/${formId}/register`, {
+      method: "GET", // or POST depending on how complex search is, but Pyrus registry is often read via GET with params
+      body: params
+    }));
+  }
+
+  async function getTask(taskId) {
+    return unwrapPyrusData(await pyrusRequest(`/tasks/${taskId}`));
+  }
+
+  async function createTask(body) {
+    return unwrapPyrusData(await pyrusRequest(`/tasks`, { method: "POST", body }));
+  }
+
+  async function updateTask(taskId, body) {
+    // Pyrus API for commenting/updating is usually POST /tasks/:id/comments
+    return unwrapPyrusData(await pyrusRequest(`/tasks/${taskId}/comments`, { method: "POST", body }));
+  }
+
+  return {
+    pyrusRequest,
+    getRegistry,
+    getTask,
+    createTask,
+    updateTask
+  };
 }

@@ -15,7 +15,7 @@ function setCookie(name, value, days) {
   try {
     const expires = new Date(Date.now() + days * 86400000).toUTCString();
     document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function extractInitials(firstName, lastName) {
@@ -96,7 +96,8 @@ export function createUserProfileService({ pyrusClient, cache, config } = {}) {
   function saveProfile(nextProfile) {
     profile = normalizeProfileData(nextProfile);
     if (profile && cookieDays) {
-      setCookie(storageKey, JSON.stringify(profile), cookieDays);
+      const { avatarUrl, ...safeProfile } = profile;
+      setCookie(storageKey, JSON.stringify(safeProfile), cookieDays);
     }
     return profile;
   }
@@ -144,10 +145,11 @@ export function createUserProfileService({ pyrusClient, cache, config } = {}) {
         if (avatarUrl) {
           savedProfile.avatarUrl = avatarUrl;
           if (cookieDays) {
-            setCookie(storageKey, JSON.stringify(savedProfile), cookieDays);
+            const { avatarUrl: _, ...safeProfile } = savedProfile;
+            setCookie(storageKey, JSON.stringify(safeProfile), cookieDays);
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
     return savedProfile;
   }
