@@ -1,5 +1,5 @@
 
-import { getKpTaxConfig } from "../config.js";
+import { getKpTaxConfig, getKpDiscountsConfig } from "../config.js";
 
 /**
  * Calculates line totals and applies discounts/taxes.
@@ -17,15 +17,16 @@ export function createEmptyKpModel({ crmId, manager }) {
                 id: manager.id,
                 name: manager.fullName,
                 post: manager.position,
-                phone: manager.phone, // TODO: verify profile structure
+                phone: manager.phone,
+                email: manager.email,
                 avatar: null // Will be populated in save flow
             }
         },
         sections: {
-            services: { items: [], discountPercent: 0, total: 0 },
-            equipment: { items: [], discountPercent: 0, total: 0 },
-            licenses: { items: [], discountPercent: 0, total: 0 },
-            maintenance: { terminals: 0, price: 0, total: 0 }
+            services: { items: [], discountPercent: 0, subtotal: 0, total: 0 },
+            equipment: { items: [], discountPercent: 0, subtotal: 0, total: 0 },
+            licenses: { items: [], discountPercent: 0, subtotal: 0, total: 0 },
+            maintenance: { terminals: 0, unitPrice: 0, subtotal: 0, total: 0 }
         },
         total: 0
     };
@@ -40,47 +41,66 @@ export function recalcKpModel(model) {
 
     const sections = { ...model.sections };
     let grandTotal = 0;
+    const discounts = getKpDiscountsConfig();
 
-    // Helper for table sections
-    const calcSection = (sectionKey) => {
+    const resolveDiscountByQty = (qty, rules = []) => {
+        const amount = Number(qty) || 0;
+        const rule = rules.find((r) => {
+            const min = Number(r.min ?? 0);
+            const max = r.max == null ? Infinity : Number(r.max);
+            return amount >= min && amount <= max;
+        });
+        return rule ? Number(rule.percent) || 0 : 0;
+    };
+
+    const calcSection = (sectionKey, { useLineDiscounts = false } = {}) => {
         const section = sections[sectionKey];
         let subtotal = 0;
+        let total = 0;
 
         const items = section.items.map(item => {
             const price = Number(item.price) || 0;
             const qty = Number(item.qty) || 0;
-            const itemTotal = price * qty;
-            subtotal += itemTotal;
-            return { ...item, total: itemTotal };
+            const lineSubtotal = price * qty;
+            const discountPercent = useLineDiscounts
+                ? resolveDiscountByQty(qty, discounts.servicesByQty || [])
+                : Number(section.discountPercent) || 0;
+            const discountAmount = lineSubtotal * (discountPercent / 100);
+            const lineTotal = lineSubtotal - discountAmount;
+            subtotal += lineSubtotal;
+            total += lineTotal;
+            return {
+                ...item,
+                subtotal: lineSubtotal,
+                discountPercent,
+                discountAmount,
+                total: lineTotal,
+            };
         });
 
-        // Apply discount
-        const discount = Number(section.discountPercent) || 0;
-        let total = subtotal;
-        if (discount > 0) {
-            total = subtotal * (1 - discount / 100);
-        }
-
-        // Rounding
+        subtotal = Math.round(subtotal * 100) / 100;
         total = Math.round(total * 100) / 100;
 
         sections[sectionKey] = {
             ...section,
+            discountPercent: useLineDiscounts ? 0 : section.discountPercent,
             items,
-            total
+            subtotal,
+            total,
         };
         grandTotal += total;
     };
 
-    calcSection("services");
+    calcSection("services", { useLineDiscounts: true });
     calcSection("equipment");
     calcSection("licenses");
 
     // Maintenance (special case)
     const maint = sections.maintenance;
-    maint.total = (maint.price || 0) * (maint.terminals || 0);
-    sections.maintenance = { ...maint };
-    grandTotal += maint.total;
+    const maintSubtotal = (maint.unitPrice || 0) * (maint.terminals || 0);
+    const maintTotal = Math.round(maintSubtotal * 100) / 100;
+    sections.maintenance = { ...maint, subtotal: maintSubtotal, total: maintTotal };
+    grandTotal += maintTotal;
 
     // Tax Calculation
     // Assuming prices are tax-inclusive by default if not specified otherwise

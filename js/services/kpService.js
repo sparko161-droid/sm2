@@ -1,16 +1,15 @@
 
-import { getKpN8nConfig, getKpCrmConfig } from "../config.js";
+import { getKpN8nConfig } from "../config.js";
 import { renderKpHtml, parseKpHtml } from "../utils/kpHtml.js";
 
 export function createKpService({ pyrusClient, config }) {
     const n8nConfig = getKpN8nConfig();
-    const crmConfig = getKpCrmConfig();
 
     /**
      * Saves KP: Generates HTML -> Uploads to n8n -> Updates CRM Task
      */
     async function saveKpForDeal(dealId, model) {
-        if (!n8nConfig.saveEndpoint) throw new Error("n8n saveEndpoint not configured");
+        if (!n8nConfig.uploadKp?.path) throw new Error("n8n uploadKp is not configured");
 
         // 1. Generate HTML
         const htmlContent = renderKpHtml(model);
@@ -33,8 +32,8 @@ export function createKpService({ pyrusClient, config }) {
 
         let publicUrl = "";
         try {
-            const response = await fetch(n8nConfig.saveEndpoint, {
-                method: "POST",
+            const response = await fetch(n8nConfig.uploadKp.path, {
+                method: n8nConfig.uploadKp.method || "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(savePayload)
             });
@@ -42,36 +41,12 @@ export function createKpService({ pyrusClient, config }) {
             const resJson = await response.json();
             if (!resJson.success) throw new Error(resJson.error || "Upload failed");
 
-            publicUrl = resJson.url || (n8nConfig.publicBaseUrl + filename);
+            publicUrl = resJson.url || "";
         } catch (e) {
             throw new Error(`Upload Error: ${e.message}`);
         }
 
-        // 4. Update CRM Task
-        // We need to update fields in the deal task
-        const updates = {};
-
-        // Helper to map field updates
-        const addFieldUpdate = (fieldKey, value) => {
-            const fieldId = crmConfig.fields?.[fieldKey];
-            if (fieldId) updates[fieldId] = value;
-        };
-
-        addFieldUpdate("kpFilename", filename);
-        addFieldUpdate("kpUrl", publicUrl);
-        addFieldUpdate("kpDate", new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
-        addFieldUpdate("kpTotal", model.total); // Numeric or formatted? Pyrus money field usually expects number
-
-        // TODO: Update Table fields logic (complex).
-        // For now, let's just update header fields.
-
-        // Pyrus API update
-        // Assuming pyrusClient has a method for raw field updates
-        await pyrusClient.updateTask(dealId, {
-            fields: Object.entries(updates).map(([id, val]) => ({ id: Number(id), value: val }))
-        });
-
-        // 5. Update local model with new filename/url
+        // 4. Update local model with new filename/url
         model.meta.kpFilename = filename;
         model.meta.kpUrl = publicUrl;
 
@@ -82,17 +57,20 @@ export function createKpService({ pyrusClient, config }) {
      * Loads KP from file via n8n/public URL and parses it.
      */
     async function loadKpFromFile(filename) {
-        if (!n8nConfig.loadEndpoint) throw new Error("n8n loadEndpoint not configured");
+        if (!n8nConfig.getKp?.path) throw new Error("n8n getKp is not configured");
 
-        // Fetch HTML content. 
-        // Can be via n8n proxy if auth needed, or public URL if CORS allowed.
-        // Using n8n proxy for safety/CORS
-        const url = `${n8nConfig.loadEndpoint}?filename=${encodeURIComponent(filename)}`;
-
-        const response = await fetch(url);
+        const response = await fetch(n8nConfig.getKp.path, {
+            method: n8nConfig.getKp.method || "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename })
+        });
         if (!response.ok) throw new Error("Failed to fetch KP file");
 
-        const html = await response.text();
+        const resJson = await response.json();
+        if (!resJson.success || typeof resJson.data !== "string") {
+            throw new Error(resJson.error || "Invalid response from n8n");
+        }
+        const html = resJson.data;
         return parseKpHtml(html); // Extract JSON model
     }
 

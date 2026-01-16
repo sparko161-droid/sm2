@@ -1,5 +1,5 @@
 
-import { getKpCrmForm } from "../config.js";
+import { getKpCrmFormConfig } from "../config.js";
 
 export function createCrmService({ pyrusClient, config }) {
 
@@ -14,7 +14,7 @@ export function createCrmService({ pyrusClient, config }) {
      */
     async function loadDealsForManager({ managerId }) {
         try {
-            const crmConf = getKpCrmForm(); // { id, filters: {managerFieldId}, registerFieldIds }
+            const crmConf = getKpCrmFormConfig(); // { id, filters: {managerFieldId}, registerFieldIds }
             
             const params = {};
             // field_ids needs to be comma joined string usually or array if proxy handles it.
@@ -31,14 +31,15 @@ export function createCrmService({ pyrusClient, config }) {
             // Also usually fetch closed? Maybe not. Default is open.
             
             const response = await pyrusClient.getFormRegister(crmConf.id, params);
-            return normalizeDeals(response.tasks || []);
+            const deals = normalizeDeals(response.tasks || [], crmConf.titleFieldId, crmConf.clientNameFieldIds);
+            return deals.sort((a, b) => (b.createDate || 0) - (a.createDate || 0));
         } catch (error) {
             console.error("[CRM] Failed to load deals", error);
             throw error;
         }
     }
 
-    function normalizeDeals(tasks) {
+    function normalizeDeals(tasks, titleFieldId, clientNameFieldIds = []) {
         return tasks.map(task => {
             // Helper to find field value
             const getVal = (id) => {
@@ -53,13 +54,16 @@ export function createCrmService({ pyrusClient, config }) {
             // We use standard 'text' or first available string field or just Subject.
             // Task object usually has 'text' (summary).
             
-            const title = task.text || "Без темы";
+            const titleFromField = titleFieldId ? getVal(titleFieldId) : null;
+            const title = titleFromField || task.text || "";
             
             // Customer Name -> which field? 
             // Prompt says: "customerName: <from field 156/138...>"
             // Let's try to grab from known fields if they look like strings. 
             // We can't know for sure without exact mapping, so let's check field 156 then 138.
-            const customerName = getVal(156) || getVal(138) || "Клиент (не указан)";
+            const customerName = clientNameFieldIds
+              .map((id) => getVal(id))
+              .find((value) => value) || "Клиент (не указан)";
             
             // inn -> <if exists>
             // kpFileName -> <if exists>

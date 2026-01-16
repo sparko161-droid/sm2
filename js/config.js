@@ -627,11 +627,96 @@ export function getKpConfig() {
 }
 
 export function getKpCompanyConfig() {
-  const kp = getKpConfig();
-  return kp.company || {};
+  return getKpConfig().company || {};
+}
+
+export function getKpN8nConfig() {
+  return getKpConfig().n8n || {};
+}
+
+export function getKpCrmConfig() {
+  return getKpCrmFormConfig();
 }
 
 // === NEW TYPED GETTERS ===
+
+export function getKpCatalogsConfig() {
+  return getKpConfig().catalogs || {};
+}
+
+export function getKpFormsConfig() {
+  return getKpConfig().forms || {};
+}
+
+export function getKpDiscountsConfig() {
+  return getKpConfig().discounts || {};
+}
+
+function requireKpCatalogId(section, key) {
+  const catalogId = section?.catalogId;
+  if (!catalogId) {
+    throw new Error(`[KP][Config] Missing kp.catalogs.${key}.catalogId`);
+  }
+  return catalogId;
+}
+
+export function getKpCatalogIds() {
+  const catalogs = getKpCatalogsConfig();
+  return {
+    services: requireKpCatalogId(catalogs.services, "services"),
+    maintenance: requireKpCatalogId(catalogs.maintenance, "maintenance"),
+    licenses: requireKpCatalogId(catalogs.licenses, "licenses"),
+  };
+}
+
+export function getKpServicesMapping() {
+  const columns = getKpCatalogsConfig().services?.columns;
+  if (!columns) throw new Error("[KP][Config] Missing kp.catalogs.services.columns");
+  return columns;
+}
+
+export function getKpMaintenanceMapping() {
+  const columns = getKpCatalogsConfig().maintenance?.columns;
+  if (!columns) throw new Error("[KP][Config] Missing kp.catalogs.maintenance.columns");
+  return columns;
+}
+
+export function getKpLicensesMapping() {
+  const columns = getKpCatalogsConfig().licenses?.columns;
+  if (!columns) throw new Error("[KP][Config] Missing kp.catalogs.licenses.columns");
+  return columns;
+}
+
+export function getKpEquipmentFormId() {
+  const formId = getKpFormsConfig().equipment?.formId || getKpConfig().equipment?.formId;
+  if (!formId) throw new Error("[KP][Config] Missing kp.forms.equipment.formId");
+  return formId;
+}
+
+export function getKpEquipmentFieldIds() {
+  const fieldIds = getKpFormsConfig().equipment?.fieldIds || getKpConfig().equipment?.fieldIds;
+  if (!fieldIds) throw new Error("[KP][Config] Missing kp.forms.equipment.fieldIds");
+  return fieldIds;
+}
+
+export function getKpEquipmentFormConfig() {
+  return {
+    id: getKpEquipmentFormId(),
+    fieldIds: getKpEquipmentFieldIds(),
+  };
+}
+
+export function getKpCrmFormConfig() {
+  const crm = getKpFormsConfig().crm || getKpConfig().crm || {};
+  if (!crm.formId) throw new Error("[KP][Config] Missing kp.forms.crm.formId");
+  return {
+    id: crm.formId,
+    titleFieldId: crm.titleFieldId || 1,
+    clientNameFieldIds: crm.clientNameFieldIds || [],
+    filters: crm.filters || {},
+    registerFieldIds: crm.registerFieldIds || [],
+  };
+}
 
 export function getKpCompanyName() {
   const v = config.kp?.company?.name;
@@ -645,39 +730,45 @@ export function getKpCompanyAddress() {
   return v;
 }
 
+export function getKpAvatarSize() {
+  return Number(config.kp?.avatarSize) || 160;
+}
+
 export function getKpServicesCatalog() {
-  const v = config.kp?.pyrus?.catalogs?.services;
-  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.catalogs.services");
-  return v;
+  const catalogs = getKpCatalogsConfig();
+  return {
+    id: requireKpCatalogId(catalogs.services, "services"),
+    columns: getKpServicesMapping(),
+  };
 }
 
 export function getKpMaintenanceCatalog() {
-  const v = config.kp?.pyrus?.catalogs?.maintenance;
-  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.catalogs.maintenance");
-  return v;
+  const catalogs = getKpCatalogsConfig();
+  return {
+    id: requireKpCatalogId(catalogs.maintenance, "maintenance"),
+    columns: getKpMaintenanceMapping(),
+  };
 }
 
 export function getKpLicensesCatalog() {
-  const v = config.kp?.pyrus?.catalogs?.licenses;
-  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.catalogs.licenses");
-  return v;
+  const catalogs = getKpCatalogsConfig();
+  return {
+    id: requireKpCatalogId(catalogs.licenses, "licenses"),
+    columns: getKpLicensesMapping(),
+  };
 }
 
 export function getKpEquipmentForm() {
-  const v = config.kp?.pyrus?.forms?.equipment;
-  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.forms.equipment");
-  return v;
+  return getKpEquipmentFormConfig();
 }
 
 export function getKpCrmForm() {
-  const v = config.kp?.pyrus?.forms?.crm;
-  if (!v || !v.id) throw new Error("[KP][Config] Missing kp.pyrus.forms.crm");
-  return v;
+  return getKpCrmFormConfig();
 }
 
 export function getKpN8nPyrusFilesWebhookUrl() {
-  const v = config.kp?.n8n?.webhooks?.pyrusFiles;
-  if (!v) throw new Error("[KP][Config] Missing kp.n8n.webhooks.pyrusFiles");
+  const v = config.kp?.n8n?.pyrusFiles?.path || config.kp?.n8n?.webhooks?.pyrusFiles;
+  if (!v) throw new Error("[KP][Config] Missing kp.n8n.pyrusFiles.path");
   return v;
 }
 

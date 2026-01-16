@@ -1,8 +1,17 @@
 import { createEmptyKpModel, recalcKpModel, formatMoney } from "../utils/kpCalc.js";
-import { openPopover } from "../ui/popoverEngine.js";
+import { getKpAvatarSize } from "../config.js";
+import { openPopover, closePopover } from "../ui/popoverEngine.js";
 
 export function createKpView({ services, router }) {
-  const { crmService, authService, kpCatalogService, kpService, kpEquipmentService, kpN8nService } = services;
+  const {
+    crmService,
+    authService,
+    kpCatalogService,
+    kpService,
+    kpEquipmentService,
+    kpN8nService,
+    userProfileService,
+  } = services;
   const el = document.createElement("div");
   el.className = "kp-view";
 
@@ -14,6 +23,7 @@ export function createKpView({ services, router }) {
     error: null,
     currentDeal: null,
     model: null, // The KP data model
+    dealsQuery: "",
     // Equipment lazy load state
     equipmentCache: [], // full list
     equipmentFilter: "" // for search
@@ -25,7 +35,7 @@ export function createKpView({ services, router }) {
     el.innerHTML = "";
 
     const container = document.createElement("div");
-    container.className = "kp-container";
+    container.className = "kp-container kp-root";
     container.style.cssText = "padding: 20px; max-width: 1200px; margin: 0 auto;";
 
     // Header
@@ -69,6 +79,13 @@ export function createKpView({ services, router }) {
       el.querySelectorAll(".kp-deal-item").forEach(item => {
         item.addEventListener("click", () => handleDealSelect(item.dataset.id));
       });
+      const searchInput = el.querySelector(".kp-deals-search");
+      if (searchInput) {
+        searchInput.addEventListener("input", (event) => {
+          state.dealsQuery = event.target.value;
+          render();
+        });
+      }
     }
 
     if (state.mode === "edit") {
@@ -96,16 +113,28 @@ export function createKpView({ services, router }) {
   function renderDealsListRaw() {
     const listDiv = document.createElement("div");
     listDiv.className = "kp-deals-list";
+    const query = state.dealsQuery.trim().toLowerCase();
+    const deals = query
+      ? state.deals.filter((deal) => {
+          const title = String(deal.subject || "");
+          const client = String(deal.clientName || "");
+          const haystack = `${title} ${client}`.toLowerCase();
+          return haystack.includes(query);
+        })
+      : state.deals;
     if (!state.deals.length && !state.loading) {
       listDiv.innerHTML = '<p>Нет active сделок для вашего пользователя.</p>';
       return listDiv;
     }
     listDiv.innerHTML = `
+      <div style="margin-bottom: 12px;">
+        <input type="text" class="kp-deals-search" placeholder="Поиск сделки..." value="${state.dealsQuery}">
+      </div>
       <ul style="list-style: none; padding: 0;">
-        ${state.deals.map(deal => `
+        ${deals.map(deal => `
           <li class="kp-deal-item" data-id="${deal.id}" style="border: 1px solid var(--table-border-strong, #ddd); padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; background: var(--bg-card, #fff);">
             <div style="display: flex; justify-content: space-between;">
-              <strong style="font-size: 1.1em;">${deal.subject}</strong>
+              <strong style="font-size: 1.1em;">${deal.subject || "(без темы)"}</strong>
               ${deal.hasKp ? '<span style="color: green;">✅ КП выставлено</span>' : '<span style="color: #666;">📝 Создать КП</span>'}
             </div>
             <div style="font-size: 0.9em; color: gray; margin-top: 5px;">
@@ -123,7 +152,7 @@ export function createKpView({ services, router }) {
   function renderEditorRaw() {
     if (!state.model) return document.createElement("div");
     const mk = document.createElement("div");
-    mk.className = "kp-editor";
+    mk.className = "kp-editor kp-card";
     const m = state.model;
     
     mk.innerHTML = `
@@ -157,14 +186,17 @@ export function createKpView({ services, router }) {
   function renderSectionTable(title, key, sectionData) {
      if (key === 'equipment') return ""; // Handled separately
      const isLicense = (key === 'licenses');
+     const isServices = key === "services";
      
      return `
         <div class="kp-section" data-key="${key}" style="margin-bottom: 30px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h3>${title}</h3>
-                <label>Скидка на раздел: 
-                    <input type="number" class="kp-input-discount" data-section="${key}" value="${sectionData.discountPercent}" min="0" max="100" style="width: 60px;"> %
-                </label>
+                ${isServices ? "" : `
+                  <label>Скидка на раздел: 
+                      <input type="number" class="kp-input-discount" data-section="${key}" value="${sectionData.discountPercent}" min="0" max="100" style="width: 60px;"> %
+                  </label>
+                `}
             </div>
             <table class="kp-table" style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
                 <thead>
@@ -173,6 +205,7 @@ export function createKpView({ services, router }) {
                         ${isLicense ? '<th style="padding: 10px; border-bottom: 2px solid #ccc;">Описание</th>' : ''}
                         <th style="padding: 10px; border-bottom: 2px solid #ccc; width: 100px;">Кол-во</th>
                         <th style="padding: 10px; border-bottom: 2px solid #ccc; width: 120px;">Цена</th>
+                        ${isServices ? '<th style="padding: 10px; border-bottom: 2px solid #ccc; width: 100px;">Скидка</th>' : ''}
                         <th style="padding: 10px; border-bottom: 2px solid #ccc; width: 120px;">Сумма</th>
                         <th style="padding: 10px; border-bottom: 2px solid #ccc; width: 40px;"></th>
                     </tr>
@@ -181,7 +214,7 @@ export function createKpView({ services, router }) {
                     ${sectionData.items.map((item, idx) => `
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 10px;">
-                                 <input type="text" class="kp-row-name" data-section="${key}" data-idx="${idx}" value="${item.name}" style="width: 100%;">
+                                 <div class="kp-item-title">${item.name}</div>
                             </td>
                             ${isLicense ? `<td style="padding: 10px; font-size:0.8em; color:gray;">${item.description || ''}</td>` : ''}
                             <td style="padding: 10px;">
@@ -190,6 +223,7 @@ export function createKpView({ services, router }) {
                             <td style="padding: 10px;">
                                 <input type="number" class="kp-row-price" data-section="${key}" data-idx="${idx}" value="${item.price}" min="0" style="width: 100%;">
                             </td>
+                            ${isServices ? `<td style="padding: 10px;">${item.discountPercent || 0}%</td>` : ''}
                             <td style="padding: 10px;">
                                 ${formatMoney(item.total)}
                             </td>
@@ -201,8 +235,11 @@ export function createKpView({ services, router }) {
                 </tbody>
             </table>
            <div style="display: flex; justify-content: space-between; align-items: center;">
-               <button class="btn btn-sm kp-btn-add" data-section="${key}">+ Добавить строку</button> 
-               <strong>Итого раздел: ${formatMoney(sectionData.total)}</strong>
+               <button class="btn btn-sm kp-btn-add" data-section="${key}">+ Добавить (из справочника)</button> 
+               <div style="text-align: right;">
+                 <div>Итого без скидки: <strong>${formatMoney(sectionData.subtotal || 0)}</strong></div>
+                 <div>Итого со скидкой: <strong>${formatMoney(sectionData.total || 0)}</strong></div>
+               </div>
            </div>
         </div>
       `;
@@ -242,7 +279,7 @@ export function createKpView({ services, router }) {
                               ${hasPhoto ? `<img src="${src}" class="kp-img-preview" data-att-id="${item.photo.attachmentId}" style="width: 40px; height: 40px; object-fit: contain;">` : ''}
                             </td>
                             <td style="padding: 10px;">
-                                <input type="text" class="kp-row-name" data-section="${key}" data-idx="${idx}" value="${item.name}" style="width: 100%;">
+                                <div class="kp-item-title">${item.name}</div>
                                 <div style="font-size:0.8em; color:gray">${item.description || ""}</div>
                             </td>
                             <td style="padding: 10px; font-size: 0.9em;">
@@ -267,7 +304,10 @@ export function createKpView({ services, router }) {
             </table>
              <div style="display: flex; justify-content: space-between; align-items: center;">
                <button class="btn btn-sm kp-btn-add" data-section="${key}">+ Добавить (из справочника)</button> 
-               <strong>Итого раздел: ${formatMoney(sectionData.total)}</strong>
+               <div style="text-align: right;">
+                 <div>Итого без скидки: <strong>${formatMoney(sectionData.subtotal || 0)}</strong></div>
+                 <div>Итого со скидкой: <strong>${formatMoney(sectionData.total || 0)}</strong></div>
+               </div>
            </div>
         </div>
      `;
@@ -283,7 +323,7 @@ export function createKpView({ services, router }) {
                  </label>
                  <!-- Price is auto-calculated or manual override if allowed -->
                  <div>Цена за терминал: 
-                   <input type="number" class="kp-input-maint-price" value="${maintData.price}" style="width: 80px;">
+                   <input type="number" class="kp-input-maint-price" value="${maintData.unitPrice || 0}" style="width: 80px;">
                  </div>
                  <div style="text-align: right; font-weight: bold; font-size: 1.2em;">Всего: ${formatMoney(maintData.total)}</div>
             </div>
@@ -300,10 +340,14 @@ export function createKpView({ services, router }) {
       state.currentDeal = deal;
       
       const session = authService.getSession();
+      const profile = userProfileService?.getCachedProfile?.();
       const manager = {
-          id: session?.memberId || 0,
-          fullName: session?.user?.name || "Менеджер",
-          avatar: session?.user?.avatarUrl
+          id: session?.memberId || profile?.id || 0,
+          fullName: profile?.fullName || session?.user?.name || "Менеджер",
+          position: profile?.position || "",
+          phone: profile?.phoneWork || profile?.phoneMobile || "",
+          email: profile?.email || "",
+          avatar: profile?.avatarUrl || session?.user?.avatarUrl
       };
       
       try {
@@ -347,7 +391,7 @@ export function createKpView({ services, router }) {
   function attachEditorListeners(root) {
      root.addEventListener("change", (e) => {
          const t = e.target;
-         if (t.classList.contains("kp-row-qty") || t.classList.contains("kp-row-price") || t.classList.contains("kp-row-name")) {
+         if (t.classList.contains("kp-row-qty") || t.classList.contains("kp-row-price")) {
              updateRow(t.dataset.section, t.dataset.idx, t.classList, t.value);
          }
          if (t.classList.contains("kp-input-discount")) {
@@ -360,7 +404,7 @@ export function createKpView({ services, router }) {
              updateMaintenance(t.value);
          }
          if (t.classList.contains("kp-input-maint-price")) {
-             state.model.sections.maintenance.price = Number(t.value);
+             state.model.sections.maintenance.unitPrice = Number(t.value);
              doRecalc();
          }
      });
@@ -380,7 +424,6 @@ export function createKpView({ services, router }) {
      if (!item) return;
      if (classList.contains("kp-row-qty")) item.qty = Number(value);
      if (classList.contains("kp-row-price")) item.price = Number(value);
-     if (classList.contains("kp-row-name")) item.name = value;
      doRecalc();
   }
   
@@ -400,8 +443,8 @@ export function createKpView({ services, router }) {
       state.model.sections.maintenance.terminals = count;
       try {
           const items = await kpCatalogService.loadMaintenanceCatalog();
-          const basePrice = kpCatalogService.getMaintenancePrice(items, count);
-          state.model.sections.maintenance.price = basePrice;
+          const priceInfo = kpCatalogService.getMaintenancePriceForTerminals(items, count);
+          state.model.sections.maintenance.unitPrice = priceInfo.unitPrice;
       } catch (e) { console.warn(e); }
       doRecalc();
   }
@@ -421,11 +464,18 @@ export function createKpView({ services, router }) {
       
       try {
           doRecalc();
-          // Check if we need to implement write logic - currently just alert
-          alert("Сохранение временно отключено (ожидание конфигурации полей для записи в Pyrus)");
-          // Once IDs are provided, invoke kpService.saveKpForDeal
-          // const res = await kpService.saveKpForDeal(state.currentDeal.id, state.model);
-          
+          const avatarId = userProfileService?.getCachedProfile?.()?.avatar_id;
+          if (avatarId && userProfileService?.loadAvatar) {
+              const avatarUrl = await userProfileService.loadAvatar({
+                  avatarId,
+                  size: getKpAvatarSize(),
+                  force: true
+              });
+              if (avatarUrl) {
+                  state.model.meta.manager.avatar = avatarUrl;
+              }
+          }
+          await kpService.saveKpForDeal(state.currentDeal.id, state.model);
       } catch (e) {
           console.error(e);
           alert("Ошибка: " + e.message);
@@ -453,55 +503,84 @@ export function createKpView({ services, router }) {
       }
       
       const popDiv = document.createElement("div");
-      popDiv.style.cssText = "max-height: 400px; overflow-y: auto; padding: 5px; width: 300px;";
-      
-      // Optional: Add manual empty row button
-      const addMan = document.createElement("button");
-      addMan.className = "btn btn-sm";
-      addMan.textContent = "+ Пустая строка";
-      addMan.style.width="100%";
-      addMan.onclick = () => {
-          let row = { name: "Новая позиция", qty: 1, price: 0, total: 0 };
-          if (sectionKey === 'equipment') row = { ...row, typeName: "", photo: null };
-          state.model.sections[sectionKey].items.push(row);
-          doRecalc();
-      };
-      popDiv.appendChild(addMan);
-      
-      items.forEach(it => {
-          const b = document.createElement("div");
-          b.className = "btn-list-item";
-          b.style.cssText = "padding: 8px; border-bottom: 1px solid #eee; cursor: pointer;";
-          
-          let sub = "";
-          if (it.description) sub += `<div><small style='color:#666'>${it.description}</small></div>`;
-          if (it.typeName) sub += `<div><small style='color:blue'>${it.typeName}</small></div>`;
-          
-          b.innerHTML = `
-             <div style="font-weight: bold;">${it.name}</div>
-             ${sub}
-             <div style="text-align: right; color: darkgreen;">${it.price > 0 ? it.price + " ₽" : ""}</div>
-          `;
-          b.onclick = () => {
-              const row = {
-                  name: it.name,
-                  qty: 1,
-                  price: it.price,
-                  total: it.price,
-                  description: it.description || "",
-                  typeName: it.typeName || "",
-                  photo: it.photo || null
+      popDiv.className = "kp-popover";
+
+      const searchInput = document.createElement("input");
+      searchInput.className = "kp-popover__search";
+      searchInput.type = "text";
+      searchInput.placeholder = "Поиск...";
+
+      const listEl = document.createElement("div");
+      listEl.className = "kp-popover__list";
+
+      let popoverId = null;
+
+      const renderList = (list) => {
+          listEl.innerHTML = "";
+          list.forEach((it) => {
+              const itemEl = document.createElement("div");
+              itemEl.className = "kp-popover__item";
+
+              const description = it.description ? `<div class="kp-popover__meta">${it.description}</div>` : "";
+              const typeName = it.typeName ? `<div class="kp-popover__meta">${it.typeName}</div>` : "";
+              const price = it.price > 0 ? `${it.price} ₽` : "";
+
+              itemEl.innerHTML = `
+                  <div class="kp-popover__row">
+                      <div class="kp-popover__name">${it.name}</div>
+                      <div class="kp-popover__price">${price}</div>
+                  </div>
+                  ${description}
+                  ${typeName}
+              `;
+              itemEl.onclick = () => {
+                  const row = {
+                      name: it.name,
+                      qty: 1,
+                      price: it.price,
+                      total: it.price,
+                      description: it.description || "",
+                      typeName: it.typeName || "",
+                      photo: it.photo || null
+                  };
+                  state.model.sections[sectionKey].items.push(row);
+                  doRecalc();
+                  if (popoverId) closePopover(popoverId);
               };
-              state.model.sections[sectionKey].items.push(row);
-              doRecalc();
-          };
-          popDiv.appendChild(b);
+              listEl.appendChild(itemEl);
+          });
+      };
+
+      const filterList = () => {
+          const query = searchInput.value.trim().toLowerCase();
+          if (!query) return items;
+          return items.filter((it) => {
+              const haystack = `${it.name || ""} ${it.description || ""} ${it.typeName || ""}`.toLowerCase();
+              return haystack.includes(query);
+          });
+      };
+
+      let debounceId = null;
+      searchInput.addEventListener("input", () => {
+          if (debounceId) window.clearTimeout(debounceId);
+          debounceId = window.setTimeout(() => {
+              renderList(filterList());
+          }, 80);
       });
-      
-      openPopover({
+
+      popDiv.appendChild(searchInput);
+      popDiv.appendChild(listEl);
+
+      renderList(items);
+
+      popoverId = openPopover({
           id: `kp_cat_${sectionKey}`,
           anchorRect: anchorEl.getBoundingClientRect(),
           contentEl: popDiv
+      });
+
+      window.requestAnimationFrame(() => {
+          searchInput.focus();
       });
   }
 

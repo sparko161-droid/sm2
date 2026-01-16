@@ -1,8 +1,9 @@
-import { getKpN8nPyrusFilesWebhookUrl } from "../config.js";
+import { getKpN8nConfig } from "../config.js";
 
 const cache = new Map(); // attachmentId -> { ok, data }
 
 export function createKpN8nService({ } = {}) {
+    const n8nConfig = getKpN8nConfig();
     
     /**
      * Fetches base64 data for a Pyrus attachment via n8n webhook.
@@ -15,31 +16,29 @@ export function createKpN8nService({ } = {}) {
         const cached = cache.get(attachmentId);
         if (cached) return cached;
 
-        const url = getKpN8nPyrusFilesWebhookUrl();
-        // Prompt says: POST body { type:"pyrus_files", attachment_id: ... }
+        const url = n8nConfig.pyrusFiles?.path;
+        if (!url) return { ok: false, data: "" };
         
         try {
             const res = await fetch(url, {
-                method: "POST",
+                method: n8nConfig.pyrusFiles?.method || "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    type: "pyrus_files",
-                    attachment_id: Number(attachmentId)
+                    attachmentId: Number(attachmentId)
                 })
             });
 
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             
             const json = await res.json(); 
-            // Expected: { ok: true, data: "base64..." }
-            
-            // Validate
-            if (json && typeof json.data === "string") {
-                cache.set(attachmentId, json);
-                return json;
-            } else {
-                return { ok: false, data: "" };
+            const ok = Boolean(json?.success);
+            const data = typeof json?.data === "string" ? json.data : "";
+
+            const result = { ok, data };
+            if (ok && data) {
+                cache.set(attachmentId, result);
             }
+            return result;
         } catch (e) {
             console.error("[KP][n8n] Failed to fetch attachment", attachmentId, e);
             return { ok: false, data: "" };
