@@ -630,6 +630,14 @@ export function getKpCompanyConfig() {
   return getKpConfig().company || {};
 }
 
+export function getKpN8nConfig() {
+  return getKpConfig().n8n || {};
+}
+
+export function getKpCrmConfig() {
+  return getKpConfig().pyrus?.forms?.crm || {};
+}
+
 // === NEW TYPED GETTERS ===
 
 export function getKpCompanyName() {
