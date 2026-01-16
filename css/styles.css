@@ -3067,6 +3067,8 @@ body.line-tabs-open {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 70vh;
+  overflow: auto;
 }
 
 .kp-popover__search {
@@ -3077,6 +3079,9 @@ body.line-tabs-open {
   background: transparent;
   color: var(--text);
   outline: none;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .kp-popover__add {
@@ -3087,8 +3092,6 @@ body.line-tabs-open {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 320px;
-  overflow: auto;
 }
 
 .kp-popover__item {
@@ -3407,6 +3410,36 @@ body.dark-theme .kp-popover__meta {
 :root[data-theme="dark"] .kp-popover__price,
 body.dark-theme .kp-popover__price {
   color: #8fd3ff;
+}
+
+.kp-root .kp-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-strong);
+  padding: 20px;
+}
+
+.kp-root .kp-deals-search {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .kp-root .kp-card,
+body.dark-theme .kp-root .kp-card {
+  background: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .kp-root .kp-deals-search,
+body.dark-theme .kp-root .kp-deals-search {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
 }
 
 

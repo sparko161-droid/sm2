@@ -640,8 +640,16 @@ export function getKpCrmConfig() {
 
 // === NEW TYPED GETTERS ===
 
-function getKpCatalogsConfig() {
+export function getKpCatalogsConfig() {
   return getKpConfig().catalogs || {};
+}
+
+export function getKpFormsConfig() {
+  return getKpConfig().forms || {};
+}
+
+export function getKpDiscountsConfig() {
+  return getKpConfig().discounts || {};
 }
 
 function requireKpCatalogId(section, key) {
@@ -662,32 +670,32 @@ export function getKpCatalogIds() {
 }
 
 export function getKpServicesMapping() {
-  const mapping = getKpCatalogsConfig().services?.mapping;
-  if (!mapping) throw new Error("[KP][Config] Missing kp.catalogs.services.mapping");
-  return mapping;
+  const columns = getKpCatalogsConfig().services?.columns;
+  if (!columns) throw new Error("[KP][Config] Missing kp.catalogs.services.columns");
+  return columns;
 }
 
 export function getKpMaintenanceMapping() {
-  const mapping = getKpCatalogsConfig().maintenance?.mapping;
-  if (!mapping) throw new Error("[KP][Config] Missing kp.catalogs.maintenance.mapping");
-  return mapping;
+  const columns = getKpCatalogsConfig().maintenance?.columns;
+  if (!columns) throw new Error("[KP][Config] Missing kp.catalogs.maintenance.columns");
+  return columns;
 }
 
 export function getKpLicensesMapping() {
-  const mapping = getKpCatalogsConfig().licenses?.mapping;
-  if (!mapping) throw new Error("[KP][Config] Missing kp.catalogs.licenses.mapping");
-  return mapping;
+  const columns = getKpCatalogsConfig().licenses?.columns;
+  if (!columns) throw new Error("[KP][Config] Missing kp.catalogs.licenses.columns");
+  return columns;
 }
 
 export function getKpEquipmentFormId() {
-  const formId = getKpConfig().equipment?.formId;
-  if (!formId) throw new Error("[KP][Config] Missing kp.equipment.formId");
+  const formId = getKpFormsConfig().equipment?.formId || getKpConfig().equipment?.formId;
+  if (!formId) throw new Error("[KP][Config] Missing kp.forms.equipment.formId");
   return formId;
 }
 
 export function getKpEquipmentFieldIds() {
-  const fieldIds = getKpConfig().equipment?.fieldIds;
-  if (!fieldIds) throw new Error("[KP][Config] Missing kp.equipment.fieldIds");
+  const fieldIds = getKpFormsConfig().equipment?.fieldIds || getKpConfig().equipment?.fieldIds;
+  if (!fieldIds) throw new Error("[KP][Config] Missing kp.forms.equipment.fieldIds");
   return fieldIds;
 }
 
@@ -699,10 +707,12 @@ export function getKpEquipmentFormConfig() {
 }
 
 export function getKpCrmFormConfig() {
-  const crm = getKpConfig().crm || {};
-  if (!crm.formId) throw new Error("[KP][Config] Missing kp.crm.formId");
+  const crm = getKpFormsConfig().crm || getKpConfig().crm || {};
+  if (!crm.formId) throw new Error("[KP][Config] Missing kp.forms.crm.formId");
   return {
     id: crm.formId,
+    titleFieldId: crm.titleFieldId || 1,
+    clientNameFieldIds: crm.clientNameFieldIds || [],
     filters: crm.filters || {},
     registerFieldIds: crm.registerFieldIds || [],
   };
@@ -718,6 +728,10 @@ export function getKpCompanyAddress() {
   const v = config.kp?.company?.address;
   if (!v) throw new Error("[KP][Config] Missing kp.company.address");
   return v;
+}
+
+export function getKpAvatarSize() {
+  return Number(config.kp?.avatarSize) || 160;
 }
 
 export function getKpServicesCatalog() {
@@ -753,8 +767,8 @@ export function getKpCrmForm() {
 }
 
 export function getKpN8nPyrusFilesWebhookUrl() {
-  const v = config.kp?.n8n?.webhooks?.pyrusFiles;
-  if (!v) throw new Error("[KP][Config] Missing kp.n8n.webhooks.pyrusFiles");
+  const v = config.kp?.n8n?.pyrusFiles?.path || config.kp?.n8n?.webhooks?.pyrusFiles;
+  if (!v) throw new Error("[KP][Config] Missing kp.n8n.pyrusFiles.path");
   return v;
 }
 

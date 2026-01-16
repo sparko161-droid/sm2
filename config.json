@@ -168,59 +168,105 @@
       "name": "ООО \"Стандарт Мастер\"",
       "address": "АДРЕС_ЗАГЛУШКА_ЗАМЕНИТЬ"
     },
+    "avatarSize": 160,
     "catalogs": {
       "services": {
         "catalogId": 265029,
-        "mapping": {
-          "name": "Название",
-          "price": "Цена"
+        "columns": {
+          "nameIndex": 0,
+          "priceIndex": 1
         }
       },
       "maintenance": {
         "catalogId": 228631,
-        "mapping": {
-          "terminals": "Фронтов",
-          "sum": "Сумма",
-          "range": "кол-во"
+        "columns": {
+          "frontsIndex": 0,
+          "totalIndex": 3,
+          "unitIndex": 4
         }
       },
       "licenses": {
         "catalogId": 282333,
-        "mapping": {
-          "name": "sm_name",
-          "description": "sm_opisanie"
+        "columns": {
+          "nameIndex": 2,
+          "descriptionIndex": 3,
+          "fallbackNameIndex": 1
         }
       }
     },
-    "equipment": {
-      "formId": 2386773,
-      "fieldIds": {
-        "type": 1,
-        "description": 3,
-        "photo": 4,
-        "salePrice": 5,
-        "name": 7
+    "forms": {
+      "crm": {
+        "formId": 2305023,
+        "titleFieldId": 1,
+        "clientNameFieldIds": [
+          156,
+          138
+        ],
+        "filters": {
+          "managerFieldId": 7
+        },
+        "registerFieldIds": [
+          7,
+          156,
+          1,
+          138,
+          2,
+          6,
+          161,
+          162
+        ]
+      },
+      "equipment": {
+        "formId": 2386773,
+        "fieldIds": {
+          "type": 1,
+          "description": 3,
+          "photo": 4,
+          "salePrice": 5,
+          "name": 7
+        }
       }
     },
-    "crm": {
-      "formId": 2305023,
-      "filters": {
-        "managerFieldId": 7
-      },
-      "registerFieldIds": [
-        7,
-        156,
-        1,
-        138,
-        2,
-        6,
-        161,
-        162
+    "discounts": {
+      "servicesByQty": [
+        {
+          "min": 1,
+          "max": 1,
+          "percent": 0
+        },
+        {
+          "min": 2,
+          "max": 2,
+          "percent": 25
+        },
+        {
+          "min": 3,
+          "max": 9,
+          "percent": 40
+        },
+        {
+          "min": 10,
+          "max": null,
+          "percent": 50
+        }
       ]
     },
     "n8n": {
-      "webhooks": {
-        "pyrusFiles": "REPLACE_ME__N8N_WEBHOOK_URL"
+      "uploadKp": {
+        "path": "REPLACE_ME__N8N_UPLOAD_KP_URL",
+        "method": "POST"
+      },
+      "getKp": {
+        "path": "REPLACE_ME__N8N_GET_KP_URL",
+        "method": "POST"
+      },
+      "pyrusFiles": {
+        "path": "REPLACE_ME__N8N_PYRUS_FILES_URL",
+        "method": "POST"
+      },
+      "pyrusAvatar": {
+        "path": "REPLACE_ME__N8N_PYRUS_AVATAR_URL",
+        "method": "POST"
       }
     },
     "tax": {

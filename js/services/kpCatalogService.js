@@ -27,29 +27,19 @@ export function createKpCatalogsService({ pyrusClient }) {
         return Number.isFinite(parsed) ? parsed : 0;
     };
 
-    function indexByHeader(headers) {
-        const map = new Map();
-        headers.forEach((header, index) => {
-            const key = cleanText(header);
-            if (key && !map.has(key)) {
-                map.set(key, index);
-            }
-        });
-        return map;
-    }
-
-    function getHeaderIndex(headerMap, headerLabel, context) {
-        const key = cleanText(headerLabel);
-        const idx = headerMap.get(key);
-        if (idx === undefined) {
-            console.warn("[KP][Catalogs] Missing header", {
-                context,
-                header: headerLabel,
-                headers: Array.from(headerMap.keys()),
-            });
+    const warnMissingColumn = (context, index, headers) => {
+        if (!Array.isArray(headers)) return;
+        if (!Number.isFinite(index)) {
+            console.warn("[KP][Catalogs] Missing column index", { context, index, headers });
+            return;
         }
-        return idx;
-    }
+        if (index < headers.length) return;
+        console.warn("[KP][Catalogs] Missing column index", {
+            context,
+            index,
+            headers
+        });
+    };
 
     // --- Services (Catalog) ---
     async function loadServicesCatalog() {
@@ -61,19 +51,21 @@ export function createKpCatalogsService({ pyrusClient }) {
             { ttlMs: CACHE_TTL_MS },
             async () => {
                 const data = await pyrusClient.getCatalog(catalogIds.services);
-                const headerMap = indexByHeader(data.headers || []);
+                const nameIdx = mapping.nameIndex;
+                const priceIdx = mapping.priceIndex;
+                const descIdx = mapping.descriptionIndex;
 
-                const nameIdx = getHeaderIndex(headerMap, mapping.name, "services.name");
-                const priceIdx = getHeaderIndex(headerMap, mapping.price, "services.price");
-                const descIdx = mapping.description
-                    ? getHeaderIndex(headerMap, mapping.description, "services.description")
-                    : undefined;
+                warnMissingColumn("services.nameIndex", nameIdx, data.headers);
+                warnMissingColumn("services.priceIndex", priceIdx, data.headers);
+                if (descIdx !== undefined) {
+                    warnMissingColumn("services.descriptionIndex", descIdx, data.headers);
+                }
 
                 return (data.items || []).map(item => ({
                     id: item.item_id,
-                    name: cleanText(nameIdx !== undefined ? item.values?.[nameIdx] : "") || "Без названия",
-                    price: parseNumber(priceIdx !== undefined ? item.values?.[priceIdx] : 0),
-                    description: cleanText(descIdx !== undefined ? item.values?.[descIdx] : ""),
+                    name: cleanText(item.values?.[nameIdx]) || "Без названия",
+                    price: parseNumber(item.values?.[priceIdx]),
+                    description: descIdx !== undefined ? cleanText(item.values?.[descIdx]) : "",
                 }));
             }
         );
@@ -89,17 +81,25 @@ export function createKpCatalogsService({ pyrusClient }) {
             { ttlMs: CACHE_TTL_MS },
             async () => {
                 const data = await pyrusClient.getCatalog(catalogIds.licenses);
-                const headerMap = indexByHeader(data.headers || []);
+                const nameIdx = mapping.nameIndex;
+                const descIdx = mapping.descriptionIndex;
+                const fallbackIdx = mapping.fallbackNameIndex;
 
-                const nameIdx = getHeaderIndex(headerMap, mapping.name, "licenses.name");
-                const descIdx = getHeaderIndex(headerMap, mapping.description, "licenses.description");
+                warnMissingColumn("licenses.nameIndex", nameIdx, data.headers);
+                warnMissingColumn("licenses.descriptionIndex", descIdx, data.headers);
+                if (fallbackIdx !== undefined) {
+                    warnMissingColumn("licenses.fallbackNameIndex", fallbackIdx, data.headers);
+                }
 
-                return (data.items || []).map(item => ({
+                return (data.items || []).map(item => {
+                    const name = cleanText(item.values?.[nameIdx]) || cleanText(item.values?.[fallbackIdx]);
+                    return {
                     id: item.item_id,
-                    name: cleanText(nameIdx !== undefined ? item.values?.[nameIdx] : "") || "Без названия",
-                    description: cleanText(descIdx !== undefined ? item.values?.[descIdx] : ""),
+                    name: name || "Без названия",
+                    description: cleanText(item.values?.[descIdx]),
                     price: 0
-                }));
+                    };
+                });
             }
         );
     }
@@ -114,51 +114,33 @@ export function createKpCatalogsService({ pyrusClient }) {
             { ttlMs: CACHE_TTL_MS },
             async () => {
                 const data = await pyrusClient.getCatalog(catalogIds.maintenance);
-                const headerMap = indexByHeader(data.headers || []);
+                const frontsIdx = mapping.frontsIndex;
+                const totalIdx = mapping.totalIndex;
+                const unitIdx = mapping.unitIndex;
 
-                const terminalsIdx = getHeaderIndex(headerMap, mapping.terminals, "maintenance.terminals");
-                const sumIdx = getHeaderIndex(headerMap, mapping.sum, "maintenance.sum");
-                const rangeIdx = mapping.range
-                    ? getHeaderIndex(headerMap, mapping.range, "maintenance.range")
-                    : undefined;
+                warnMissingColumn("maintenance.frontsIndex", frontsIdx, data.headers);
+                warnMissingColumn("maintenance.totalIndex", totalIdx, data.headers);
+                warnMissingColumn("maintenance.unitIndex", unitIdx, data.headers);
 
-                const parseRange = (value) => {
-                    const normalized = cleanText(value);
-                    if (!normalized) return { min: 0, max: 0, raw: "" };
-                    if (normalized.includes("-")) {
-                        const [left, right] = normalized.split("-").map((v) => parseNumber(v));
-                        return { min: left || 0, max: right || 0, raw: normalized };
-                    }
-                    if (normalized.includes("+") || normalized.includes(">")) {
-                        const min = parseNumber(normalized);
-                        return { min, max: Infinity, raw: normalized };
-                    }
-                    const single = parseNumber(normalized);
-                    return { min: single, max: single, raw: normalized };
-                };
-
-                return (data.items || []).map(item => {
-                    const terminalsValue = terminalsIdx !== undefined ? item.values?.[terminalsIdx] : "";
-                    const rangeValue = rangeIdx !== undefined ? item.values?.[rangeIdx] : "";
-                    const range = parseRange(terminalsValue || rangeValue);
-                    const price = parseNumber(sumIdx !== undefined ? item.values?.[sumIdx] : 0);
-
-                    return {
-                        id: item.item_id,
-                        rangeRaw: range.raw,
-                        terminalsMin: range.min,
-                        terminalsMax: range.max,
-                        price: price
-                    };
-                }).sort((a,b) => a.terminalsMin - b.terminalsMin);
+                return (data.items || []).map(item => ({
+                    id: item.item_id,
+                    fronts: parseNumber(item.values?.[frontsIdx]),
+                    total: parseNumber(item.values?.[totalIdx]),
+                    unit: parseNumber(item.values?.[unitIdx])
+                })).filter((row) => Number.isFinite(row.fronts)).sort((a, b) => a.fronts - b.fronts);
             }
         );
     }
     
-    function getMaintenancePrice(catalogItems, count) {
-        if (!catalogItems || !catalogItems.length) return 0;
-        const found = catalogItems.find(x => count >= x.terminalsMin && count <= x.terminalsMax);
-        return found ? found.price : 0;
+    function getMaintenancePriceForTerminals(catalogItems, count) {
+        if (!catalogItems || !catalogItems.length) return { unitPrice: 0, total: 0 };
+        const terminals = Number(count) || 0;
+        const exact = catalogItems.find((row) => row.fronts === terminals);
+        if (exact) return { unitPrice: exact.unit, total: exact.total };
+
+        const sorted = [...catalogItems].sort((a, b) => a.fronts - b.fronts);
+        const fallback = sorted.filter((row) => row.fronts <= terminals).pop() || sorted[0];
+        return { unitPrice: fallback?.unit || 0, total: fallback?.total || 0 };
     }
 
     // --- Equipment (Form Register) ---
@@ -203,6 +185,6 @@ export function createKpCatalogsService({ pyrusClient }) {
         loadLicensesCatalog,
         loadMaintenanceCatalog,
         loadEquipmentCatalog,
-        getMaintenancePrice
+        getMaintenancePriceForTerminals
     };
 }
