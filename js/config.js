@@ -627,8 +627,7 @@ export function getKpConfig() {
 }
 
 export function getKpCompanyConfig() {
-  const kp = getKpConfig();
-  return kp.company || {};
+  return getKpConfig().company || {};
 }
 
 // === NEW TYPED GETTERS ===
