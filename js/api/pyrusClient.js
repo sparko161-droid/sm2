@@ -34,9 +34,13 @@ export function createPyrusClient({ graphClient }) {
     // Let's assume the standard way: 
     // If params are passed, we send them.
 
-    return unwrapPyrusData(await pyrusRequest(`/forms/${formId}/register`, {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).filter(([, value]) => value !== undefined && value !== null)
+    ).toString();
+    const path = query ? `/forms/${formId}/register?${query}` : `/forms/${formId}/register`;
+
+    return unwrapPyrusData(await pyrusRequest(path, {
       method: "GET", // or POST depending on how complex search is, but Pyrus registry is often read via GET with params
-      body: params
     }));
   }
 
