@@ -40,6 +40,10 @@ export function createPyrusClient({ graphClient }) {
     }));
   }
 
+  async function getFormRegister(formId, params = {}) {
+    return getRegistry(formId, params);
+  }
+
   async function getTask(taskId) {
     return unwrapPyrusData(await pyrusRequest(`/tasks/${taskId}`));
   }
@@ -56,6 +60,7 @@ export function createPyrusClient({ graphClient }) {
   return {
     pyrusRequest,
     getRegistry,
+    getFormRegister,
     getTask,
     createTask,
     updateTask
