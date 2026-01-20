@@ -137,6 +137,8 @@ function handleKeyDown(event) {
 }
 
 function handleRouteChange() {
+  const backdrop = document.getElementById("global-popover-backdrop");
+  if (backdrop) backdrop.classList.remove("visible");
   closePopover();
 }
 
@@ -153,7 +155,7 @@ export function initPopoverEngineOnce() {
   window.addEventListener("hashchange", handleRouteChange);
 }
 
-export function openPopover({ id, anchorRect, point, contentEl, onClose, placement }) {
+export function openPopover({ id, anchorRect, point, contentEl, onClose, placement, modal = false }) {
   if (!contentEl) return null;
   ensureRoot();
 
@@ -162,14 +164,28 @@ export function openPopover({ id, anchorRect, point, contentEl, onClose, placeme
     closePopover(popoverId);
   }
 
+  if (modal) {
+    let backdrop = document.getElementById("global-popover-backdrop");
+    if (!backdrop) {
+      backdrop = document.createElement("div");
+      backdrop.id = "global-popover-backdrop";
+      backdrop.className = "global-popover-backdrop";
+      document.body.appendChild(backdrop);
+    }
+    // Force reflow for transition
+    backdrop.getBoundingClientRect();
+    backdrop.classList.add("visible");
+  }
+
   contentEl.dataset.popoverId = popoverId;
   contentEl.classList.add("global-popover-item");
+  if (modal) contentEl.classList.add("global-popover-modal");
   contentEl.style.position = "absolute";
   rootEl.appendChild(contentEl);
 
   positionPopover({ el: contentEl, anchorRect, point, placement });
 
-  openPopovers.set(popoverId, { el: contentEl, onClose });
+  openPopovers.set(popoverId, { el: contentEl, onClose, isModal: modal });
   return popoverId;
 }
 
@@ -184,11 +200,18 @@ export function closePopover(id) {
   };
 
   if (id) {
-    closeItem(id, openPopovers.get(id));
+    const item = openPopovers.get(id);
+    if (item?.isModal) {
+      document.getElementById("global-popover-backdrop")?.classList.remove("visible");
+    }
+    closeItem(id, item);
     return;
   }
 
   for (const [popoverId, item] of openPopovers.entries()) {
+    if (item?.isModal) {
+      document.getElementById("global-popover-backdrop")?.classList.remove("visible");
+    }
     closeItem(popoverId, item);
   }
 }

@@ -273,6 +273,13 @@ export function createMeetView(ctx) {
     }
   }
 
+  function getModeDaysCount(mode) {
+    if (mode === "day") return 1;
+    if (mode === "days4") return 4;
+    if (mode === "days7") return 7;
+    return 0;
+  }
+
   function getRangeForMode(mode, anchor) {
     const base = startOfDay(anchor);
     if (mode === "day") {
@@ -356,7 +363,6 @@ export function createMeetView(ctx) {
     }
     return map;
   }
-
   function applyEmployeeFilter(meetings) {
     const ids = state.selectedEmployeeIds || [];
     if (ids.length === 0) return meetings;
@@ -374,12 +380,41 @@ export function createMeetView(ctx) {
     });
   }
 
+  function calculateVisibleRange(meetingsByDate, dayDates) {
+    let minHour = 6;
+    let maxHour = 21;
+
+    for (const day of dayDates) {
+      const key = dateKey(day);
+      const items = meetingsByDate.get(key) || [];
+      for (const item of items) {
+        const startHour = Math.floor(item.meta.startMinutes / 60);
+        const endHour = Math.ceil((item.meta.startMinutes + item.meeting.durationMin) / 60);
+        if (startHour < minHour) minHour = startHour;
+        if (endHour > maxHour) maxHour = endHour;
+      }
+    }
+
+    return { startHour: minHour, endHour: maxHour };
+  }
+
   function buildMeetingCard(item, extraClasses = "") {
     const { meeting, meta } = item;
     const allowed = isAllowedMeeting(meeting, state.userId, state.roleIds);
 
     const card = buildElement("div", `meet-card ${extraClasses}`.trim());
     card.classList.toggle("meet-card--busy", !allowed);
+
+    const isShort = meeting.durationMin < 60;
+    if (isShort) {
+      card.style.padding = "2px 8px";
+      card.style.flexDirection = "row";
+      card.style.alignItems = "center";
+      card.style.gap = "6px";
+      if (meeting.durationMin < 25) {
+        card.style.padding = "0px 6px";
+      }
+    }
 
     const formattedTime =
       formatTimeRangeLocal(meeting.startUtc, meeting.endUtc, getOffsetMin()) ||
@@ -392,6 +427,18 @@ export function createMeetView(ctx) {
     );
 
     card.append(time, title);
+    if (meeting.isOffline) {
+      const offline = buildElement("span", "meet-card__offline", " Оффлайн");
+      offline.style.color = "red";
+      offline.style.fontSize = isShort ? "1em" : "0.85em";
+      offline.style.fontWeight = "bold";
+      if (isShort) {
+        offline.style.whiteSpace = "nowrap";
+        time.after(offline);
+      } else {
+        time.appendChild(offline);
+      }
+    }
 
     const isSelected = state.selectedItemId === meeting.id;
     if (isSelected) {
@@ -422,21 +469,20 @@ export function createMeetView(ctx) {
 
     return card;
   }
-
   function buildSegment({ dayDate, index, isBusy }) {
     const segment = buildElement("div", "meet-time-grid__segment");
     segment.dataset.index = String(index);
     if (index % 4 === 0) {
       segment.dataset.hour = String(index / 4);
     }
+    segment.dataset.date = dateKey(dayDate);
     if (isBusy) {
       segment.classList.add("is-busy");
     }
-    segment.dataset.date = dateKey(dayDate);
     return segment;
   }
 
-  function buildTimeGrid({ dayDate, items }) {
+  function buildTimeGrid({ dayDate, items, startHour = 0, endHour = 24 }) {
     const grid = buildElement("div", "meet-time-grid");
     const segments = buildElement("div", "meet-time-grid__segments");
     const overlay = buildElement("div", "meet-time-grid__overlay");
@@ -452,11 +498,16 @@ export function createMeetView(ctx) {
       }
     }
 
-    for (let index = 0; index < busySegments.length; index += 1) {
+    const startIdx = (startHour * 60) / TIME_GRID_STEP_MINUTES;
+    const endIdx = (endHour * 60) / TIME_GRID_STEP_MINUTES;
+
+    for (let index = startIdx; index < endIdx; index += 1) {
       segments.appendChild(buildSegment({ dayDate, index, isBusy: busySegments[index] }));
     }
 
     const plannedItems = planMeetingsLayout(items);
+
+    const verticalOffset = startHour * 60;
 
     for (const item of plannedItems) {
       const block = buildMeetingCard(item, "meet-card--overlay");
@@ -464,7 +515,7 @@ export function createMeetView(ctx) {
       const heightMinutes = item.meeting.durationMin;
       const { colIndex, totalCols } = item.layout;
 
-      block.style.top = `${startMinutes * PX_PER_MINUTE}px`;
+      block.style.top = `${(startMinutes - verticalOffset) * PX_PER_MINUTE}px`;
       block.style.height = `${heightMinutes * PX_PER_MINUTE}px`;
 
       // Распределяем ширину
@@ -477,7 +528,62 @@ export function createMeetView(ctx) {
     }
 
     grid.append(segments, overlay);
+    grid.dataset.startHour = String(startHour);
+    grid.dataset.endHour = String(endHour);
     return { grid, busySegments };
+  }
+
+  function updateTimeGridOverlay(gridEl, items) {
+    if (!gridEl) return;
+    const overlay = gridEl.querySelector(".meet-time-grid__overlay");
+    const segmentsContainer = gridEl.querySelector(".meet-time-grid__segments");
+    if (!overlay || !segmentsContainer) return;
+
+    const startHour = Number(gridEl.dataset.startHour || 0);
+
+    // 1. Recalculate busy segments
+    const segmentsCount = (24 * 60) / TIME_GRID_STEP_MINUTES;
+    const busySegments = new Array(segmentsCount).fill(false);
+    for (const item of items) {
+      const startIndex = Math.floor(item.meta.startMinutes / TIME_GRID_STEP_MINUTES);
+      const endMinutes = item.meta.startMinutes + item.meeting.durationMin;
+      const endIndexExclusive = Math.ceil(endMinutes / TIME_GRID_STEP_MINUTES);
+      for (let i = startIndex; i < endIndexExclusive && i < busySegments.length; i += 1) {
+        busySegments[i] = true;
+      }
+    }
+
+    // 2. Update segments classes (reuse DOM)
+    const segmentEls = segmentsContainer.children;
+    const startIdx = (startHour * 60) / TIME_GRID_STEP_MINUTES;
+    for (let i = 0; i < segmentEls.length; i++) {
+        const globalIdx = startIdx + i;
+      if (busySegments[globalIdx]) segmentEls[i].classList.add("is-busy");
+      else segmentEls[i].classList.remove("is-busy");
+    }
+
+    overlay.innerHTML = "";
+    const plannedItems = planMeetingsLayout(items);
+    const verticalOffset = startHour * 60;
+
+    for (const item of plannedItems) {
+      const block = buildMeetingCard(item, "meet-card--overlay");
+      const startMinutes = item.meta.startMinutes;
+      const heightMinutes = item.meeting.durationMin;
+      const { colIndex, totalCols } = item.layout;
+
+      block.style.top = `${(startMinutes - verticalOffset) * PX_PER_MINUTE}px`;
+      block.style.height = `${heightMinutes * PX_PER_MINUTE}px`;
+
+      const width = 100 / totalCols;
+      const left = colIndex * width;
+      block.style.width = `calc(${width}% - 12px)`;
+      block.style.left = `calc(${left}% + 6px)`;
+
+      overlay.appendChild(block);
+    }
+
+    return busySegments;
   }
 
   function planMeetingsLayout(items) {
@@ -562,13 +668,16 @@ export function createMeetView(ctx) {
 
     const gridBody = buildElement("div", "meet-grid__body");
     const hours = buildElement("div", "meet-time-grid__hours");
-    for (const hour of HOUR_SLOTS) {
-      const hourLabel = buildElement("div", "meet-time-grid__hour", `${String(hour).padStart(2, "0")}:00`);
+    const startHour = options.startHour ?? 0;
+    const endHour = options.endHour ?? 24;
+
+    for (let h = startHour; h < endHour; h++) {
+      const hourLabel = buildElement("div", "meet-time-grid__hour", `${String(h).padStart(2, "0")}:00`);
       hours.appendChild(hourLabel);
     }
 
     const items = itemsByDate.get(dayKey) || [];
-    const { grid, busySegments } = buildTimeGrid({ dayDate, items });
+    const { grid, busySegments } = buildTimeGrid({ dayDate, items, startHour, endHour });
     grid.dataset.date = dayKey;
 
     gridBody.append(hours, grid);
@@ -581,6 +690,7 @@ export function createMeetView(ctx) {
       const controller = createTimeGridSelection({
         gridEl: grid,
         busySegments,
+        startHour,
         stepMinutes: TIME_GRID_STEP_MINUTES,
         pxPerMinute: PX_PER_MINUTE,
         dateKey: dayKey,
@@ -601,21 +711,31 @@ export function createMeetView(ctx) {
     return column;
   }
 
-  function renderDayView({ start, meetingsByDate, dayTypeMap }) {
+  function renderDayView({ start, meetingsByDate, dayTypeMap, range }) {
     content.innerHTML = "";
     const grid = buildElement("div", "meet-grid");
     grid.style.setProperty("--meet-days-count", "1");
-    grid.appendChild(renderDayColumn(start, meetingsByDate, dayTypeMap, { showLabel: false }));
+    grid.dataset.mode = "day";
+
+    const col = renderDayColumn(start, meetingsByDate, dayTypeMap, {
+      showLabel: false,
+      ...range
+    });
+    grid.appendChild(col);
     content.appendChild(grid);
   }
 
-  function renderMultiDayView({ start, daysCount, meetingsByDate, dayTypeMap }) {
+  function renderMultiDayView({ start, daysCount, meetingsByDate, dayTypeMap, range }) {
     content.innerHTML = "";
     const grid = buildElement("div", "meet-grid");
     grid.style.setProperty("--meet-days-count", String(daysCount));
-    for (let i = 0; i < daysCount; i += 1) {
+    grid.dataset.mode = state.mode;
+
+    for (let i = 0; i < daysCount; i++) {
       const dayDate = addDays(start, i);
-      grid.appendChild(renderDayColumn(dayDate, meetingsByDate, dayTypeMap, { showLabel: false }));
+      grid.appendChild(renderDayColumn(dayDate, meetingsByDate, dayTypeMap, {
+        ...range
+      }));
     }
     content.appendChild(grid);
   }
@@ -723,6 +843,14 @@ export function createMeetView(ctx) {
       allowed ? meeting.subject || "Без темы" : "Занято"
     );
     row.append(time, title);
+    if (meeting.isOffline) {
+      const offline = buildElement("span", "meet-month__offline", " ОФФ");
+      offline.style.color = "red";
+      offline.style.fontSize = "0.8em";
+      offline.style.fontWeight = "bold";
+      offline.style.marginLeft = "2px";
+      time.appendChild(offline);
+    }
 
     const isSelected = state.selectedItemId === meeting.id;
     if (isSelected) {
@@ -794,6 +922,9 @@ export function createMeetView(ctx) {
       placement: "center",
       onClose: () => {
         // При закрытии оверлея удаляем его контроллер выделения, чтобы не текла память
+        if (selectionControllers.has(dayKey)) {
+          selectionControllers.get(dayKey).destroy?.();
+        }
         selectionControllers.delete(dayKey);
         deselectAllDays();
       }
@@ -1020,10 +1151,6 @@ export function createMeetView(ctx) {
 
     const { start, end } = getRangeForMode(state.mode, state.anchorDate);
     try {
-      const dayTypeMap = await ensureCalendarMap(start, end);
-      state.currentDayTypeMap = dayTypeMap;
-
-      // Предварительно рендерим с кешированными данными если еще не загрузились
       if (!state.hasLoaded) {
         const cachedMeetingsByDate = getMeetingsByDate(applyEmployeeFilter(cached));
         state.currentMeetingsByDate = cachedMeetingsByDate;
@@ -1042,24 +1169,27 @@ export function createMeetView(ctx) {
       const meetings = await meetingsService.getMeetingsForRange({ startLocal: start, endLocal: end });
       const filtered = applyEmployeeFilter(meetings);
 
-      const meetingsByDate = getMeetingsByDate(filtered);
+      const itemsByDate = getMeetingsByDate(filtered);
+      const dayTypeMap = await ensureCalendarMap(start, end);
 
-      state.currentMeetingsByDate = meetingsByDate;
+      const daysCount = getModeDaysCount(state.mode);
+      const days = Array.from({ length: daysCount || 1 }, (_, i) => addDays(start, i));
+      const range = calculateVisibleRange(itemsByDate, days);
+
+      state.currentMeetingsByDate = itemsByDate;
+      state.currentDayTypeMap = dayTypeMap;
       state.hasLoaded = true;
 
-      if (state.mode === "day") {
+      if (checkCanReuseGrid(start, daysCount, range)) {
+        updateDayView({ start, daysCount, meetingsByDate: itemsByDate, range });
+      } else if (state.mode === "day") {
         renderDayBar({ start, daysCount: 1, dayTypeMap });
-        renderDayView({ start, meetingsByDate, dayTypeMap });
-      } else if (state.mode === "days4") {
-        renderDayBar({ start, daysCount: 4, dayTypeMap });
-        renderMultiDayView({ start, daysCount: 4, meetingsByDate, dayTypeMap });
-      } else if (state.mode === "days7") {
-        renderDayBar({ start, daysCount: 7, dayTypeMap });
-        renderMultiDayView({ start, daysCount: 7, meetingsByDate, dayTypeMap });
+        renderDayView({ start, meetingsByDate: itemsByDate, dayTypeMap, range });
+      } else if (state.mode === "days4" || state.mode === "days7") {
+        const dc = state.mode === "days4" ? 4 : 7;
+        renderDayBar({ start, daysCount: dc, dayTypeMap });
+        renderMultiDayView({ start, daysCount: dc, meetingsByDate: itemsByDate, dayTypeMap, range });
       } else if (state.mode === "days28") {
-        hideDayBar();
-        renderMonthGrid({ start, end, meetingsByDate, dayTypeMap });
-      } else {
         hideDayBar();
         renderListView({ start, end, meetingsByDate, dayTypeMap });
       }
@@ -1079,11 +1209,12 @@ export function createMeetView(ctx) {
     // Даем времени на рендер
     requestAnimationFrame(() => {
       const now = new Date();
-      const minutes = now.getHours() * 60 + now.getMinutes();
-      const offsetInGrid = minutes * PX_PER_MINUTE;
-
       const gridEl = content.querySelector(".meet-time-grid");
       if (!gridEl) return;
+
+      const startHour = Number(gridEl.dataset.startHour || 0);
+      const minutes = now.getHours() * 60 + now.getMinutes();
+      const offsetInGrid = (minutes - startHour * 60) * PX_PER_MINUTE;
 
       const gridTop = gridEl.getBoundingClientRect().top + window.scrollY;
 
@@ -1120,8 +1251,9 @@ export function createMeetView(ctx) {
     if (!gridEl) return;
 
     const minutes = today.getHours() * 60 + today.getMinutes();
+    const startHour = Number(gridEl.dataset.startHour || 0);
     const line = buildElement("div", "meet-now-line");
-    line.style.top = `${minutes * PX_PER_MINUTE}px`;
+    line.style.top = `${(minutes - startHour * 60) * PX_PER_MINUTE}px`;
     gridEl.appendChild(line);
   }
 
@@ -1297,6 +1429,27 @@ export function createMeetView(ctx) {
     const endInput = buildElement("input", "meet-form__input");
     endInput.type = "time";
 
+    const typeWrapper = buildElement("div", "meet-form__type-group");
+    const onlineOption = buildElement("label", "meet-form__type-option");
+    const onlineRadio = document.createElement("input");
+    onlineRadio.type = "radio";
+    onlineRadio.name = "meet-type";
+    onlineRadio.value = "online";
+    onlineRadio.checked = true;
+    onlineOption.append(onlineRadio, buildElement("span", "", " Онлайн"));
+
+    const offlineOption = buildElement("label", "meet-form__type-option");
+    const offlineRadio = document.createElement("input");
+    offlineRadio.type = "radio";
+    offlineRadio.name = "meet-type";
+    offlineRadio.value = "offline";
+    offlineOption.append(offlineRadio, buildElement("span", "", " Оффлайн"));
+    typeWrapper.append(onlineOption, offlineOption);
+
+    const linkInput = buildElement("input", "meet-form__input");
+    linkInput.type = "text";
+    linkInput.placeholder = "Ссылка на встречу (опционально)";
+
     const errorEl = buildElement("div", "meet-form__error", "");
 
     function syncEndTime() {
@@ -1375,6 +1528,17 @@ export function createMeetView(ctx) {
         }
         const subject = subjectInput.value.trim();
         const dateValue = dateInput.value;
+        const startValue = startInput.value;
+        const durationValue = durationInput.value;
+
+        if (!subject) throw new Error("Укажите тему встречи");
+        if (!dateValue) throw new Error("Укажите дату");
+        if (!startValue) throw new Error("Укажите время начала");
+        if (!durationValue || Number(durationValue) <= 0) throw new Error("Укажите длительность");
+
+        const isOffline = offlineRadio.checked;
+        const postLink = linkInput.value.trim();
+
         const [year, month, day] = dateValue.split("-").map((part) => Number(part));
         const meta = convertLocalRangeToUtcWithMeta(
           year,
@@ -1403,6 +1567,8 @@ export function createMeetView(ctx) {
           durationMinutes: meta.durationMinutes,
           residents,
           userId: state.userId,
+          isOffline,
+          postLink: postLink || null,
         });
         const meeting = {
           id: taskId ?? `local-${state.optimisticMeetingId++}`,
@@ -1412,6 +1578,8 @@ export function createMeetView(ctx) {
           endMs: new Date(meta.endUtcIso).getTime(),
           durationMin: meta.durationMinutes,
           subject,
+          isOffline,
+          postLink,
           residentsNormalized: residents.map((resident) => ({
             type: resident.type,
             id: resident.id,
@@ -1452,6 +1620,10 @@ export function createMeetView(ctx) {
       durationInput,
       buildElement("div", "meet-form__row", "Окончание"),
       endInput,
+      buildElement("div", "meet-form__row", "Тип встречи"),
+      typeWrapper,
+      buildElement("div", "meet-form__row", "Ссылка"),
+      linkInput,
       buildElement("div", "meet-form__row", "Резиденты"),
       residentsWrapper,
       errorEl,
@@ -1593,6 +1765,69 @@ export function createMeetView(ctx) {
   hscrollHeader.addEventListener("scroll", () => syncScroll(hscrollHeader, hscrollBody));
 
   let mounted = false;
+
+  function checkCanReuseGrid(start, daysCount, range) {
+    const grid = content.querySelector(".meet-grid");
+    if (!grid) return false;
+    // Check if days count matches
+    if (grid.style.getPropertyValue("--meet-days-count") !== String(daysCount)) return false;
+
+    // Strict mode check
+    if (grid.dataset.mode && grid.dataset.mode !== state.mode) return false;
+
+    // Check first column date
+    const firstCol = grid.querySelector(".meet-time-grid");
+    if (!firstCol) return false;
+    if (firstCol.dataset.date !== dateKey(start)) return false;
+
+    // Check range
+    if (firstCol.dataset.startHour !== String(range.startHour)) return false;
+    if (firstCol.dataset.endHour !== String(range.endHour)) return false;
+
+    return true;
+  }
+
+  function updateDayView({ start, daysCount, meetingsByDate, range }) {
+    const grid = content.querySelector(".meet-grid");
+    if (!grid) return;
+    const timeGrids = grid.querySelectorAll(".meet-time-grid");
+
+    for (let i = 0; i < daysCount; i++) {
+      if (i >= timeGrids.length) break;
+      const dayDate = addDays(start, i);
+      const dayKey = dateKey(dayDate);
+      const items = meetingsByDate.get(dayKey) || [];
+      const gridEl = timeGrids[i];
+
+      // Update overlay and busy segments
+      const busySegments = updateTimeGridOverlay(gridEl, items);
+
+      // Update selection controller busy segments if exists
+      if (selectionControllers.has(dayKey)) {
+        const controller = selectionControllers.get(dayKey);
+        controller.destroy();
+        const newController = createTimeGridSelection({
+          gridEl,
+          busySegments,
+          startHour: range.startHour,
+          stepMinutes: TIME_GRID_STEP_MINUTES,
+          pxPerMinute: PX_PER_MINUTE,
+          dateKey: dayKey,
+          onSelect: ({ dateKey: selectedDate, startMinutes, durationMinutes, point }) => {
+            const time = addMinutesLocal(0, startMinutes).time;
+            openCreateMeetingPopover({
+              date: selectedDate,
+              time,
+              durationMinutes,
+              anchorRect: null,
+              point,
+            });
+          },
+        });
+        selectionControllers.set(dayKey, newController);
+      }
+    }
+  }
 
   return {
     el: root,

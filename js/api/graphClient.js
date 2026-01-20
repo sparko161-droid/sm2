@@ -19,6 +19,8 @@ export function createGraphClient({ graphHookUrl, fetchFn = fetch, logger } = {}
       "email",
       "pyrus_api",
       "pyrus_save",
+      "pyrus_kp",
+      "pyrus_files",
     ]);
     if (!allowedTypes.has(type)) {
       log.warn(`callGraphApi: неизвестный тип хука "${type}"`);

@@ -1,4 +1,5 @@
 import { cached as defaultCached, invalidateKey as defaultInvalidateKey } from "../cache/requestCache.js";
+import { getMeetingsFormId, getMeetingsFieldIds } from "../config.js";
 
 const MEETINGS_CACHE_KEY = "sm_meet_register_v1";
 const MEETINGS_TTL_MS = 3 * 60 * 1000;
@@ -160,8 +161,8 @@ function normalizeRegister(raw, { logSummary = false, fieldConfig = {} } = {}) {
       fields,
       (field) =>
         field.type === "due_date_time" ||
-        field.code === fieldConfig.due ||
-        field.id === fieldConfig.due
+        field.code === fieldConfig.dueDateTime ||
+        field.id === fieldConfig.dueDateTime
     );
     const startUtc = dueField?.value || null;
     if (!startUtc || typeof startUtc !== "string") continue;
@@ -186,6 +187,10 @@ function normalizeRegister(raw, { logSummary = false, fieldConfig = {} } = {}) {
       fields,
       (field) => field.id === fieldConfig.residentsTable && field.type === "table"
     );
+    const isOfflineField = findField(
+      fields,
+      (field) => field.id === fieldConfig.isOffline || field.code === fieldConfig.isOffline
+    );
 
     const participants = collectParticipantIds(task, residentsField, responsibleField);
     const residentsNormalized = normalizeResidents(residentsField);
@@ -205,6 +210,7 @@ function normalizeRegister(raw, { logSummary = false, fieldConfig = {} } = {}) {
       residentsNormalized,
       participants,
       participantsUsers: participants.userIds || [],
+      isOffline: isOfflineField?.value === "checked",
     });
   }
 
@@ -233,7 +239,7 @@ export function createMeetingsService({ graphClient, cache, config, membersServi
   }
   const cachedFn = cache?.cached || defaultCached;
   const invalidateKeyFn = cache?.invalidateKey || defaultInvalidateKey;
-  const formId = config?.pyrus?.forms?.form_meet;
+  const formId = getMeetingsFormId();
 
   let lastNormalized = [];
   let loggedSummary = false;
@@ -292,7 +298,7 @@ export function createMeetingsService({ graphClient, cache, config, membersServi
     );
     lastNormalized = normalizeRegister(data, {
       logSummary: !loggedSummary,
-      fieldConfig: config?.pyrus?.fields?.form_meet,
+      fieldConfig: getMeetingsFieldIds(),
     });
     loggedSummary = true;
     return lastNormalized;
@@ -324,28 +330,33 @@ export function createMeetingsService({ graphClient, cache, config, membersServi
     lastNormalized = [meeting, ...lastNormalized];
   }
 
-  async function createMeeting({ subject, startUtc, durationMinutes, residents, userId }) {
+  async function createMeeting({ subject, startUtc, durationMinutes, residents, userId, isOffline, postLink }) {
     if (!formId) {
       throw new Error("form_meet is missing in config");
     }
-    const f = config?.pyrus?.fields?.form_meet || {};
+    const f = getMeetingsFieldIds();
     const payload = {
       form_id: formId,
       due: startUtc,
       duration: String(durationMinutes),
       fields: [
         { id: f.subject, value: subject },
-        { id: f.due, value: startUtc },
+        { id: f.dueDateTime, value: startUtc },
         { id: f.responsible, value: { id: userId, type: "user" } },
         {
           id: f.residentsTable,
           value: residents.map((resident, index) => ({
             row_id: index,
-            cells: [{ id: f.residentCell, value: { id: resident.id, type: resident.type } }],
+            cells: [{ id: f.residentCellPerson, value: { id: resident.id, type: resident.type } }],
           })),
         },
+        { id: f.isOffline, value: isOffline ? "checked" : "unchecked" },
       ],
     };
+
+    if (postLink && String(postLink).trim()) {
+      payload.fields.push({ id: f.postLink, value: String(postLink).trim() });
+    }
 
     const response = await graphClient.callGraphApi("pyrus_api", {
       method: "POST",

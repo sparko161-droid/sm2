@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Коммерческое предложение — проект Степан</title>
+  <style>
+    :root {
+      --muted: #9fb0cc;
+      --text: #e9f0ff;
+      --accent: #ff3b30;
+      --accent2: #2dd4bf;
+      --border: rgba(255,255,255,.12);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+      --max: 1080px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, rgba(45,212,191,.20), transparent 60%),
+                  radial-gradient(900px 600px at 90% 0%, rgba(255,59,48,.22), transparent 55%),
+                  linear-gradient(180deg, #070b14 0%, #0b1220 45%, #070b14 100%);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    a { color: inherit; text-decoration: none; }
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 28px 18px 80px; }
+    .topbar {
+      display:flex; gap:14px; align-items:center; justify-content:space-between;
+      padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius);
+      background: rgba(15,26,46,.75); backdrop-filter: blur(10px); box-shadow: var(--shadow);
+      position: sticky; top: 12px; z-index: 10;
+    }
+    .brand { display:flex; gap:12px; align-items:center; }
+    .logo {
+      width: 38px; height: 38px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent) 0%, #ff6a00 100%);
+      display:flex; align-items:center; justify-content:center; font-weight: 800;
+    }
+    .brand h1 { font-size: 14px; margin:0; letter-spacing:.2px; }
+    .brand p { margin:0; font-size:12px; color: var(--muted); }
+    .actions { display:flex; gap:10px; flex-wrap: wrap; justify-content:flex-end; }
+    .btn {
+      padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      font-size: 13px; font-weight: 650;
+    }
+    .btn.primary {
+      background: linear-gradient(135deg, var(--accent) 0%, #ff6a00 100%);
+      border-color: transparent;
+    }
+    .btn.secondary {
+      background: rgba(45,212,191,.14);
+      border-color: rgba(45,212,191,.35);
+    }
+    .grid {
+      display:grid; grid-template-columns: 1.25fr .75fr; gap: 16px; margin-top: 18px;
+    }
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+      .topbar { position: relative; top: 0; }
+    }
+    .card {
+      background: rgba(15,26,46,.78);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .hero h2 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.12;
+    }
+    .hero .sub {
+      color: var(--muted); margin: 0 0 14px; font-size: 14px;
+    }
+    .bullets { display:grid; gap: 10px; margin-top: 12px; }
+    .bullet {
+      display:flex; gap: 10px; align-items:flex-start;
+      padding: 10px 12px; border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.04);
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 99px;
+      background: var(--accent2);
+      margin-top: 6px;
+      flex: 0 0 auto;
+    }
+    .kpi {
+      display:grid; grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px; margin-top: 10px;
+    }
+    .kpi .item {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255,255,255,.04);
+    }
+    .kpi .num { font-weight: 800; font-size: 18px; }
+    .kpi .lbl { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .section-title {
+      display:flex; align-items: baseline; justify-content: space-between;
+      gap: 12px; margin: 0 0 10px;
+    }
+    .section-title h3 { margin:0; font-size: 18px; }
+    .section-title span { color: var(--muted); font-size: 12px; }
+    .steps {
+      display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px;
+    }
+    @media (max-width: 760px) {
+      .steps { grid-template-columns: 1fr; }
+    }
+    .step {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255,255,255,.04);
+    }
+    .step b { display:block; margin-bottom: 6px; }
+    .muted { color: var(--muted); }
+    table {
+      width:100%;
+      border-collapse: collapse;
+      overflow:hidden;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+    th, td {
+      padding: 10px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      vertical-align: top;
+      font-size: 13px;
+    }
+    th { text-align:left; color: #cfe0ff; background: rgba(255,255,255,.05); }
+    tr:last-child td { border-bottom: none; }
+    .pill {
+      display:inline-block; padding: 6px 10px; border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      color: #cfe0ff;
+      font-size: 12px;
+      margin-right: 6px;
+      margin-bottom: 6px;
+      white-space: nowrap;
+    }
+    .totals {
+      display:grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px;
+    }
+    .total-row {
+      display:flex; justify-content: space-between; gap: 12px;
+      padding: 10px 12px; border-radius: 14px;
+      border: 1px solid var(--border); background: rgba(255,255,255,.04);
+      font-size: 13px;
+    }
+    .total-row b { font-size: 14px; }
+    .note {
+      margin-top: 10px; font-size: 12px; color: var(--muted);
+    }
+    .print { display:none; }
+    @media print {
+      body { background: #fff; color:#000; }
+      .topbar, .btn { display:none !important; }
+      .card { box-shadow:none; border:1px solid #ddd; background:#fff; }
+      .print { display:block; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap" id="top">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">SM</div>
+        <div>
+          <h1>Стандарт Мастер · iiko Business Partner</h1>
+          <p>Коммерческое предложение — проект Степан · от 19.01.2026</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn secondary" href="tel:+79869553012">Позвонить</a>
+        <a class="btn" href="mailto:Egorkin.smaster@yandex.ru">Почта</a>
+        <a class="btn primary" href="#cta">Согласовать запуск</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card hero">
+        <h2>Запустим iiko и технику под ключ — быстро, аккуратно и с сопровождением 24/7</h2>
+        <p class="sub">КП в формате “как лендинг”: сначала результат и доверие, затем этапы и детальная смета.</p>
+
+        <div class="bullets">
+          <div class="bullet"><span class="dot"></span><div><b>Результат:</b> рабочая касса + кухня + учёт + отчётность, обучение персонала и стабильная поддержка после запуска.</div></div>
+          <div class="bullet"><span class="dot"></span><div><b>Сроки:</b> запуск зависит от готовности интернета/локальной сети и согласования оборудования (обычно 3–7 дней).</div></div>
+          <div class="bullet"><span class="dot"></span><div><b>После запуска:</b> личный чат в Telegram + горячая линия 24/7 + обновления iiko по регламенту.</div></div>
+        </div>
+
+        <div class="kpi">
+          <div class="item"><div class="num">25 лет</div><div class="lbl">на рынке</div></div>
+          <div class="item"><div class="num">3500+</div><div class="lbl">реализованных проектов</div></div>
+          <div class="item"><div class="num">ТОП-15</div><div class="lbl">дилеров iiko</div></div>
+          <div class="item"><div class="num">2018/2020/2021</div><div class="lbl">награды за поддержку</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <h3>Короткая смета</h3>
+          <span>разово + ежемесячно</span>
+        </div>
+
+        <div class="totals">
+          <div class="total-row"><span>Разовые затраты (оборудование + внедрение + обучение + 3 мес. сопровождения)</span><b>119 450 ₽</b></div>
+          <div class="total-row"><span>Ежемесячно (ПО + сопровождение)</span><b>11 600 ₽/мес</b></div>
+        </div>
+
+        <div class="section-title" style="margin-top:14px;">
+          <h3>Что входит</h3>
+          <span>коротко</span>
+        </div>
+
+        <div>
+          <span class="pill">ПО iiko (аренда)</span>
+          <span class="pill">Кассовый комплект</span>
+          <span class="pill">ОФД/ФН</span>
+          <span class="pill">Настройка и запуск</span>
+          <span class="pill">Регистрация кассы</span>
+          <span class="pill">Обучение</span>
+          <span class="pill">Поддержка 24/7</span>
+        </div>
+
+        <p class="note">Если в проекте больше рабочих мест/касс — пересчитаем количества и итог.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div class="section-title">
+        <h3>Как запускаем (3 шага)</h3>
+        <span>коротко и по делу</span>
+      </div>
+      <div class="steps">
+        <div class="step"><b>1) Уточняем задачу</b><div class="muted">Созвон 10–15 минут: формат заведения, кол-во РМ, интеграции.</div></div>
+        <div class="step"><b>2) Настраиваем и запускаем</b><div class="muted">ПО + касса + принтеры + права/отчёты. Тестовый день, регистрация кассы/ОФД.</div></div>
+        <div class="step"><b>3) Обучаем и сопровождаем</b><div class="muted">Обучение + сопровождение в первый день, затем поддержка 24/7.</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div class="section-title">
+        <h3>Состав предложения и стоимость</h3>
+        <span>детальная смета</span>
+      </div>
+
+      <h4 style="margin:12px 0 8px;">ПО (аренда в месяц)</h4>
+      <table>
+        <thead>
+          <tr><th>Позиция</th><th>Кол-во</th><th>Стоимость</th><th>Сумма</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>iikoCloud Pro</b><br><span class="muted">Лицензия для 1 кассовой станции</span></td><td>1</td><td>8 600 ₽</td><td>8 600 ₽</td></tr>
+          <tr><td><b>iikoSmartControl</b><br><span class="muted">5 шт бесплатно 4 месяца (далее 600 ₽/мес)</span></td><td>5</td><td>0 ₽</td><td>0 ₽</td></tr>
+          <tr><td><b>iikoDashboard</b><br><span class="muted">5 шт бесплатно 4 месяца (далее 490 ₽/мес)</span></td><td>5</td><td>0 ₽</td><td>0 ₽</td></tr>
+          <tr><td><b>iikoWaiter</b><br><span class="muted">5 шт бесплатно 4 месяца (далее 590 ₽/мес)</span></td><td>5</td><td>0 ₽</td><td>0 ₽</td></tr>
+          <tr><td colspan="3"><b>Итого за ПО</b></td><td><b>8 600 ₽</b></td></tr>
+        </tbody>
+      </table>
+
+      <h4 style="margin:14px 0 8px;">Оборудование и техника</h4>
+      <table>
+        <thead><tr><th>Позиция</th><th>Кол-во</th><th>Стоимость</th><th>Сумма</th></tr></thead>
+        <tbody>
+          <tr><td><b>Сенсорный терминал G‑SENSE Unit‑R</b><br><span class="muted">11.6”, Intel Celeron J1900, 8GB/128GB, Win10</span></td><td>1</td><td>32 990 ₽</td><td>32 990 ₽</td></tr>
+          <tr><td><b>Фискальный регистратор MITSU 1‑F</b><br><span class="muted">с ФН 15 месяцев</span></td><td>1</td><td>39 990 ₽</td><td>39 990 ₽</td></tr>
+          <tr><td><b>Принтер чеков GP‑E200I 80mm</b><br><span class="muted">USB + RS232 + Ethernet</span></td><td>1</td><td>5 990 ₽</td><td>5 990 ₽</td></tr>
+          <tr><td><b>Сканер ШК (проводной)</b></td><td>1</td><td>3 990 ₽</td><td>3 990 ₽</td></tr>
+          <tr><td><b>Денежный ящик CD350</b><br><span class="muted">24V, электромеханический</span></td><td>1</td><td>3 990 ₽</td><td>3 990 ₽</td></tr>
+          <tr><td colspan="4" class="muted"><b>Важно:</b> нужна локальная сеть с интернетом до терминала и до кухонного принтера.</td></tr>
+          <tr><td colspan="3"><b>Итого за оборудование</b></td><td><b>86 950 ₽</b></td></tr>
+        </tbody>
+      </table>
+
+      <h4 style="margin:14px 0 8px;">Работы по внедрению</h4>
+      <table>
+        <thead><tr><th>Позиция</th><th>Кол-во</th><th>Стоимость</th><th>Сумма</th></tr></thead>
+        <tbody>
+          <tr><td><b>Установка, настройка и запуск</b><br><span class="muted">iikoCloud Pro</span></td><td>1</td><td>15 000 ₽</td><td>15 000 ₽</td></tr>
+          <tr><td><b>Регистрация кассы</b></td><td>1</td><td>2 000 ₽</td><td>2 000 ₽</td></tr>
+          <tr><td><b>Контракт ОФД (15 месяцев)</b></td><td>1</td><td>3 500 ₽</td><td>3 500 ₽</td></tr>
+          <tr><td colspan="3"><b>Итого за внедрение</b></td><td><b>20 500 ₽</b></td></tr>
+        </tbody>
+      </table>
+
+      <h4 style="margin:14px 0 8px;">Обучение</h4>
+      <table>
+        <thead><tr><th>Формат</th><th>Стоимость</th></tr></thead>
+        <tbody>
+          <tr><td><b>FastFood</b><br><span class="muted">Кассиры + администраторы, до 2 часов, группа до 5 человек. Сопровождение в первый рабочий день.</span></td><td><b>3 000 ₽</b></td></tr>
+        </tbody>
+      </table>
+
+      <h4 style="margin:14px 0 8px;">Техподдержка и сопровождение</h4>
+      <table>
+        <thead><tr><th>Состав</th><th>Стоимость</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>
+              <b>Техническое обслуживание техники и iiko после запуска</b><br>
+              <span class="muted">Стоимость за 1 рабочее место, включено:</span>
+              <ul class="muted" style="margin: 8px 0 0 18px;">
+                <li>личный менеджер</li>
+                <li>личный чат в Telegram по всем вопросам с вашими сотрудниками и всей нашей компанией</li>
+                <li>горячая линия техподдержки 24/7</li>
+                <li>бесплатное обновление iiko: Пн–Чт 09:00–16:00</li>
+              </ul>
+            </td>
+            <td>
+              <div><b>3 000 ₽/мес</b></div>
+              <div class="muted" style="margin-top:6px;">В рамках 3 месяцев: <b>9 000 ₽</b></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="totals" style="margin-top: 14px;">
+        <div class="total-row"><span><b>Итого разово</b> (оборудование + внедрение + обучение + 3 мес. сопровождения)</span><b>119 450 ₽</b></div>
+        <div class="total-row"><span><b>Итого ежемесячно</b> (ПО + сопровождение)</span><b>11 600 ₽/мес</b></div>
+      </div>
+
+      <p class="note">* КП действует до 31.01.2026. Поставщик оставляет за собой право пересчёта цен при изменении условий поставки/курса/наличия.</p>
+    </div>
+
+    <div class="card" id="cta" style="margin-top: 16px;">
+      <div class="section-title">
+        <h3>Следующий шаг</h3>
+        <span>зафиксировать дату запуска</span>
+      </div>
+      <div class="bullets">
+        <div class="bullet"><span class="dot"></span><div><b>Ответьте одним сообщением:</b> сколько рабочих мест/касс, нужна ли доставка/маркировка/ЕГАИС, и когда хотите запуск.</div></div>
+        <div class="bullet"><span class="dot"></span><div><b>Мы пришлём финальную версию:</b> с точным составом, сроками и итогом.</div></div>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px;">
+        <a class="btn primary" href="tel:+79869553012">Позвонить</a>
+        <a class="btn secondary" href="mailto:Egorkin.smaster@yandex.ru">Написать на почту</a>
+        <a class="btn" href="#top">Наверх</a>
+      </div>
+
+      <p class="note print">Для печати: «Печать → Сохранить как PDF».</p>
+    </div>
+  </div>
+</body>
+</html>

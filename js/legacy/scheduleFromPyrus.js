@@ -54,7 +54,7 @@ export async function loadScheduleForMonth(year, month0, employees, shifts, { lo
 
   const localOffsetMs = targetOffsetMin * 60 * 1000;
 
-  const res = await pyrusFetch(`/forms/${scheduleFormId}/register`, {
+  const res = await pyrusFetch(`/v4/forms/${scheduleFormId}/register`, {
     method: "GET",
   });
 

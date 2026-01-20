@@ -51,6 +51,19 @@ const DEFAULT_CONFIG = {
     kp: [],
     gantt: [],
   },
+  meetings: {
+    formId: 1382379,
+    fields: {
+      subject: 1,
+      dueDateTime: 4,
+      residentsTable: 14,
+      residentCellPerson: 15,
+      postLink: 20,
+      status: 26,
+      responsible: 27,
+      isOffline: 30,
+    },
+  },
   timezone: {
     localOffsetMin: 4 * 60, // legacy fallback
     storageKey: "sm2_timezone",
@@ -128,7 +141,15 @@ const DEFAULT_CONFIG = {
   ui: {
     lines: {
       order: ["ALL", "OP", "OV", "L1", "L2", "AI", "OU"],
-      labels: { ALL: "ВСЕ", OP: "OP", OV: "OV", L1: "L1", L2: "L2", AI: "AI", OU: "OU" },
+      labels: {
+        ALL: "ВСЕ",
+        OP: "OP",
+        OV: "OV",
+        L1: "L1",
+        L2: "L2",
+        AI: "AI",
+        OU: "OU",
+      },
     },
   },
   departments: {
@@ -160,7 +181,8 @@ const DEFAULT_CONFIG = {
   calendar: {
     prodCal: {
       ttlMs: 30 * 24 * 60 * 60 * 1000,
-      urlTemplate: "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}&pre=1&holiday=1",
+      urlTemplate:
+        "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}&pre=1&holiday=1",
       cacheKeyPrefix: "prodcal_ru_",
     },
     ui: {
@@ -224,7 +246,6 @@ const DEFAULT_CONFIG = {
       birthdayBg: "#ff2b2b",
       birthdayText: "#000000",
     },
-
   },
 };
 
@@ -249,6 +270,8 @@ const REQUIRED_PATHS = [
   "calendar",
   "calendar.prodCal",
   "calendar.prodCal.urlTemplate",
+  "meetings",
+  "meetings.formId",
 ];
 
 function normalizeConfig(config) {
@@ -265,6 +288,9 @@ function normalizeConfig(config) {
   const storage = root.storage ?? {};
   const storageKeys = storage.keys ?? {};
   const storageAuth = storage.auth ?? {};
+
+  const meetings = root.meetings ?? {};
+  const meetingsFields = meetings.fields ?? {};
 
   const timezone = root.timezone ?? {};
   const pyrus = root.pyrus ?? {};
@@ -302,7 +328,6 @@ function normalizeConfig(config) {
   const calendarUiDarkHoliday = calendarUiDark.holiday ?? {};
   const calendarUiDarkPreholiday = calendarUiDark.preholiday ?? {};
   const calendarUiDarkMicro = calendarUiDark.microIndicators ?? {};
-
 
   return {
     ...DEFAULT_CONFIG,
@@ -342,7 +367,8 @@ function normalizeConfig(config) {
     timezone: {
       ...DEFAULT_CONFIG.timezone,
       ...timezone,
-      localOffsetMin: timezone.localOffsetMin ?? DEFAULT_CONFIG.timezone.localOffsetMin,
+      localOffsetMin:
+        timezone.localOffsetMin ?? DEFAULT_CONFIG.timezone.localOffsetMin,
     },
 
     storage: {
@@ -355,6 +381,15 @@ function normalizeConfig(config) {
       auth: {
         ...DEFAULT_CONFIG.storage.auth,
         ...storageAuth,
+      },
+    },
+
+    meetings: {
+      ...DEFAULT_CONFIG.meetings,
+      ...meetings,
+      fields: {
+        ...DEFAULT_CONFIG.meetings.fields,
+        ...meetingsFields,
       },
     },
 
@@ -426,10 +461,12 @@ function normalizeConfig(config) {
       ...DEFAULT_CONFIG.management,
       ...management,
       topManagementIds:
-        management.topManagementIds ?? DEFAULT_CONFIG.management.topManagementIds,
+        management.topManagementIds ??
+        DEFAULT_CONFIG.management.topManagementIds,
     },
 
-    pyrusLineItemIdByLine: root.pyrusLineItemIdByLine ?? DEFAULT_CONFIG.pyrusLineItemIdByLine,
+    pyrusLineItemIdByLine:
+      root.pyrusLineItemIdByLine ?? DEFAULT_CONFIG.pyrusLineItemIdByLine,
 
     calendar: {
       ...DEFAULT_CONFIG.calendar,
@@ -495,7 +532,6 @@ function normalizeConfig(config) {
         ...DEFAULT_CONFIG.calendar.indicators,
         ...calendarIndicators,
       },
-
     },
   };
 }
@@ -504,7 +540,8 @@ function hasPath(obj, path) {
   const parts = String(path).split(".").filter(Boolean);
   let current = obj;
   for (const part of parts) {
-    if (!current || typeof current !== "object" || !(part in current)) return false;
+    if (!current || typeof current !== "object" || !(part in current))
+      return false;
     current = current[part];
   }
   return true;
@@ -522,7 +559,8 @@ const CONFIG_URL = new URL("../config.json", import.meta.url).toString();
 async function loadConfig() {
   try {
     const response = await fetch(CONFIG_URL, { cache: "no-store" });
-    if (!response.ok) throw new Error(`Config load failed: HTTP ${response.status}`);
+    if (!response.ok)
+      throw new Error(`Config load failed: HTTP ${response.status}`);
 
     const loaded = await response.json();
     const normalized = normalizeConfig(loaded);
@@ -532,7 +570,10 @@ async function loadConfig() {
 
     return normalized;
   } catch (error) {
-    console.warn("Не удалось загрузить config.json, использую значения по умолчанию", error);
+    console.warn(
+      "Не удалось загрузить config.json, использую значения по умолчанию",
+      error,
+    );
 
     const normalized = normalizeConfig({});
     warnMissingRequiredPaths(normalized);
@@ -575,4 +616,240 @@ export function getConfigValue(path, options = {}) {
 
 export function getConfig() {
   return config;
+}
+
+export function getMeetingsFormId() {
+  return config.meetings?.formId || config.pyrus?.forms?.form_meet;
+}
+
+export function getMeetingsFieldIds() {
+  const f = config.meetings?.fields || {};
+  const legacy = config.pyrus?.fields?.form_meet || {};
+
+  return {
+    subject: f.subject ?? legacy.subject,
+    dueDateTime: f.dueDateTime ?? legacy.due ?? 4,
+    residentsTable: f.residentsTable ?? legacy.residentsTable ?? 14,
+    residentCellPerson: f.residentCellPerson ?? legacy.residentCell ?? 15,
+    postLink: f.postLink ?? legacy.postLink ?? 20,
+    status: f.status ?? 26,
+    responsible: f.responsible ?? legacy.responsible ?? 27,
+    isOffline: f.isOffline ?? 30,
+  };
+}
+
+export function getKpConfig() {
+  return config.kp || {};
+}
+
+export function getKpN8nConfig() {
+  return getKpConfig().n8n || {};
+}
+
+export function getKpCrmConfig() {
+  return getKpCrmFormConfig();
+}
+
+// === NEW TYPED GETTERS ===
+
+export function getKpCatalogsConfig() {
+  return getKpConfig().catalogs || {};
+}
+
+export function getKpFormsConfig() {
+  return getKpConfig().forms || {};
+}
+
+export function getKpDiscountsConfig() {
+  return getKpConfig().discounts || {};
+}
+
+function requireKpCatalogId(section, key) {
+  const catalogId = section?.catalogId;
+  if (!catalogId) {
+    throw new Error(`[KP][Config] Missing kp.catalogs.${key}.catalogId`);
+  }
+  return catalogId;
+}
+
+export function getKpCatalogIds() {
+  const catalogs = getKpCatalogsConfig();
+  return {
+    services: requireKpCatalogId(catalogs.services, "services"),
+    maintenance: requireKpCatalogId(catalogs.maintenance, "maintenance"),
+    licenses: requireKpCatalogId(catalogs.licenses, "licenses"),
+    trainings: requireKpCatalogId(catalogs.trainings, "trainings"),
+  };
+}
+
+export function getKpServicesMapping() {
+  const columns = getKpCatalogsConfig().services?.columns;
+  if (!columns)
+    throw new Error("[KP][Config] Missing kp.catalogs.services.columns");
+  return columns;
+}
+
+export function getKpMaintenanceMapping() {
+  const columns = getKpCatalogsConfig().maintenance?.columns;
+  if (!columns)
+    throw new Error("[KP][Config] Missing kp.catalogs.maintenance.columns");
+  return columns;
+}
+
+export function getKpLicensesMapping() {
+  const columns = getKpCatalogsConfig().licenses?.columns;
+  if (!columns)
+    throw new Error("[KP][Config] Missing kp.catalogs.licenses.columns");
+  return columns;
+}
+
+export function getKpTrainingsMapping() {
+  const columns = getKpCatalogsConfig().trainings?.columns;
+  if (!columns)
+    throw new Error("[KP][Config] Missing kp.catalogs.trainings.columns");
+  return columns;
+}
+
+export function getKpEquipmentFormId() {
+  const formId =
+    getKpFormsConfig().equipment?.formId || getKpConfig().equipment?.formId;
+  if (!formId)
+    throw new Error("[KP][Config] Missing kp.forms.equipment.formId");
+  return formId;
+}
+
+export function getKpEquipmentFieldIds() {
+  const fieldIds =
+    getKpFormsConfig().equipment?.fieldIds || getKpConfig().equipment?.fieldIds;
+  if (!fieldIds)
+    throw new Error("[KP][Config] Missing kp.forms.equipment.fieldIds");
+  return fieldIds;
+}
+
+export function getKpEquipmentFormConfig() {
+  return {
+    id: getKpEquipmentFormId(),
+    fieldIds: getKpEquipmentFieldIds(),
+  };
+}
+
+export function getKpCrmFormConfig() {
+  const crm = getKpFormsConfig().crm || getKpConfig().crm || {};
+  if (!crm.formId) throw new Error("[KP][Config] Missing kp.forms.crm.formId");
+  return {
+    id: crm.formId,
+    titleFieldId: crm.titleFieldId || 1,
+    clientNameFieldIds: crm.clientNameFieldIds || [],
+    filters: crm.filters || {},
+    registerFieldIds: crm.registerFieldIds || [],
+  };
+}
+
+export function getKpCompanyName() {
+  const v = config.kp?.company?.name;
+  if (!v) throw new Error("[KP][Config] Missing kp.company.name");
+  return v;
+}
+
+export function getKpCompanyAddress() {
+  const v = config.kp?.company?.address;
+  if (!v) throw new Error("[KP][Config] Missing kp.company.address");
+  return v;
+}
+
+export function getKpAvatarSize() {
+  return Number(config.kp?.avatarSize) || 160;
+}
+
+export function getKpServicesCatalog() {
+  const catalogs = getKpCatalogsConfig();
+  return {
+    id: requireKpCatalogId(catalogs.services, "services"),
+    columns: getKpServicesMapping(),
+  };
+}
+
+export function getKpMaintenanceCatalog() {
+  const catalogs = getKpCatalogsConfig();
+  return {
+    id: requireKpCatalogId(catalogs.maintenance, "maintenance"),
+    columns: getKpMaintenanceMapping(),
+  };
+}
+
+export function getKpLicensesCatalog() {
+  const catalogs = getKpCatalogsConfig();
+  return {
+    id: requireKpCatalogId(catalogs.licenses, "licenses"),
+    columns: getKpLicensesMapping(),
+  };
+}
+
+export function getKpTrainingsCatalog() {
+  const catalogs = getKpCatalogsConfig();
+  return {
+    id: requireKpCatalogId(catalogs.trainings, "trainings"),
+    columns: getKpTrainingsMapping(),
+  };
+}
+
+export function getKpEquipmentForm() {
+  return getKpEquipmentFormConfig();
+}
+
+export function getKpCrmForm() {
+  return getKpCrmFormConfig();
+}
+
+export function getKpN8nPyrusFilesWebhookUrl() {
+  const v =
+    config.kp?.n8n?.pyrusFiles?.path || config.kp?.n8n?.webhooks?.pyrusFiles;
+  if (!v) throw new Error("[KP][Config] Missing kp.n8n.pyrusFiles.path");
+  return v;
+}
+
+export function getKpTaxConfig() {
+  return config.kp?.tax || { rate: 20, included: true };
+}
+
+/**
+ * Get discount rules for services based on quantity
+ * @returns {Array<{min: number, max: number|null, percent: number}>}
+ */
+export function getKpServicesDiscountRules() {
+  const rules = config.kp?.discounts?.servicesByQty;
+  if (!Array.isArray(rules) || rules.length === 0) {
+    // Default rules
+    return [
+      { min: 1, max: 1, percent: 0 },
+      { min: 2, max: 2, percent: 25 },
+      { min: 3, max: 9, percent: 40 },
+      { min: 10, max: null, percent: 50 },
+    ];
+  }
+  return rules;
+}
+
+/**
+ * Calculate discount percent for a given quantity
+ * @param {number} qty
+ * @returns {number} discount percent (0-100)
+ */
+export function getDiscountPercentForQty(qty) {
+  const rules = getKpServicesDiscountRules();
+  for (const rule of rules) {
+    const minOk = qty >= rule.min;
+    const maxOk = rule.max === null || qty <= rule.max;
+    if (minOk && maxOk) {
+      return rule.percent;
+    }
+  }
+  return 0;
+}
+
+export function getKpCompanyConfig() {
+  return {
+    name: getKpCompanyName(),
+    address: getKpCompanyAddress(),
+  };
 }

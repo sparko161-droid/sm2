@@ -10,7 +10,7 @@ const N8N_GRAPH_URL = getConfigValue("graphHookUrl", {
 /**
  * Универсальный вызов Pyrus через n8n-хук /graph с type="pyrus-api".
  *
- * path   - строка вида "/members", "/catalogs/281369", "/forms/2375272/register"
+ * path   - строка вида "/members", "/v4/catalogs/281369", "/v4/forms/2375272/register"
  * options.method - HTTP метод
  * options.body   - строка JSON или объект
  *

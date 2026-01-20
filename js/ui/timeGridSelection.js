@@ -3,12 +3,15 @@ import { MINUTES_IN_DAY } from "../utils/timeGrid.js";
 export function createTimeGridSelection({
   gridEl,
   busySegments,
+  startHour = 0,
   stepMinutes,
   pxPerMinute,
   dateKey,
   onSelect,
 }) {
   if (!gridEl) return { destroy() {} };
+
+  const startIdx = (startHour * 60) / stepMinutes;
 
   const segmentsCount = MINUTES_IN_DAY / stepMinutes;
   let isDragging = false;
@@ -33,7 +36,7 @@ export function createTimeGridSelection({
 
     const rect = gridEl.getBoundingClientRect();
     const offsetY = Math.min(Math.max(clientY - rect.top, 0), rect.height - 1);
-    return Math.floor(offsetY / (stepMinutes * pxPerMinute));
+    return startIdx + Math.floor(offsetY / (stepMinutes * pxPerMinute));
   }
 
   function clampRange(targetIndex) {
@@ -58,7 +61,7 @@ export function createTimeGridSelection({
 
   function renderSelection(nextRange) {
     if (!nextRange) return;
-    const top = nextRange.start * stepMinutes * pxPerMinute;
+    const top = (nextRange.start - startIdx) * stepMinutes * pxPerMinute;
     const height = (nextRange.end - nextRange.start + 1) * stepMinutes * pxPerMinute;
     selectionEl.style.top = `${top}px`;
     selectionEl.style.height = `${height}px`;
@@ -92,7 +95,7 @@ export function createTimeGridSelection({
     const rect = gridEl.getBoundingClientRect();
     const point = {
       x: rect.left + 60,
-      y: rect.top + minutes * pxPerMinute,
+      y: rect.top + (minutes - startHour * 60) * pxPerMinute,
     };
 
     onSelect?.({

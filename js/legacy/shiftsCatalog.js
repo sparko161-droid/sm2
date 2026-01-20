@@ -31,7 +31,7 @@ const PYRUS_CATALOG_IDS = getConfigValue("pyrus.catalogs", {
  * }
  */
 export async function loadShiftsFromCatalog() {
-  const res = await pyrusFetch(`/catalogs/${PYRUS_CATALOG_IDS.shifts}`, { method: "GET" });
+  const res = await pyrusFetch(`/v4/catalogs/${PYRUS_CATALOG_IDS.shifts}`, { method: "GET" });
   const json = await res.json();
 
   const catalog = Array.isArray(json) ? json[0] : json;
