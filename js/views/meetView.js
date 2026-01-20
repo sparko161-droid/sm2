@@ -1200,7 +1200,7 @@ export function createMeetView(ctx) {
         renderMultiDayView({ start, daysCount: dc, meetingsByDate: itemsByDate, dayTypeMap, range });
       } else if (state.mode === "days28" || state.mode === "list") {
         hideDayBar();
-        renderListView({ start, end, meetingsByDate, dayTypeMap });
+        renderListView({ start, end, meetingsByDate: itemsByDate, dayTypeMap });
       }
     } catch (error) {
       if (token !== state.renderToken) return;
