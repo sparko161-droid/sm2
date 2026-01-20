@@ -296,6 +296,10 @@ export function createMeetView(ctx) {
       const start = startOfWeekLocal(base);
       return { start, end: addDays(start, 28) };
     }
+    if (mode === "list") {
+      const start = startOfWeekLocal(base);
+      return { start, end: addDays(start, 28) };
+    }
     return { start: base, end: addDays(base, 7) };
   }
 
@@ -1098,15 +1102,20 @@ export function createMeetView(ctx) {
       cursor.setMonth(cursor.getMonth() + 1);
     }
 
-    await Promise.all(
-      months.map(async ({ year, monthIndex }) => {
-        const key = `${year}-${monthIndex}`;
-        if (!state.calendarCache.has(key)) {
-          const data = await prodCalendarService.getProdCalendarForMonth(year, monthIndex);
-          state.calendarCache.set(key, data);
-        }
-      })
-    );
+    try {
+      await Promise.all(
+        months.map(async ({ year, monthIndex }) => {
+          const key = `${year}-${monthIndex}`;
+          if (!state.calendarCache.has(key)) {
+            const data = await prodCalendarService.getProdCalendarForMonth(year, monthIndex);
+            state.calendarCache.set(key, data);
+          }
+        })
+      );
+    } catch (error) {
+      console.warn("Meet view: failed to load production calendar", error);
+      return map;
+    }
 
     let current = new Date(start);
     while (current < end) {
@@ -1189,7 +1198,7 @@ export function createMeetView(ctx) {
         const dc = state.mode === "days4" ? 4 : 7;
         renderDayBar({ start, daysCount: dc, dayTypeMap });
         renderMultiDayView({ start, daysCount: dc, meetingsByDate: itemsByDate, dayTypeMap, range });
-      } else if (state.mode === "days28") {
+      } else if (state.mode === "days28" || state.mode === "list") {
         hideDayBar();
         renderListView({ start, end, meetingsByDate, dayTypeMap });
       }
