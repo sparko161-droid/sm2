@@ -1,0 +1,13 @@
+{
+  "formId": 1382379,
+  "fields": {
+    "subject": 1,
+    "dueDateTime": 4,
+    "residentsTable": 14,
+    "residentCellPerson": 15,
+    "postLink": 20,
+    "status": 26,
+    "responsible": 27,
+    "isOffline": 30
+  }
+}

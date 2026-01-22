@@ -85,6 +85,12 @@ function positionPopover({ el, anchorRect, point, placement = "bottom-start" }) 
     el.style.maxHeight = `${viewportHeight - gutter * 2}px`;
     el.style.overflowY = "auto";
   }
+
+  // Оптимизация ширины для мобильных
+  if (viewportWidth < 600) {
+    el.style.width = `${viewportWidth - gutter * 2}px`;
+    el.style.maxWidth = `${viewportWidth - gutter * 2}px`;
+  }
 }
 
 function handlePointerDown(event) {

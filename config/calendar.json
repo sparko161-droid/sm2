@@ -1,0 +1,67 @@
+{
+  "prodCal": {
+    "ttlMs": 2592000000,
+    "urlTemplate": "https://isdayoff.ru/api/getdata?year={year}&month={month}&day1=1&day2={lastDay}&pre=1&holiday=1",
+    "cacheKeyPrefix": "prodcal_ru_"
+  },
+  "ui": {
+    "light": {
+      "workday": {
+        "background": "transparent",
+        "border": "var(--table-border-strong)",
+        "dash": "transparent"
+      },
+      "weekend": {
+        "background": "#fadddd",
+        "border": "var(--table-border-strong)",
+        "dash": "transparent"
+      },
+      "holiday": {
+        "background": "#e3f0ff",
+        "border": "var(--table-border-strong)",
+        "dash": "transparent"
+      },
+      "preholiday": {
+        "background": "#fff4cc",
+        "border": "var(--table-border-strong)",
+        "dash": "#3a3522"
+      },
+      "microIndicators": {
+        "weekend": "#3b82f6",
+        "holiday": "#e06b6b",
+        "preholiday": "#3a3522"
+      }
+    },
+    "dark": {
+      "workday": {
+        "background": "transparent",
+        "border": "var(--table-border-strong)",
+        "dash": "transparent"
+      },
+      "weekend": {
+        "background": "#4a2323",
+        "border": "var(--table-border-strong)",
+        "dash": "transparent"
+      },
+      "holiday": {
+        "background": "#1e3a5f",
+        "border": "var(--table-border-strong)",
+        "dash": "transparent"
+      },
+      "preholiday": {
+        "background": "#e6c65c",
+        "border": "var(--table-border-strong)",
+        "dash": "#d1b84d"
+      },
+      "microIndicators": {
+        "weekend": "#c45a5a",
+        "holiday": "#4fa3ff",
+        "preholiday": "#d1b84d"
+      }
+    }
+  },
+  "indicators": {
+    "birthdayBg": "#ff2b2b",
+    "birthdayText": "#000000"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "graphHookUrl": "https://jolikcisout.beget.app/webhook/pyrus/graph",
+  "routeAccess": {
+    "work": [],
+    "meet": [],
+    "kp": [],
+    "gantt": []
+  }
+}

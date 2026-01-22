@@ -152,7 +152,18 @@
           "nameIndex": 0,
           "priceIndex": 1
         }
+      },
+      "consumables": {
+        "catalogId": 265028,
+        "columns": {
+          "nameIndex": 0,
+          "priceIndex": 1
+        }
       }
+    },
+    "defaults": {
+      "validDays": 3,
+      "maintenanceMonths": 3
     },
     "forms": {
       "crm": {

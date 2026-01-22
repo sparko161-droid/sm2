@@ -679,6 +679,7 @@ export function getKpCatalogIds() {
     maintenance: requireKpCatalogId(catalogs.maintenance, "maintenance"),
     licenses: requireKpCatalogId(catalogs.licenses, "licenses"),
     trainings: requireKpCatalogId(catalogs.trainings, "trainings"),
+    consumables: requireKpCatalogId(catalogs.consumables, "consumables"),
   };
 }
 
@@ -707,6 +708,13 @@ export function getKpTrainingsMapping() {
   const columns = getKpCatalogsConfig().trainings?.columns;
   if (!columns)
     throw new Error("[KP][Config] Missing kp.catalogs.trainings.columns");
+  return columns;
+}
+
+export function getKpConsumablesMapping() {
+  const columns = getKpCatalogsConfig().consumables?.columns;
+  if (!columns)
+    throw new Error("[KP][Config] Missing kp.catalogs.consumables.columns");
   return columns;
 }
 
@@ -793,6 +801,14 @@ export function getKpTrainingsCatalog() {
   };
 }
 
+export function getKpConsumablesCatalog() {
+  const catalogs = getKpCatalogsConfig();
+  return {
+    id: requireKpCatalogId(catalogs.consumables, "consumables"),
+    columns: getKpConsumablesMapping(),
+  };
+}
+
 export function getKpEquipmentForm() {
   return getKpEquipmentFormConfig();
 }
@@ -806,6 +822,10 @@ export function getKpN8nPyrusFilesWebhookUrl() {
     config.kp?.n8n?.pyrusFiles?.path || config.kp?.n8n?.webhooks?.pyrusFiles;
   if (!v) throw new Error("[KP][Config] Missing kp.n8n.pyrusFiles.path");
   return v;
+}
+
+export function getKpDefaults() {
+  return getKpConfig().defaults || { validDays: 10, maintenanceMonths: 3 };
 }
 
 export function getKpTaxConfig() {

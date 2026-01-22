@@ -1,0 +1,36 @@
+{
+  "catalogs": {
+    "shifts": {
+      "id": 281369,
+      "columns": {
+        "department": 4
+      }
+    }
+  },
+  "forms": {
+    "otpusk": 2348174,
+    "smeni": 2375272,
+    "form_meet": 1382379
+  },
+  "fields": {
+    "otpusk": {
+      "person": 1,
+      "period": 2
+    },
+    "smeni": {
+      "person": 8,
+      "due": 4,
+      "amount": 5,
+      "template": 10
+    },
+    "form_meet": {
+      "subject": 1,
+      "due": 4,
+      "responsible": 27,
+      "residentsTable": 14,
+      "residentCell": 15,
+      "postLink": "PostLink",
+      "isOffline": 30
+    }
+  }
+}

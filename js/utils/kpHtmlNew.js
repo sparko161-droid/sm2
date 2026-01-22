@@ -1,11 +1,11 @@
-import { getKpCompanyConfig } from "../config.js";
+import { getKpCompany } from "../config/kpConfig.js";
 import { formatMoney } from "./kpCalc.js";
 
 /**
  * Generates the NEW "Landing Page" style HTML string for the KP.
  */
 export function renderKpHtmlNew(model) {
-  const company = getKpCompanyConfig();
+  const company = getKpCompany();
   const manager = model.meta.manager;
 
   // Icons
@@ -21,7 +21,7 @@ export function renderKpHtmlNew(model) {
   const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
 
   // Calculate Global Totals for discount logic
-  const sectionsKeys = ['services', 'licenses', 'equipment', 'trainings'];
+  const sectionsKeys = ['services', 'licenses', 'equipment', 'trainings', 'consumables'];
   let globalBaseTotal = sectionsKeys.reduce((acc, key) => {
     return acc + (model.sections[key]?.items || []).reduce((sum, item) => sum + (item.price * item.qty), 0);
   }, 0);
@@ -35,9 +35,10 @@ export function renderKpHtmlNew(model) {
   const equipmentBase = (model.sections.equipment?.items || []).reduce((sum, i) => sum + (i.price * i.qty), 0);
   const trainingsBase = (model.sections.trainings?.items || []).reduce((sum, i) => sum + (i.price * i.qty), 0);
   const licensesBase = (model.sections.licenses?.items || []).reduce((sum, i) => sum + (i.price * i.qty), 0);
+  const consumablesBase = (model.sections.consumables?.items || []).reduce((sum, i) => sum + (i.price * i.qty), 0);
   
-  const onceBase = servicesBase + equipmentBase + trainingsBase;
-  const onceActual = (model.sections.services?.total || 0) + (model.sections.equipment?.total || 0) + (model.sections.trainings?.total || 0);
+  const onceBase = servicesBase + equipmentBase + trainingsBase + consumablesBase;
+  const onceActual = (model.sections.services?.total || 0) + (model.sections.equipment?.total || 0) + (model.sections.trainings?.total || 0) + (model.sections.consumables?.total || 0);
   
   const licensesActual = model.sections.licenses?.total || 0;
   
@@ -83,7 +84,7 @@ export function renderKpHtmlNew(model) {
     return `
       <h4 id="${id}" style="margin:16px 0 8px; color: var(--accent); font-weight: 800; font-size: 15px; text-transform: uppercase;">${title}</h4>
       <div class="table-wrap">
-      <table>
+      <table class="${hasPhoto ? 'table-with-photo' : 'table-without-photo'}">
         <thead>
           <tr>
             ${hasPhoto ? '<th class="col-photo" width="60">Фото</th>' : ''}
@@ -117,21 +118,15 @@ export function renderKpHtmlNew(model) {
           }).join("")}
         </tbody>
         <tfoot>
-           ${hasDiscounts ? `
-             <tr class="foot-base">
-                <td colspan="${colCount - 1}" class="right foot-lbl">Итого без скидки:</td>
-                <td class="right foot-val foot-base-val">${formatMoney(sectionBaseTotal)}</td>
-             </tr>
-             <tr class="foot-total">
-                <td colspan="${colCount - 1}" class="right foot-lbl">Итого со скидкой:</td>
-                <td class="right foot-val foot-total-val">${formatMoney(sectionTotal)}</td>
-             </tr>
-           ` : `
-             <tr class="foot-total">
-                <td colspan="${colCount - 1}" class="right foot-lbl">Итого:</td>
-                <td class="right foot-val foot-total-val">${formatMoney(sectionTotal)}</td>
-             </tr>
-           `}
+           <tr class="foot-total">
+              <td colspan="${colCount - 1}" class="right foot-lbl" style="font-weight: 800; text-transform: uppercase; vertical-align: middle;">ИТОГО:</td>
+              <td class="right foot-val" style="padding: 10px 16px;">
+                 ${hasDiscounts ? `
+                   <div style="color: var(--accent); font-weight: 900; font-size: 1.3em; line-height: 1.1;">${formatMoney(sectionTotal)}</div>
+                   <div style="text-decoration: line-through; color: var(--muted); font-size: 0.85em; font-weight: normal; margin-top: 2px;">${formatMoney(sectionBaseTotal)}</div>
+                 ` : `<div style="font-weight: 900; font-size: 1.3em;">${formatMoney(sectionTotal)}</div>`}
+              </td>
+           </tr>
         </tfoot>
       </table>
       </div>
@@ -140,42 +135,48 @@ export function renderKpHtmlNew(model) {
 
   const maint = model.sections.maintenance;
   const maintBlock = maint.total > 0 ? `
-    <h4 style="margin:16px 0 8px; color: var(--accent); font-weight: 800; font-size: 15px; text-transform: uppercase;">Техподдержка и сопровождение</h4>
     <div class="table-wrap">
-    <table>
+    <table class="table-without-photo">
       <thead>
-        <tr><th>Состав</th><th class="right">Стоимость</th></tr>
+        <tr>
+          <th class="col-name">Состав</th>
+          <th class="col-qty center">Кол-во Р.М.</th>
+          <th class="col-price right">Цена</th>
+          <th class="col-total right">Стоимость</th>
+        </tr>
       </thead>
       <tbody>
         <tr>
-          <td>
-            <b>Техническое обслуживание и iiko после запуска</b><br>
-            <span class="muted">За ${maint.terminals} р.м., включено: сопровождение 24/7, личный чат, обновления.</span>
+          <td class="col-name">
+            <b>Техническое обслуживание техники и iiko после запуска</b><br>
+            <span class="muted" style="font-size:11px;">включено: личный менеджер, личный чат в телеграмме 24/7, горячая линия, бесплатное обновление iiko.</span>
           </td>
-          <td class="right">
-            <div><b style="color: var(--accent);">${formatMoney(maint.unitPrice * (maint.terminals || 1))}/мес</b></div>
-            ${maint.discountPercent > 0 ? `<div class="muted" style="text-decoration:line-through; font-size:11px;">${formatMoney(maint.basePrice * (maint.terminals || 1))}/мес</div>` : ''}
+          <td class="col-qty center">
+            <b>${maint.terminals}</b>
+          </td>
+          <td class="col-price right">
+            ${formatMoney(maint.basePrice)}
+          </td>
+          <td class="col-total right">
+            <div style="color: var(--accent); font-weight: 800;">${formatMoney(maint.unitPrice * (maint.terminals || 1))}/мес</div>
+            ${maint.discountPercent > 0 ? `<div class="muted" style="text-decoration:line-through; font-size:11px; font-weight: normal;">${formatMoney(maint.basePrice * (maint.terminals || 1))}/мес</div>` : ''}
           </td>
         </tr>
       </tbody>
       <tfoot>
-          ${maint.discountPercent > 0 ? `
-            <tr>
-              <td class="right" style="border-bottom:none; padding-bottom:4px;">Итого без скидки (за ${maint.months} мес):</td>
-              <td class="right" style="border-bottom:none; padding-bottom:4px; font-weight:600; text-decoration:line-through; color:var(--muted);">${formatMoney(maint.subtotal)}</td>
-            </tr>
-            <tr>
-              <td class="right" style="font-weight:700; border-top:none; padding-top:0;">Итого со скидкой (за ${maint.months} мес):</td>
-              <td class="right" style="font-weight:900; color:var(--accent); font-size:1.2em; border-top:none; padding-top:0;">${formatMoney(maint.total)}</td>
-            </tr>
-          ` : `
-            <tr>
-              <td class="right" style="font-weight:700;">Итого (за ${maint.months} мес):</td>
-              <td class="right" style="font-weight:900; color:var(--text-main); font-size:1.1em;">${formatMoney(maint.total)}</td>
-            </tr>
-          `}
+          <tr class="foot-total">
+            <td class="foot-lbl" style="padding: 12px 10px;">ИТОГО за ${maint.months} мес:</td>
+            <td class="foot-val">
+               ${maint.discountPercent > 0 ? `
+                 <div style="color: var(--accent); font-weight: 900; font-size: 1.3em; line-height: 1.1;">${formatMoney(maint.total)}</div>
+                 <div style="text-decoration: line-through; color: var(--muted); font-size: 0.85em; font-weight: normal; margin-top: 2px;">${formatMoney(maint.subtotal)}</div>
+               ` : `
+                 <div style="font-weight: 900; font-size: 1.3em;">${formatMoney(maint.total)}</div>
+               `}
+            </td>
+          </tr>
           <tr>
-            <td colspan="2" class="right" style="font-size: 0.85em; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 8px;">
+            <td colspan="4" class="right" style="font-size: 0.85em; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 8px;">
                Далее стоимость: 
                <span style="color: var(--accent); font-weight: 700;">${formatMoney(maint.unitPrice * (maint.terminals || 1))}/мес</span>
                ${maint.discountPercent > 0 ? `<span style="text-decoration: line-through; margin-left: 5px; font-size: 0.9em;">${formatMoney(maint.basePrice * (maint.terminals || 1))}/мес</span>` : ''}
@@ -385,9 +386,10 @@ export function renderKpHtmlNew(model) {
         radial-gradient(at 50% 0%, rgba(49,151,149,0.03) 0, transparent 50%);
       color: var(--text);
       line-height: 1.5;
+      overflow-x: hidden; /* Prevent horizontal scroll */
     }
     a { color: inherit; text-decoration: none; }
-    .wrap { max-width: var(--max); margin: 0 auto; padding: 24px 16px 80px; }
+    .wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 24px 16px 80px; box-sizing: border-box; }
     
     .topbar {
       display: flex; gap: 12px; align-items: center; justify-content: space-between;
@@ -461,12 +463,12 @@ export function renderKpHtmlNew(model) {
     }
     .btn.tg-solid { background: #0088cc !important; border-color: #0088cc !important; color: #fff !important; }
 
-    .grid { display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px; margin-top: 24px; align-items: start; }
+    .grid { display:grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 24px; margin-top: 24px; align-items: start; }
     @media (min-width: 981px) {
       .column-sticky { position: sticky; top: 90px; }
     }
     @media (max-width: 980px) { 
-      .grid { grid-template-columns: 1fr; } 
+      .grid { grid-template-columns: minmax(0, 1fr); } 
       .topbar { 
         position: sticky; top: 0; padding: 4px 12px; 
         flex-direction: column; align-items: stretch; gap: 6px;
@@ -489,13 +491,17 @@ export function renderKpHtmlNew(model) {
     }
 
     .card {
-      position: relative; /* Added for liquid glare context */
+      position: relative;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 32px;
       margin-bottom: 24px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow: hidden; /* Prevent internal elements from pushing width */
     }
     .hero h2 { margin: 0 0 16px; font-size: 34px; line-height: 1.15; font-weight: 900; color: var(--text-main); letter-spacing: -0.02em; }
     .hero .sub { color: var(--muted); margin: 0 0 32px; font-size: 17px; max-width: 600px; }
@@ -531,36 +537,68 @@ export function renderKpHtmlNew(model) {
     .problem-item { display: flex; gap: 12px; align-items: center; padding: 12px 18px; background: #fef2f2; border-radius: 12px; border: 1px solid #fee2e2; color: #991b1b; font-size: 14px; font-weight: 500; }
     
     .solution-list { display: flex; flex-direction: column; gap: 12px; }
-    .solution-item { display: flex; gap: 12px; align-items: center; padding: 12px 18px; background: #f0fdf4; border-radius: 12px; border: 1px solid #dcfce7; color: #166534; font-size: 14px; font-weight: 600; }
-
-    .brands-grid { 
-      display: grid; 
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); 
-      gap: 20px; 
-      align-items: center; 
-      justify-items: center;
-      margin-top: 20px;
+    
+    /* Optimized Marquee Carousel */
+    .brands-carousel-container {
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+      margin-top: 24px;
+      position: relative;
+    }
+    .brands-marquee-row {
+      display: flex;
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+      margin-bottom: 12px;
+      white-space: nowrap;
+    }
+    .brands-track {
+      display: flex;
+      width: max-content;
+      animation: marquee 40s linear infinite;
+      will-change: transform;
+      gap: 12px;
+    }
+    .brands-marquee-row.reverse .brands-track {
+      animation-direction: reverse;
+    }
+    .brands-track:hover {
+      animation-play-state: paused;
+    }
+    @keyframes marquee {
+      0% { transform: translate3d(0, 0, 0); }
+      100% { transform: translate3d(-50%, 0, 0); }
     }
     .brand-logo-wrap { 
-      background: #2d3748; 
-      padding: 12px; 
+      flex: 0 0 160px;
+      background: #ffffff; 
+      padding: 12px 20px; 
       border-radius: 12px; 
       display: flex; 
       align-items: center; 
       justify-content: center; 
-      width: 100%; 
-      height: 64px; 
-      transition: all 0.3s;
+      height: 72px; 
+      transition: all 0.3s ease;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+      margin: 0 6px;
     }
     .brand-logo { 
       max-width: 100%; 
-      max-height: 40px; 
-      filter: grayscale(1) brightness(200%); 
-      opacity: 0.8; 
-      transition: all 0.3s; 
+      max-height: 48px; 
+      object-fit: contain;
+      transition: all 0.3s ease; 
     }
-    .brand-logo-wrap:hover { background: #1a202c; transform: translateY(-2px); }
-    .brand-logo-wrap:hover .brand-logo { filter: grayscale(0) brightness(100%); opacity: 1; transform: scale(1.05); }
+    .brand-logo-wrap:hover { 
+      border-color: var(--accent); 
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+    .brand-logo-wrap:hover .brand-logo { 
+      transform: scale(1.05);
+    }
 
     .steps { display:flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
     @media (max-width: 760px) { .steps { grid-template-columns: 1fr; } }
@@ -599,11 +637,11 @@ export function renderKpHtmlNew(model) {
     .scarcity-banner {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
       z-index: 1001; width: 93%; max-width: 620px; padding: 24px 32px;
-      background: linear-gradient(135deg, rgba(180, 0, 0, 0.6), rgba(140, 0, 0, 0.3));
+      background: rgba(180, 0, 0, 0.5);
       backdrop-filter: blur(28px) saturate(200%);
       -webkit-backdrop-filter: blur(28px) saturate(200%);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      color: white; border-radius: 24px; box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 12px 40px rgba(180, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white; border-radius: 24px; box-shadow: 0 12px 40px rgba(180, 0, 0, 0.3);
       display: flex; flex-direction: column; align-items: center; gap: 12px;
       transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
       opacity: 0; pointer-events: none; text-align: center;
@@ -657,16 +695,24 @@ export function renderKpHtmlNew(model) {
         width: 40px;
         height: 40px;
       }
+      .scarcity-banner {
+        bottom: auto;
+        top: 50%;
+        transform: translateX(-50%) translateY(100px); /* Initial state for animation */
+      }
+      .scarcity-banner.visible {
+        transform: translateX(-50%) translateY(-50%);
+      }
     }
 
     @media (max-width: 640px) {
-      .wrap { padding: 16px 12px 160px; }
-      .card { padding: 20px; margin-bottom: 16px; }
-      .hero h2 { font-size: 22px; }
-      .hero .sub { font-size: 15px; margin-bottom: 24px; }
-      .bullet { padding: 16px; }
-      .section-title h3 { font-size: 17px; }
-      th, td { padding: 12px 8px; font-size: 12px; }
+      .wrap { padding: 12px 8px 160px; max-width: 100vw; box-sizing: border-box; }
+      .card { padding: 16px; margin-bottom: 12px; max-width: 100%; box-sizing: border-box; overflow: hidden; }
+      .hero h2 { font-size: 21px; }
+      .hero .sub { font-size: 14px; margin-bottom: 20px; }
+      .bullet { padding: 12px; gap: 10px; }
+      .section-title h3 { font-size: 16px; }
+      th, td { padding: 10px 6px; font-size: 11px; }
       
       .mobile-price-footer {
         display: flex; position: fixed; bottom: 0 !important; left: 0; right: 0;
@@ -720,35 +766,71 @@ export function renderKpHtmlNew(model) {
       .scarcity-timer { gap: 10px; }
       .timer-val { font-size: 20px; }
 
-      /* Column Reordering for Mobile */
-      table thead tr { display: grid; grid-template-columns: 2fr 1fr 0.8fr 1fr; border-bottom: 2px solid var(--border); }
-      table thead th { border: none !important; }
-      table tbody tr { display: grid; grid-template-columns: 2fr 1fr 0.8fr 1fr; border-bottom: 1px solid var(--border); }
-      table td { border: none !important; }
-      
-      .col-photo { display: none !important; } /* Hide photo on small mobile grid to save space */
-      .col-name { grid-column: span 1; order: 1; }
-      .col-total { order: 2; text-align: left !important; }
-      .col-qty { order: 3; text-align: center !important; }
-      .col-price { order: 4; text-align: right !important; }
-
-      /* Footer adjustments for sticky + grid */
-      tfoot tr { 
-        display: flex; 
-        justify-content: flex-start; /* Move sums to the left */
-        gap: 12px;
-        background: white; 
-        border-top: 1px solid var(--border);
-        position: sticky;
-        left: 0;
-        width: fit-content;
-        min-width: 100%;
-        padding-right: 20px;
-        z-index: 5;
+      /* Column Reordering for Mobile (Stable Per-Row Grid) */
+      table.table-with-photo, table.table-without-photo { width: 100% !important; border: none !important; }
+      table.table-with-photo thead tr, table.table-with-photo tbody tr {
+        display: grid;
+        grid-template-columns: 50px 1fr 60px 100px 120px; /* Increased Price/Sum to fill width */
+        border-bottom: 1px solid var(--border);
+        align-items: stretch;
+        width: 100% !important;
+        box-sizing: border-box;
       }
-      .foot-lbl { flex: 0 0 auto; text-align: left !important; font-weight: 700; border: none !important; }
-      .foot-val { flex: 0 0 auto; text-align: left !important; border: none !important; }
-      .foot-total-val { font-size: 1.2em; color: var(--accent); font-weight: 900; }
+      table.table-without-photo thead tr, table.table-without-photo tbody tr {
+        display: grid;
+        grid-template-columns: 1fr 60px 100px 120px; /* Increased Price/Sum to fill width */
+        border-bottom: 1px solid var(--border);
+        align-items: stretch;
+        width: 100% !important;
+        box-sizing: border-box;
+      }
+
+      table thead tr {
+        background: var(--accent-light, #fff5f5) !important;
+        border-bottom: 2px solid var(--accent) !important;
+        width: 100% !important;
+      }
+
+      table thead tr th {
+        justify-content: center; /* Center headers horizontally */
+      }
+
+      table th, table td { 
+        padding: 10px 4px;
+        border: none !important;
+        font-size: 11px;
+        min-width: 0;
+        display: flex;
+        align-items: center; /* Vertical centering */
+      }
+      table thead th { 
+        font-weight: 800; 
+        text-transform: uppercase; 
+        color: var(--accent); 
+        letter-spacing: 0.2px;
+        font-size: 10px;
+      }
+      
+      .col-photo { justify-content: center; }
+      .col-name { overflow: hidden; align-items: flex-start; flex-direction: column; justify-content: center; padding-left: 4px; }
+      .col-name b { display: block; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .col-qty { justify-content: center; opacity: 0.9; }
+      .col-price { justify-content: center; opacity: 0.9; }
+      .col-total { justify-content: center; font-weight: 800 !important; color: var(--text-main); flex-direction: column; }
+
+      /* Footer adjustments (Align LEFT on mobile) */
+      .foot-total { 
+        display: flex !important; 
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 12px;
+        padding: 12px 8px !important;
+        border-top: 2px solid var(--border);
+        background: var(--bg-page);
+      }
+      .foot-total td { background: transparent !important; }
+      .foot-lbl { flex: 0 0 auto; justify-content: flex-start; font-weight: 800; padding: 0 !important; }
+      .foot-val { flex: 1 1 auto; justify-content: flex-start; flex-direction: column; align-items: flex-start; }
 
       /* CTA Compactness */
       #cta { padding: 8px 16px 24px !important; margin-top: 12px !important; }
@@ -791,8 +873,8 @@ export function renderKpHtmlNew(model) {
     <div class="grid">
       <div class="column">
         <div class="card hero">
-          <h2>Запустим iiko под ключ: касса + кухня + склад + отчёты — с поддержкой 24/7</h2>
-          <p class="sub">Коммерческое предложение: сроки, этапы, стоимость и сопровождение после запуска для <b>${model.meta.client?.name || "Вашего бизнеса"}</b></p>
+          <h2>Запустим качественно на основе 25 летнего опыта</h2>
+          <p class="sub">Коммерческое предложение для <b>${model.meta.client?.name || "Вашего бизнеса"}</b></p>
   
           <div class="bullets">
             <div class="bullet">
@@ -823,7 +905,7 @@ export function renderKpHtmlNew(model) {
         </div>
   
         <div class="card m-block">
-          <h3 class="m-title">Что обычно «болит» у владельца ресторана</h3>
+          <h3 class="m-title">Ключевые боли и задачи владельца бизнеса</h3>
           <div class="problem-list">
             <div class="problem-item">${ICONS.error} Касса или принтеры «падают» в пиковые часы</div>
             <div class="problem-item">${ICONS.error} Склад не сходится, сложно найти ошибки в списаниях</div>
@@ -871,7 +953,7 @@ export function renderKpHtmlNew(model) {
         </div>
 
         <div class="card m-block">
-          <h3 class="m-title">Почему «Стандарт Мастер»</h3>
+          <h3 class="m-title">Почему именно мы?</h3>
           <div class="bullets">
             <div class="bullet">
               <div class="bullet-icon">${ICONS.shield}</div>
@@ -883,12 +965,35 @@ export function renderKpHtmlNew(model) {
             </div>
           </div>
           
-          <h4 style="margin: 32px 0 16px; font-size: 14px; color: var(--muted); text-align: center; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;">Нам доверяют лучшие:</h4>
-          <div class="brands-grid">
-            <div class="brand-logo-wrap"><img class="brand-logo" src="https://two-keys.ru/img/logo/meatbarrique-2.svg" alt="MeatBarrique"></div>
-            <div class="brand-logo-wrap"><img class="brand-logo" src="https://two-keys.ru/img/logo/tavola-1.svg" alt="Tavola Perfetta"></div>
-            <div class="brand-logo-wrap"><img class="brand-logo" src="https://olivka-tlt.ru/img/logo/white_logo.png?version=3" alt="Olivka"></div>
-            <div class="brand-logo-wrap"><img class="brand-logo" src="https://static.tildacdn.com/tild3631-3462-4531-a462-646231386465/blue.png" alt="SkyBar"></div>
+          <h4 style="margin: 32px 0 0; font-size: 14px; color: var(--muted); text-align: center; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;">Нам доверяют лучшие:</h4>
+          
+          <div class="brands-carousel-container">
+            ${(() => {
+              const allLogos = [
+                { n: "AlpenPark", ext: "png" }, { n: "alpenSpa", ext: "png" }, { n: "AquaLand", ext: "png" }, { n: "burgerburg", ext: "png" },
+                { n: "Eklernaya", ext: "jpeg" }, { n: "GLounge", ext: "svg" }, { n: "Hollywood", ext: "jpeg" }, { n: "KozaPasta", ext: "webp" },
+                { n: "KozaTapas", ext: "webp" }, { n: "Kutezh", ext: "webp" }, { n: "Lora", ext: "jpeg" }, { n: "malamut", ext: "png" }, 
+                { n: "Matreshki", ext: "jpeg" }, { n: "MeatBarrique", ext: "jpeg" }, { n: "Murmansk", ext: "jpeg" }, { n: "Pelmennaya", ext: "jpg" }, 
+                { n: "PerfettoBistro", ext: "jpeg" }, { n: "Ribaltika", ext: "svg" }, { n: "VauBurger", ext: "png" }, { n: "Verona", ext: "jpeg" }, { n: "Vershina", ext: "jpeg" }
+              ];
+              // Split into 2 rows for the carousel
+              const row1 = allLogos.slice(0, 11);
+              const row2 = allLogos.slice(11);
+              
+              const renderTrack = (list, isReverse = false) => `
+                <div class="brands-marquee-row ${isReverse ? 'reverse' : ''}">
+                  <div class="brands-track">
+                    ${[...list, ...list].map(logo => `
+                      <div class="brand-logo-wrap" title="${logo.n}">
+                        <img class="brand-logo" src="https://standartmaster.ru/kp/logo/${logo.n}.${logo.ext}" alt="${logo.n}">
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              `;
+              
+              return renderTrack(row1) + renderTrack(row2, true);
+            })()}
           </div>
         </div>
       </div>
@@ -902,19 +1007,19 @@ export function renderKpHtmlNew(model) {
   
           <div class="totals">
             <div class="total-row main">
-              <span><b>Единоразово</b><br><small class="muted">Оборудование, внедрение, обслуживание (${maint.months} мес)</small></span>
+              <span><b>Единоразово</b><br><small class="muted">Оборудование, работы, техническая поддержка (${maint.months} мес)</small></span>
               <b class="price">${formatMoney(model.total - model.sections.licenses.total)}</b>
             </div>
             
             ${model.sections.licenses.total > 0 ? `
             <div class="total-row">
-              <span><b>Лицензии<br>(1-${maint.months} мес)</b><br><small class="muted">Программное обеспечение iiko</small></span>
+              <span><b>Подписка</b><br><small class="muted">Программное обеспечение iiko</small></span>
               <b class="price">${formatMoney(model.sections.licenses.total)}/мес</b>
             </div>
             ` : ''}
   
             <div class="total-row">
-              <span><b>Ежемесячно<br>(с ${maint.months + 1}-го мес)</b><br><small class="muted">Лицензии + сопровождение</small></span>
+              <span><b>Сопровождение</b><br><small class="muted">Техническая поддержка 24/7 (с 4-го месяца)</small></span>
               <b class="price">${formatMoney(model.sections.licenses.total + (maint.unitPrice * (maint.terminals || 1)))}/мес</b>
             </div>
           </div>
@@ -928,10 +1033,11 @@ export function renderKpHtmlNew(model) {
             ${model.sections.equipment.items.length ? '<span class="pill">Оборудование</span>' : ''}
             ${model.sections.services.items.length ? '<span class="pill">Установка и настройка</span>' : ''}
             ${model.sections.trainings.items.length ? '<span class="pill">Обучение персонала</span>' : ''}
+            ${model.sections.consumables.items.length ? '<span class="pill">Расходные материалы</span>' : ''}
             ${model.sections.maintenance.total > 0 ? '<span class="pill">Поддержка 24/7</span>' : ''}
           </div>
   
-          <p class="note"><b>Разово</b> — запуск и оборудование, 1-3 месяц технической поддержки. <b>Ежемесячно</b> — лицензия и сопровождение 4-ый и следующие месяца.</p>
+          <p class="note"><b>Разово</b> — запуск и оборудование, 1-3 месяц технической поддержки.<br><b>Ежемесячно</b> — лицензия и сопровождение 4-ый и следующие месяца.</p>
         </div>
       </div>
     </div>
@@ -943,7 +1049,7 @@ export function renderKpHtmlNew(model) {
       </div>
       <div class="steps">
         <div class="step"><b>1) Уточняем детали</b><div class="muted">Финальное согласование состава оборудования и количества рабочих мест.</div></div>
-        <div class="step"><b>2) Настройка и монтаж</b><div class="muted">Подготовка базы данных, настройка оборудования и обучение сотрудников.</div></div>
+        <div class="step"><b>2) Установка и настройка базы данных</b><div class="muted">Подготовка базы данных, настройка оборудования и обучение сотрудников.</div></div>
         <div class="step"><b>3) Открытие и поддержка</b><div class="muted">Сопровождение в день запуска и непрерывная поддержка вашего бизнеса 24/7.</div></div>
       </div>
     </div>
@@ -956,13 +1062,14 @@ export function renderKpHtmlNew(model) {
 
       ${renderTable("Программное обеспечение (Лицензии)", model.sections.licenses.items, model.sections.licenses, false, "spec-licenses")}
       ${renderTable("Оборудование и техника", model.sections.equipment.items, model.sections.equipment, true, "spec-equipment")}
+      ${renderTable("Расходные материалы", model.sections.consumables.items, model.sections.consumables, true, "spec-consumables")}
       ${renderTable("Работы по внедрению и запуску", model.sections.services.items, model.sections.services, false, "spec-services")}
       ${renderTable("Обучение персонала", model.sections.trainings.items, model.sections.trainings, false, "spec-trainings")}
       
       ${maint.total > 0 ? `
       <div class="card m-block" id="spec-maintenance" style="background: var(--bg-page); border-color: var(--accent); border-width: 2px;">
         <div class="section-title">
-          <h3>Техподдержка и сервис (Premium)</h3>
+          <h3>Техническое обслуживание и сопровождение</h3>
           <span>защита вашего бизнеса 24/7</span>
         </div>
         <div class="m-grid" style="margin-top: 20px;">
@@ -986,19 +1093,19 @@ export function renderKpHtmlNew(model) {
       </div>
       ` : ''}
 
-      <div class="totals" style="margin-top: 32px; padding-top: 24px; border-top: 2px solid var(--accent);">
+      <div class="totals-final" style="margin-top: 32px; padding: 24px; border-top: 2px solid var(--accent); background: var(--bg-card); border-radius: 16px;">
          ${hasGlobalDiscounts ? `
-           <div style="display:flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
-              <span style="font-size: 16px; color: var(--muted); font-weight: 600;">ИТОГО БЕЗ СКИДКИ:</span>
-              <span style="font-size: 18px; color: var(--muted); font-weight: 600; text-decoration: line-through;">${formatMoney(globalBaseTotal)}</span>
+           <div class="total-final-row-main" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 18px; font-weight: 800; color: var(--accent); text-transform: uppercase;">ИТОГО СО СКИДКОЙ:</span>
+              <div style="font-size: 36px; font-weight: 900; color: #fff; background: var(--accent); padding: 12px 24px; border-radius: 14px; display: inline-block; box-shadow: 0 4px 15px rgba(210,0,0,0.3); width: fit-content;">${formatMoney(model.total)}</div>
            </div>
-           <div style="display:flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 24px; font-weight: 800; color: var(--text-main);">ИТОГО СО СКИДКОЙ:</span>
-              <span style="font-size: 32px; font-weight: 900; color: #fff; background: var(--accent); padding: 8px 24px; border-radius: 14px; box-shadow: 0 4px 15px rgba(210,0,0,0.3);">${formatMoney(model.total)}</span>
+           <div class="total-final-row-base" style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-size: 14px; color: var(--muted); font-weight: 600; text-transform: uppercase;">ИТОГО (без скидки):</span>
+              <span style="font-size: 20px; color: var(--muted); font-weight: 700; text-decoration: line-through;">${formatMoney(globalBaseTotal)}</span>
            </div>
          ` : `
-           <div style="display:flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 24px; font-weight: 800; color: var(--text-main);">ИТОГО:</span>
+           <div style="display:flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+              <span style="font-size: 24px; font-weight: 800; color: var(--text-main);">ИТОГО К ОПЛАТЕ:</span>
               <span style="font-size: 32px; font-weight: 900; color: #fff; background: var(--accent); padding: 8px 24px; border-radius: 14px; box-shadow: 0 4px 15px rgba(210,0,0,0.3);">${formatMoney(model.total)}</span>
            </div>
          `}
@@ -1066,7 +1173,7 @@ export function renderKpHtmlNew(model) {
     <div class="scarcity-banner" id="scarcity-banner">
       <div class="scarcity-close" id="scarcity-close">✕</div>
       <h4>🔥 Предложение ограничено по времени!</h4>
-      <p>Не затягивайте с принятием решения. До завершения акции осталось:</p>
+      <p>Не затягивайте с принятием решения. До окончания срока предложения осталось:</p>
       <div class="scarcity-timer">
         <div class="timer-unit"><div class="timer-val" id="t-days">00</div><div class="timer-label">Дней</div></div>
         <div class="timer-unit"><div class="timer-val" id="t-hours">00</div><div class="timer-label">Час</div></div>

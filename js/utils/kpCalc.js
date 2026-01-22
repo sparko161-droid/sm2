@@ -1,4 +1,4 @@
-import { getKpTaxConfig, getKpDiscountsConfig, getDiscountPercentForQty } from "../config.js";
+import { getKpTaxConfig, getKpDiscountsConfig, getDiscountPercentForQty, getKpDefaults } from "../config/kpConfig.js";
 
 /**
  * Calculates line totals and applies discounts/taxes.
@@ -11,7 +11,7 @@ export function createEmptyKpModel({ crmId, manager }) {
             crmId,
             kpFilename: null,
             createdAt: new Date().toISOString(),
-            validDays: 10,
+            validDays: getKpDefaults().validDays,
             manager: {
                 id: manager.id,
                 name: manager.fullName,
@@ -32,7 +32,8 @@ export function createEmptyKpModel({ crmId, manager }) {
             equipment: { items: [], discountPercent: 0, subtotal: 0, total: 0 },
             licenses: { items: [], discountPercent: 0, subtotal: 0, total: 0 },
             trainings: { items: [], discountPercent: 0, subtotal: 0, total: 0 },
-            maintenance: { terminals: 0, unitPrice: 0, basePrice: 0, discountPercent: 0, subtotal: 0, total: 0, months: 3 }
+            consumables: { items: [], discountPercent: 0, subtotal: 0, total: 0 },
+            maintenance: { terminals: 0, unitPrice: 0, basePrice: 0, discountPercent: 0, subtotal: 0, total: 0, months: getKpDefaults().maintenanceMonths }
         },
         total: 0
     };
@@ -99,6 +100,7 @@ export function recalcKpModel(model) {
     calcSection("equipment", { manualLineDiscounts: true });
     calcSection("licenses", { manualLineDiscounts: true });
     calcSection("trainings", { manualLineDiscounts: true });
+    calcSection("consumables", { manualLineDiscounts: true });
 
     // Maintenance (detailed calculation)
     const maint = sections.maintenance;

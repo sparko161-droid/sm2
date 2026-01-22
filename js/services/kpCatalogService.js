@@ -1,13 +1,13 @@
 
 import { cached, peekCache } from "../cache/requestCache.js";
 import {
-    getKpCatalogIds,
     getKpServicesMapping,
     getKpMaintenanceMapping,
     getKpLicensesMapping,
     getKpTrainingsMapping,
-    getKpEquipmentFormConfig
-} from "../config.js";
+    getKpEquipmentFormConfig,
+    getKpCatalogsConfig
+} from "../config/kpConfig.js";
 
 export function createKpCatalogsService({ pyrusClient }) {
     const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -36,6 +36,16 @@ export function createKpCatalogsService({ pyrusClient }) {
         throw new Error("pyrusClient with getCatalog is required for kpCatalogsService");
     }
 
+
+    const getKpCatalogIds = () => {
+        const conf = getKpCatalogsConfig();
+        return {
+            services: conf.services?.catalogId,
+            licenses: conf.licenses?.catalogId,
+            maintenance: conf.maintenance?.catalogId,
+            trainings: conf.trainings?.catalogId
+        };
+    };
 
     const cleanText = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 
@@ -224,6 +234,7 @@ export function createKpCatalogsService({ pyrusClient }) {
         return localCache.trainings.data;
     }
     
+    // --- Consumables (Catalog) ---
     function getMaintenancePriceForTerminals(catalogItems, count) {
         if (!catalogItems || !catalogItems.length) return { unitPrice: 0, baseUnitPrice: 0, total: 0 };
         const terminals = Number(count) || 0;
@@ -239,55 +250,10 @@ export function createKpCatalogsService({ pyrusClient }) {
         return { unitPrice: fallback?.unit || 0, baseUnitPrice, total: fallback?.total || 0 };
     }
 
-    // --- Equipment (Form Register) ---
-    async function loadEquipmentCatalog() {
-        // Technically this is a Form Register, so we use getFormRegister via pyrusClient (or wrapper)
-        // Ideally kpEquipmentService handles this, but kpView calls kpCatalogService.loadEquipmentCatalog too.
-        // We implement it here to satisfy the call.
-        const conf = getKpEquipmentFormConfig();
-
-        return cached(
-            `kp_catalog_equipment_reg_${conf.id}`,
-            { ttlMs: CACHE_TTL_MS },
-            async () => {
-                const response = await pyrusClient.getFormRegister(conf.id);
-                const tasks = response.tasks || [];
-
-                const getVal = (task, fieldId) => {
-                    if (!task.fields) return null;
-                    const f = task.fields.find(x => x.id === fieldId);
-                    return f ? f.value : null;
-                };
-
-                return tasks.map(task => {
-                    const name = getVal(task, conf.fieldIds.name) || "Без названия";
-                    const price = Number(getVal(task, conf.fieldIds.salePrice)) || 0;
-                    const typeName = getVal(task, conf.fieldIds.type) || "";
-                    const description = getVal(task, conf.fieldIds.description) || "";
-                    const photoField = getVal(task, conf.fieldIds.photo);
-
-                    // Pyrus returns photo as an array of attachments
-                    const firstPhoto = Array.isArray(photoField) && photoField.length > 0 ? photoField[0] : null;
-
-                    return {
-                        id: task.id,
-                        name,
-                        price,
-                        typeName,
-                        description,
-                        image: null,
-                        photo: firstPhoto ? { attachmentId: firstPhoto.id, name: firstPhoto.name } : null
-                    };
-                });
-            }
-        );
-    }
-
     return {
         loadServicesCatalog,
         loadLicensesCatalog,
         loadMaintenanceCatalog,
-        loadEquipmentCatalog,
         loadTrainingsCatalog,
         getMaintenancePriceForTerminals,
         // Stale-while-revalidate cached getters

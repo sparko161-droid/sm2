@@ -1,11 +1,13 @@
-import { getKpEquipmentFormConfig } from "../config.js";
+import { getKpEquipmentFormConfig } from "../config/kpConfig.js";
 
 // Cache valid for session
 let cache = null;
 
+const CONSUMABLES_TYPE = "Расходные материалы";
+
 export function createKpEquipmentService({ pyrusClient }) {
 
-    async function loadEquipmentRegister() {
+    async function loadAllItems() {
         if (cache) return cache;
         
         const conf = getKpEquipmentFormConfig(); // { id, fieldIds: { type, description, photo, salePrice, name } }
@@ -22,21 +24,24 @@ export function createKpEquipmentService({ pyrusClient }) {
                    return f ? f.value : null;
                 };
 
+                const extractString = (val) => {
+                    if (!val) return "";
+                    if (typeof val === "string") return val;
+                    if (typeof val === "object") {
+                        const s = val.item_name || val.name || (val.values && val.values[0]) || (val.choice_names && val.choice_names[0]) || "";
+                        return String(s || "");
+                    }
+                    return String(val);
+                };
+
                 // name: id 7 check
-                const name = getVal(conf.fieldIds.name) || task.text || "Без названия";
+                const name = extractString(getVal(conf.fieldIds.name)) || task.text || "Без названия";
                 
-                // type: catalog (id 1)
-                const typeRaw = getVal(conf.fieldIds.type);
-                // Catalog field value in Pyrus task: { item_id, choice_names: [...], values: [...] }
-                // Usually values[0] or choice_names[0] is the name.
-                let typeName = "";
-                if (typeRaw && typeof typeRaw === "object") {
-                    if (typeRaw.values && typeRaw.values.length) typeName = typeRaw.values[0];
-                    else if (typeRaw.choice_names && typeRaw.choice_names.length) typeName = typeRaw.choice_names[0];
-                }
+                // type: catalog or choice (id 1)
+                const typeName = extractString(getVal(conf.fieldIds.type));
 
                 // description: 3
-                const description = getVal(conf.fieldIds.description) || "";
+                const description = extractString(getVal(conf.fieldIds.description));
 
                 // salePrice: 5 (money)
                 const salePrice = Number(getVal(conf.fieldIds.salePrice) || 0);
@@ -61,7 +66,8 @@ export function createKpEquipmentService({ pyrusClient }) {
                     description,
                     price: salePrice,
                     photo, // { attachmentId, name } or null
-                    taskId: task.id
+                    taskId: task.id,
+                    isConsumable: typeName === CONSUMABLES_TYPE
                 };
             }).filter(i => i.name);
 
@@ -73,7 +79,21 @@ export function createKpEquipmentService({ pyrusClient }) {
         }
     }
 
+    // Load only equipment (excluding consumables)
+    async function loadEquipmentRegister() {
+        const all = await loadAllItems();
+        return all.filter(item => !item.isConsumable);
+    }
+
+    // Load only consumables
+    async function loadConsumablesFromEquipment() {
+        const all = await loadAllItems();
+        return all.filter(item => item.isConsumable);
+    }
+
     return {
-        loadEquipmentRegister
+        loadEquipmentRegister,
+        loadConsumablesFromEquipment,
+        loadAllItems
     };
 }

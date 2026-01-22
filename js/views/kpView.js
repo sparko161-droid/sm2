@@ -3,7 +3,7 @@ import {
   recalcKpModel,
   formatMoney,
 } from "../utils/kpCalc.js";
-import { getKpAvatarSize } from "../config.js";
+import { getKpAvatarSize, getKpDefaults } from "../config/kpConfig.js";
 import { openPopover, closePopover } from "../ui/popoverEngine.js";
 
 export function createKpView({ services, router }) {
@@ -48,14 +48,22 @@ export function createKpView({ services, router }) {
       await Promise.all([
         kpCatalogService.loadServicesCatalog(),
         kpCatalogService.loadLicensesCatalog(),
-        kpCatalogService.loadEquipmentCatalog(),
+        kpEquipmentService.loadEquipmentRegister(),
         kpCatalogService.loadMaintenanceCatalog(),
         kpCatalogService.loadTrainingsCatalog(),
+        kpEquipmentService.loadConsumablesFromEquipment(),
       ]);
       console.log("[KP] Catalogs preloaded");
     } catch (e) {
       console.warn("Failed to preload catalogs", e);
     }
+  }
+
+  function truncateWords(text, limit = 12) {
+    if (!text) return "";
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    if (words.length <= limit) return text;
+    return words.slice(0, limit).join(" ") + "...";
   }
 
   // --- Render Logic ---
@@ -65,8 +73,26 @@ export function createKpView({ services, router }) {
 
     const container = document.createElement("div");
     container.className = "kp-container kp-root";
-    container.style.cssText =
-      "padding: 20px; max-width: 1200px; margin: 0 auto;";
+    // We'll use a <style> block for responsive overrides
+    const styleId = "kp-view-styles";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = `
+        .kp-container { padding: 20px; max-width: 1200px; margin: 0 auto; box-sizing: border-box; }
+        .kp-editor-meta-grid { display: flex; gap: 20px; margin-top: 10px; }
+        
+        @media (max-width: 640px) {
+          .kp-container { padding: 12px 8px !important; }
+          .kp-editor-meta-grid { flex-direction: column; gap: 10px !important; }
+          .kp-actions { flex-direction: column; }
+          .kp-actions button { width: 100%; }
+          .kp-section h3 { font-size: 1.1em; }
+          .kp-total-block { font-size: 1.2em !important; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
     // Header
     const header = document.createElement("header");
@@ -142,37 +168,38 @@ export function createKpView({ services, router }) {
         attachEditorListeners(el);
         state.editorListenersAttached = true;
       }
-      // Trigger lazy loads for photos if any equipment rows exist
-      if (
-        state.model &&
-        state.model.sections &&
-        state.model.sections.equipment
-      ) {
-        state.model.sections.equipment.items.forEach(async (item) => {
-          if (item.photo && item.photo.attachmentId) {
-            const imgEl = el.querySelector(
-              `.kp-img-preview[data-att-id="${item.photo.attachmentId}"]`,
-            );
-            if (imgEl && !imgEl.src.startsWith("data:")) {
-              const res = await kpN8nService.fetchPyrusAttachmentBase64(
-                item.photo.attachmentId,
-              );
-              if (res.ok) {
-                // Determine mime
-                const ext = (item.photo.name || "")
-                  .split(".")
-                  .pop()
-                  .toLowerCase();
-                const mime =
-                  ext === "jpg" || ext === "jpeg"
-                    ? "image/jpeg"
-                    : ext === "webp"
-                      ? "image/webp"
-                      : "image/png";
-                imgEl.src = `data:${mime};base64,${res.data}`;
-              }
+      // Trigger lazy loads for photos if any equipment/consumable rows exist
+      if (state.model && state.model.sections) {
+        ["equipment", "consumables"].forEach(sectionKey => {
+            const section = state.model.sections[sectionKey];
+            if (section && section.items) {
+                section.items.forEach(async (item) => {
+                    if (item.photo && item.photo.attachmentId) {
+                        const imgEl = el.querySelector(
+                            `.kp-img-preview[data-att-id="${item.photo.attachmentId}"]`,
+                        );
+                        if (imgEl && !imgEl.src.startsWith("data:")) {
+                            const res = await kpN8nService.fetchPyrusAttachmentBase64(
+                                item.photo.attachmentId,
+                            );
+                            if (res.ok) {
+                                // Determine mime
+                                const ext = (item.photo.name || "")
+                                    .split(".")
+                                    .pop()
+                                    .toLowerCase();
+                                const mime =
+                                    ext === "jpg" || ext === "jpeg"
+                                        ? "image/jpeg"
+                                        : ext === "webp"
+                                            ? "image/webp"
+                                            : "image/png";
+                                imgEl.src = `data:${mime};base64,${res.data}`;
+                            }
+                        }
+                    }
+                });
             }
-          }
         });
       }
     }
@@ -229,21 +256,22 @@ export function createKpView({ services, router }) {
     const m = state.model;
 
     mk.innerHTML = `
-        <div class="kp-editor-meta" style="margin-bottom: 20px; background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
-            <h3>Проект КП для сделки #${m.meta.crmId}</h3>
-            <div style="display: flex; gap: 20px; margin-top: 10px;">
-                <label>
-                    Срок действия (дней):
-                    <input type="number" class="kp-input-valid-days" value="${m.meta.validDays}" min="1" max="365" style="width: 60px;">
+        <div class="kp-editor-meta" style="margin-bottom: 24px; background: var(--bg-secondary); padding: 16px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+            <h3 style="margin-top: 0; margin-bottom: 12px;">Проект КП для сделки #${m.meta.crmId}</h3>
+            <div class="kp-editor-meta-grid">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.9em; color: var(--text-muted);">Срок действия (дней):</span>
+                    <input type="number" class="kp-input-valid-days" value="${m.meta.validDays}" min="1" max="365" style="width: 60px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);">
                 </label>
-                <div>Создан: ${new Date(m.meta.createdAt).toLocaleDateString()}</div>
-                <div>Менеджер: ${m.meta.manager.name}</div>
+                <div style="font-size: 0.9em; color: var(--text-muted);">Создан: <b style="color: var(--text-main);">${new Date(m.meta.createdAt).toLocaleDateString()}</b></div>
+                <div style="font-size: 0.9em; color: var(--text-muted);">Менеджер: <b style="color: var(--text-main);">${m.meta.manager.name}</b></div>
             </div>
         </div>
         
         ${renderSectionTable("Услуги", "services", m.sections.services)}
         ${renderSectionTable("Лицензии", "licenses", m.sections.licenses)}
         ${renderSectionTable("Обучение", "trainings", m.sections.trainings)}
+        ${renderSectionTable("Расходные материалы", "consumables", m.sections.consumables)}
         ${renderEquipmentTable(m.sections.equipment)}
         ${renderMaintenanceBlock(m.sections.maintenance)}
         
@@ -268,68 +296,94 @@ export function createKpView({ services, router }) {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h3>${title}</h3>
             </div>
-            <table class="kp-table" style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-                <thead>
-                    <tr style="background: var(--table-header-bg, #f0f0f0); text-align: left; color: var(--text-main);">
-                        <th style="padding: 10px; border-bottom: 2px solid var(--border-strong);">Наименование</th>
-                        <th style="padding: 10px; border-bottom: 2px solid var(--border-strong);">Описание</th>
-                        <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 80px;">Кол-во</th>
-                        <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 100px;">Цена</th>
-                        <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 80px;">Скидка</th>
-                        <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 110px;">Сумма</th>
-                        <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 40px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${sectionData.items
-                      .map(
-                        (item, idx) => `
-                        <tr style="border-bottom: 1px solid var(--border);">
-                            <td style="padding: 10px;">
-                                 <div class="kp-item-title" style="font-weight: 600;">${item.name}</div>
-                            </td>
-                            <td style="padding: 10px; font-size:0.85em; color: var(--text-muted, gray);">
-                                ${item.description || ""}
-                            </td>
-                            <td style="padding: 10px;">
-                                <input type="number" class="kp-row-qty" data-section="${key}" data-idx="${idx}" value="${item.qty}" min="1" style="width: 100%; padding: 4px;">
-                            </td>
-                            <td style="padding: 10px;">
-                                <input type="number" class="kp-row-price" data-section="${key}" data-idx="${idx}" value="${item.price}" min="0" style="width: 100%; padding: 4px; background: var(--bg-alt); border: 1px solid var(--border); color: var(--text-muted); cursor: not-allowed;" readonly>
-                            </td>
-                            <td style="padding: 10px;">
-                                ${(() => {
-                                  if (isServices) {
-                                    const mode = item.discountMode || "auto";
-                                    if (mode === "auto") {
-                                      return `<div style="text-align: center; color: var(--accent, #c80000); font-weight: 700; font-size: 0.9em;">${item.discountPercent || 0}%<br><span style="font-size: 0.7em; opacity: 0.7;">(Авто)</span></div>`;
-                                    } else if (mode === "fixed") {
-                                      return `<div style="text-align: center; color: var(--text-muted); font-weight: 700; font-size: 0.9em;">0%<br><span style="font-size: 0.7em; opacity: 0.7;">(Фикс)</span></div>`;
-                                    } else {
-                                      return `<input type="number" class="kp-row-discount" data-section="${key}" data-idx="${idx}" value="${item.discountPercent || 0}" min="0" max="100" style="width: 100%; padding: 4px;">`;
-                                    }
-                                  } else {
-                                    return `<input type="number" class="kp-row-discount" data-section="${key}" data-idx="${idx}" value="${item.discountPercent || 0}" min="0" max="100" style="width: 100%; padding: 4px;">`;
-                                  }
-                                })()}
-                            </td>
-                            <td style="padding: 10px; font-weight: 500;">
-                                ${formatMoney(item.total)}
-                            </td>
-                            <td style="padding: 10px; text-align: center;">
-                                <button class="btn-icon kp-btn-del" data-section="${key}" data-idx="${idx}" title="Удалить">✕</button>
-                            </td>
+            <div class="kp-table-scroll-wrapper" style="width: 100%; overflow-x: auto; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px;">
+                <table class="kp-table" style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                    <thead>
+                        <tr style="background: var(--table-header-bg, #f0f0f0); text-align: left; color: var(--text-main);">
+                            ${key === "consumables" ? '<th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 60px;">Фото</th>' : ""}
+                            <th style="padding: 10px; border-bottom: 2px solid var(--border-strong);">Наименование</th>
+                            <th style="padding: 10px; border-bottom: 2px solid var(--border-strong);">Описание</th>
+                            <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 80px;">Кол-во</th>
+                            <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 100px;">Цена</th>
+                            <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 80px;">Скидка</th>
+                            <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 110px;">Сумма</th>
+                            <th style="padding: 10px; border-bottom: 2px solid var(--border-strong); width: 40px;"></th>
                         </tr>
-                    `,
-                      )
-                      .join("")}
-                </tbody>
-            </table>
-           <div style="display: flex; justify-content: space-between; align-items: center;">
+                    </thead>
+                    <tbody>
+                        ${sectionData.items
+                          .map(
+                            (item, idx) => {
+                              const hasPhoto = item.photo && item.photo.attachmentId;
+                              let src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                              if (item.photo?.base64Data) {
+                                src = `data:image/jpeg;base64,${item.photo.base64Data}`;
+                              }
+                              
+                              return `
+                            <tr style="border-bottom: 1px solid var(--border);">
+                                ${key === "consumables" ? `
+                                  <td style="padding: 10px;">
+                                    ${hasPhoto ? `<img src="${src}" class="kp-img-preview" data-att-id="${item.photo.attachmentId}" style="width: 40px; height: 40px; object-fit: contain;">` : ""}
+                                  </td>
+                                ` : ""}
+                                <td style="padding: 10px;">
+                                     <div class="kp-item-title" style="font-weight: 600;">${item.name}</div>
+                                </td>
+                                <td style="padding: 10px; font-size:0.85em; color: var(--text-muted, gray);">
+                                    ${truncateWords(item.description)}
+                                </td>
+                                <td style="padding: 10px;">
+                                    <input type="number" class="kp-row-qty" data-section="${key}" data-idx="${idx}" value="${item.qty}" min="1" style="width: 100%; padding: 4px;">
+                                </td>
+                                <td style="padding: 10px;">
+                                    <input type="number" class="kp-row-price" data-section="${key}" data-idx="${idx}" value="${item.price}" min="0" style="width: 100%; padding: 4px; ${key === 'consumables' ? '' : 'background: var(--bg-alt); border: 1px solid var(--border); color: var(--text-muted); cursor: not-allowed;'}" ${key === 'consumables' ? '' : 'readonly'}>
+                                </td>
+                                <td style="padding: 10px;">
+                                    ${(() => {
+                                      if (isServices) {
+                                        const mode = item.discountMode || "auto";
+                                        if (mode === "auto") {
+                                          return `<div style="text-align: center; color: var(--accent, #c80000); font-weight: 700; font-size: 0.9em;">${item.discountPercent || 0}%<br><span style="font-size: 0.7em; opacity: 0.7;">(Авто)</span></div>`;
+                                        } else if (mode === "fixed") {
+                                          return `<div style="text-align: center; color: var(--text-muted); font-weight: 700; font-size: 0.9em;">0%<br><span style="font-size: 0.7em; opacity: 0.7;">(Фикс)</span></div>`;
+                                        } else {
+                                          return `<input type="number" class="kp-row-discount" data-section="${key}" data-idx="${idx}" value="${item.discountPercent || 0}" min="0" max="100" style="width: 100%; padding: 4px;">`;
+                                        }
+                                      } else {
+                                        return `<input type="number" class="kp-row-discount" data-section="${key}" data-idx="${idx}" value="${item.discountPercent || 0}" min="0" max="100" style="width: 100%; padding: 4px;">`;
+                                      }
+                                    })()}
+                                </td>
+                                <td style="padding: 10px; font-weight: 500;">
+                                    ${formatMoney(item.total)}
+                                </td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <button class="btn-icon kp-btn-del" data-section="${key}" data-idx="${idx}" title="Удалить">✕</button>
+                                </td>
+                            </tr>
+                         `;
+                        })
+                        .join("")}
+                    </tbody>
+                </table>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
                <button class="btn btn-sm kp-btn-add" data-section="${key}">+ Добавить (из справочника)</button> 
                <div style="text-align: right;">
-                 <div>Итого без скидки: <strong>${formatMoney(sectionData.subtotal || 0)}</strong></div>
-                 <div>Итого со скидкой: <strong>${formatMoney(sectionData.total || 0)}</strong></div>
+                 <div style="font-weight: 800; font-size: 1.1em; text-transform: uppercase;">ИТОГО:</div>
+                 ${(() => {
+                   const total = sectionData.total || 0;
+                   const subtotal = sectionData.subtotal || 0;
+                   if (subtotal > total) {
+                     return `
+                       <div style="color: var(--accent, #c80000); font-weight: 900; font-size: 1.3em; line-height: 1;">${formatMoney(total)}</div>
+                       <div style="text-decoration: line-through; color: var(--text-muted); font-size: 0.9em; opacity: 0.7;">${formatMoney(subtotal)}</div>
+                     `;
+                   } else {
+                     return `<div style="font-weight: 900; font-size: 1.3em;">${formatMoney(total)}</div>`;
+                   }
+                 })()}
                </div>
            </div>
         </div>
@@ -343,67 +397,80 @@ export function createKpView({ services, router }) {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h3>Оборудование</h3>
             </div>
-            <table class="kp-table" style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-                <thead>
-                    <tr style="background: var(--bg-secondary, #f0f0f0); text-align: left;">
-                        <th style="padding:10px;">Фото</th>
-                        <th style="padding:10px;">Наименование</th>
-                        <th style="padding:10px;">Тип</th>
-                        <th style="padding:10px; width: 80px;">Кол-во</th>
-                        <th style="padding:10px; width: 100px;">Цена</th>
-                        <th style="padding:10px; width: 80px;">Скидка</th>
-                        <th style="padding:10px; width: 110px;">Сумма</th>
-                         <th style="padding: 10px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                     ${sectionData.items
-                       .map((item, idx) => {
-                         const hasPhoto = item.photo && item.photo.attachmentId;
-                         let src =
-                           "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-                         if (item.photo?.base64Data) {
-                           src = `data:image/jpeg;base64,${item.photo.base64Data}`;
-                         }
-
-                         return `
-                        <tr style="border-bottom: 1px solid var(--border);">
-                            <td style="padding: 10px;">
-                              ${hasPhoto ? `<img src="${src}" class="kp-img-preview" data-att-id="${item.photo.attachmentId}" style="width: 40px; height: 40px; object-fit: contain;">` : ""}
-                            </td>
-                            <td style="padding: 10px;">
-                                <div class="kp-item-title">${item.name}</div>
-                                <div style="font-size:0.8em; color:gray">${item.description || ""}</div>
-                            </td>
-                            <td style="padding: 10px; font-size: 0.9em;">
-                                ${item.typeName || "-"}
-                            </td>
-                             <td style="padding: 10px;">
-                                <input type="number" class="kp-row-qty" data-section="${key}" data-idx="${idx}" value="${item.qty}" min="1" style="width: 100%;">
-                            </td>
-                            <td style="padding: 10px;">
-                                <input type="number" class="kp-row-price" data-section="${key}" data-idx="${idx}" value="${item.price}" min="0" style="width: 100%; background: #f9f9f9; border: 1px solid #ddd; color: #666; cursor: not-allowed;" readonly>
-                            </td>
-                            <td style="padding: 10px;">
-                                <input type="number" class="kp-row-discount" data-section="${key}" data-idx="${idx}" value="${item.discountPercent || 0}" min="0" max="100" style="width: 100%; padding: 4px;">
-                            </td>
-                             <td style="padding: 10px; font-weight: 500;">
-                                ${formatMoney(item.total)}
-                            </td>
-                            <td style="padding: 10px; text-align: center;">
-                                <button class="btn-icon kp-btn-del" data-section="${key}" data-idx="${idx}" title="Удалить">✕</button>
-                            </td>
+            <div class="kp-table-scroll-wrapper" style="width: 100%; overflow-x: auto; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px;">
+                <table class="kp-table" style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                    <thead>
+                        <tr style="background: var(--bg-secondary, #f0f0f0); text-align: left;">
+                            <th style="padding:10px;">Фото</th>
+                            <th style="padding:10px;">Наименование</th>
+                            <th style="padding:10px;">Тип</th>
+                            <th style="padding:10px; width: 80px;">Кол-во</th>
+                            <th style="padding:10px; width: 100px;">Цена</th>
+                            <th style="padding:10px; width: 80px;">Скидка</th>
+                            <th style="padding:10px; width: 110px;">Сумма</th>
+                             <th style="padding: 10px;"></th>
                         </tr>
-                         `;
-                       })
-                       .join("")}
-                </tbody>
-            </table>
-             <div style="display: flex; justify-content: space-between; align-items: center;">
+                    </thead>
+                    <tbody>
+                         ${sectionData.items
+                           .map((item, idx) => {
+                             const hasPhoto = item.photo && item.photo.attachmentId;
+                             let src =
+                               "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                             if (item.photo?.base64Data) {
+                               src = `data:image/jpeg;base64,${item.photo.base64Data}`;
+                             }
+    
+                             return `
+                            <tr style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 10px;">
+                                  ${hasPhoto ? `<img src="${src}" class="kp-img-preview" data-att-id="${item.photo.attachmentId}" style="width: 40px; height: 40px; object-fit: contain;">` : ""}
+                                </td>
+                                <td style="padding: 10px;">
+                                    <div class="kp-item-title">${item.name}</div>
+                                    <div style="font-size:0.8em; color:gray">${truncateWords(item.description)}</div>
+                                </td>
+                                <td style="padding: 10px; font-size: 0.9em;">
+                                    ${item.typeName || "-"}
+                                </td>
+                                 <td style="padding: 10px;">
+                                    <input type="number" class="kp-row-qty" data-section="${key}" data-idx="${idx}" value="${item.qty}" min="1" style="width: 100%;">
+                                </td>
+                                <td style="padding: 10px;">
+                                    <input type="number" class="kp-row-price" data-section="${key}" data-idx="${idx}" value="${item.price}" min="0" style="width: 100%; background: #f9f9f9; border: 1px solid #ddd; color: #666; cursor: not-allowed;" readonly>
+                                </td>
+                                <td style="padding: 10px;">
+                                    <input type="number" class="kp-row-discount" data-section="${key}" data-idx="${idx}" value="${item.discountPercent || 0}" min="0" max="100" style="width: 100%; padding: 4px;">
+                                </td>
+                                 <td style="padding: 10px; font-weight: 500;">
+                                    ${formatMoney(item.total)}
+                                </td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <button class="btn-icon kp-btn-del" data-section="${key}" data-idx="${idx}" title="Удалить">✕</button>
+                                </td>
+                            </tr>
+                             `;
+                           })
+                           .join("")}
+                    </tbody>
+                </table>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
                <button class="btn btn-sm kp-btn-add" data-section="${key}">+ Добавить (из справочника)</button> 
                <div style="text-align: right;">
-                 <div>Итого без скидки: <strong>${formatMoney(sectionData.subtotal || 0)}</strong></div>
-                 <div>Итого со скидкой: <strong>${formatMoney(sectionData.total || 0)}</strong></div>
+                 <div style="font-weight: 800; font-size: 1.1em; text-transform: uppercase;">ИТОГО:</div>
+                 ${(() => {
+                   const total = sectionData.total || 0;
+                   const subtotal = sectionData.subtotal || 0;
+                   if (subtotal > total) {
+                     return `
+                       <div style="color: var(--accent, #c80000); font-weight: 900; font-size: 1.3em; line-height: 1;">${formatMoney(total)}</div>
+                       <div style="text-decoration: line-through; color: var(--text-muted); font-size: 0.9em; opacity: 0.7;">${formatMoney(subtotal)}</div>
+                     `;
+                   } else {
+                     return `<div style="font-weight: 900; font-size: 1.3em;">${formatMoney(total)}</div>`;
+                   }
+                 })()}
                </div>
            </div>
         </div>
@@ -419,7 +486,7 @@ export function createKpView({ services, router }) {
                     <input type="number" class="kp-input-terminals" value="${maintData.terminals}" min="0" style="width: 80px;">
                  </label>
                  <label>Кол-во мес:
-                    <input type="number" class="kp-input-maint-months" value="${maintData.months || 3}" min="1" max="12" style="width: 60px;">
+                    <input type="number" class="kp-input-maint-months" value="${maintData.months || getKpDefaults().maintenanceMonths}" min="1" max="12" style="width: 60px;">
                  </label>
                  <div>Цена за терминал: 
                     <input type="number" class="kp-input-maint-price" value="${maintData.unitPrice || 0}" style="width: 80px; background: var(--bg-alt); border: 1px solid var(--border); color: var(--text-muted); cursor: not-allowed;" readonly>
@@ -428,9 +495,20 @@ export function createKpView({ services, router }) {
             
             <div style="display: flex; justify-content: flex-end; border-top: 1px solid var(--border-light); padding-top: 15px;">
                  <div style="text-align: right; line-height: 1.4;">
-                    <div style="font-size: 0.9em; opacity: 0.8;">Без скидки (за ${maintData.months} мес): ${formatMoney(maintData.subtotal)}</div>
-                    <div style="font-weight: bold; font-size: 1.25em; color: var(--accent, #c80000);">Итого за ${maintData.months} мес: ${formatMoney(maintData.total)}</div>
-                    <div style="font-size: 0.9em; color: var(--text-muted);">Далее: ${formatMoney(maintData.unitPrice * maintData.terminals)}/мес</div>
+                    <div style="font-weight: 800; font-size: 1.1em; text-transform: uppercase;">ИТОГО за ${maintData.months} мес:</div>
+                    ${(() => {
+                      const total = maintData.total || 0;
+                      const subtotal = maintData.subtotal || 0;
+                      if (subtotal > total) {
+                        return `
+                          <div style="color: var(--accent, #c80000); font-weight: 900; font-size: 1.3em; line-height: 1;">${formatMoney(total)}</div>
+                          <div style="text-decoration: line-through; color: var(--text-muted); font-size: 0.9em; opacity: 0.7;">${formatMoney(subtotal)}</div>
+                        `;
+                      } else {
+                        return `<div style="font-weight: 900; font-size: 1.3em;">${formatMoney(total)}</div>`;
+                      }
+                    })()}
+                    <div style="font-size: 0.9em; color: var(--text-muted); margin-top: 5px;">Далее: ${formatMoney(maintData.unitPrice * maintData.terminals)}/мес</div>
                  </div>
             </div>
             
@@ -518,32 +596,36 @@ export function createKpView({ services, router }) {
       state.editorListenersAttached = false;
     }
     if (newMode === "edit") {
-      lazyLoadEquipmentPhotos();
+      lazyLoadPhotos();
     }
     render();
   }
 
-  async function lazyLoadEquipmentPhotos() {
+  async function lazyLoadPhotos() {
     if (!state.model) return;
-    const eqItems = state.model.sections.equipment.items;
-    const toLoad = eqItems.filter(
-      (i) => i.photo?.attachmentId && !i.photo?.base64Data,
-    );
-    if (!toLoad.length) return;
+    const sectionsToLoad = ["equipment", "consumables"];
+    
+    for (const key of sectionsToLoad) {
+      const items = state.model.sections[key]?.items || [];
+      const toLoad = items.filter(
+        (i) => i.photo?.attachmentId && !i.photo?.base64Data,
+      );
+      if (!toLoad.length) continue;
 
-    // Load sequentially or with small limit to avoid flooding
-    for (const item of toLoad) {
-      try {
-        const res = await kpN8nService.fetchPyrusAttachmentBase64(
-          item.photo.attachmentId,
-        );
-        if (res.ok && res.data) {
-          item.photo.base64Data = res.data;
-          // Re-render single row or entire table if needed. For now simple render()
-          render();
+      // Load sequentially or with small limit to avoid flooding
+      for (const item of toLoad) {
+        try {
+          const res = await kpN8nService.fetchPyrusAttachmentBase64(
+            item.photo.attachmentId,
+          );
+          if (res.ok && res.data) {
+            item.photo.base64Data = res.data;
+            // Re-render single row or entire table if needed. For now simple render()
+            render();
+          }
+        } catch (e) {
+          console.warn(`[KP] Lazy photo load failed for ${item.name}`, e);
         }
-      } catch (e) {
-        console.warn("[KP] Lazy photo load failed", e);
       }
     }
   }
@@ -705,10 +787,11 @@ export function createKpView({ services, router }) {
         state.model.meta.manager.avatar = state.highResAvatar;
       }
 
-      // 2.5 Load all equipment photos as base64 for embedding
+      // 2.5 Load all equipment and consumables photos as base64 for embedding
       if (btn) btn.textContent = "Загрузка фото оборудования...";
-      const eqItems = state.model.sections.equipment.items;
-      const photosToLoad = eqItems.filter(
+      const eqItems = state.model.sections.equipment.items || [];
+      const consItems = state.model.sections.consumables.items || [];
+      const photosToLoad = [...eqItems, ...consItems].filter(
         (item) => item.photo?.attachmentId && !item.photo?.base64Data,
       );
 
@@ -852,14 +935,15 @@ export function createKpView({ services, router }) {
       else if (sectionKey === "licenses")
         items = await kpCatalogService.loadLicensesCatalog();
       else if (sectionKey === "equipment")
-        items = await kpCatalogService.loadEquipmentCatalog();
+        items = await kpEquipmentService.loadEquipmentRegister();
       else if (sectionKey === "trainings")
-        items = await kpCatalogService.loadTrainingsCatalog();
-    } catch (e) {
+      items = await kpCatalogService.loadTrainingsCatalog();
+    else if (sectionKey === "consumables")
+      items = await kpEquipmentService.loadConsumablesFromEquipment();
+  } catch (e) {
       alert("Ошибка загрузки каталога");
       return;
     }
-
     const popDiv = document.createElement("div");
     popDiv.className = "kp-popover";
 
@@ -908,8 +992,8 @@ export function createKpView({ services, router }) {
           };
           state.model.sections[sectionKey].items.push(row);
           doRecalc();
-          if (sectionKey === "equipment") {
-            lazyLoadEquipmentPhotos();
+          if (sectionKey === "equipment" || sectionKey === "consumables") {
+            lazyLoadPhotos();
           }
           if (popoverId) closePopover(popoverId);
         };
