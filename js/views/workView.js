@@ -2258,18 +2258,39 @@ async function loadShiftsCatalog() {
   const catalog = Array.isArray(data) ? data[0] : data;
   if (!catalog) return;
 
-  const headers = catalog.catalog_headers || [];
+  const headers = catalog.catalog_headers || catalog.headers || [];
   const items = catalog.items || [];
 
   const colIndexByName = {};
+  function normHeader(h) {
+    const name = typeof h === "string" ? h : h?.name;
+    return String(name || "").trim();
+  }
+
   headers.forEach((h, idx) => {
-    colIndexByName[h.name] = idx;
+    const name = normHeader(h);
+    if (!name) return;
+    colIndexByName[name] = idx;
+    colIndexByName[name.toLowerCase()] = idx;
   });
 
-  const idxName = colIndexByName["Название смены"];
-  const idxTime = colIndexByName["время смены"];
-  const idxAmount = colIndexByName["Сумма за смену"];
-  const idxDept = colIndexByName["Отдел"];
+  const getCol = (title) =>
+    colIndexByName[title] ?? colIndexByName[String(title).toLowerCase()];
+
+  const idxName = getCol("Название смены");
+  const idxTime = getCol("время смены");
+  const idxAmount = getCol("Сумма за смену");
+  const idxDept = getCol("Отдел");
+
+  if (idxName == null || idxDept == null) {
+    console.warn("[work] Shifts catalog headers mismatch:", {
+      headers,
+      idxName,
+      idxTime,
+      idxAmount,
+      idxDept,
+    });
+  }
 
   const templatesByLine = { ALL: [], OP: [], OV: [], L1: [], L2: [], AI: [], OU: [] };
 
