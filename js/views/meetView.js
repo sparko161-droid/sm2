@@ -423,7 +423,7 @@ export function createMeetView(ctx) {
     const title = buildElement(
       "div",
       "meet-card__title",
-      allowed ? meeting.subject || "Без темы" : "Занято"
+      meeting.subject || "Без темы"
     );
 
     card.append(time, title);
@@ -840,7 +840,7 @@ export function createMeetView(ctx) {
     const title = buildElement(
       "div",
       "meet-month__meeting-title",
-      allowed ? meeting.subject || "Без темы" : "Занято"
+      meeting.subject || "Без темы"
     );
     row.append(time, title);
     if (meeting.isOffline) {
@@ -1058,7 +1058,10 @@ export function createMeetView(ctx) {
       return list;
     })();
 
+    const subject = meeting?.subject || "Без темы";
+
     popover.append(
+      buildDetailsRow("Тема", subject),
       buildDetailsRow("Дата/время", timeLabel),
       buildDetailsRow("Участники", participantsValue)
     );
